@@ -36,6 +36,7 @@ export function StreamView() {
               <th>{t("stream.volume")}</th>
               <th style={{ minWidth: 80 }}>Score</th>
               <th>{t("stream.verdict")}</th>
+              <th style={{ minWidth: 90 }}>{t("stream.attack_class", "Тип атаки")}</th>
               <th style={{ width: 120 }}>{t("stream.actions", "Действия")}</th>
             </tr>
           </thead>
@@ -75,6 +76,15 @@ export function StreamView() {
                   </td>
                   <td>
                     <StatusPill value={item.inference.label} />
+                  </td>
+                  <td>
+                    {item.inference.attack_class ? (
+                      <span className={blockStyles.attackClassBadge}>
+                        {item.inference.attack_class}
+                      </span>
+                    ) : (
+                      <span className={blockStyles.noClass}>—</span>
+                    )}
                   </td>
                   <td>
                     {isAttack && (

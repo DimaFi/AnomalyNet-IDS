@@ -65,6 +65,8 @@ class NormalizedFlowEvent(BaseModel):
     risk_hint: float = Field(ge=0.0, le=1.0)
     # Raw CICFlowMeter-style features; populated by real capture adapters, None in mock mode
     raw_features: dict[str, float] | None = Field(default=None, exclude=True)
+    # Attack class name from multiclass model ("DoS", "DDoS", etc.); None for binary/mock
+    attack_class: str | None = None
 
 
 class FeatureVector(BaseModel):
@@ -80,6 +82,7 @@ class InferenceResult(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
     reason: str
     model_id: str
+    attack_class: str | None = None   # "DoS", "DDoS", etc. — только в multiclass
 
 
 class AlertRecord(BaseModel):

@@ -42,6 +42,9 @@ export function Toast({ toast }: ToastProps) {
   };
 
   const levelLabel = toast.level === "anomaly" ? "АТАКА" : "ПОДОЗРЕНИЕ";
+  const badgeText  = toast.attack_class
+    ? `${levelLabel} · ${toast.attack_class}`
+    : levelLabel;
 
   return (
     <div
@@ -52,7 +55,7 @@ export function Toast({ toast }: ToastProps) {
       ].join(" ")}
     >
       <div className={styles.header}>
-        <span className={styles.badge}>{levelLabel}</span>
+        <span className={styles.badge}>{badgeText}</span>
         <button className={styles.closeBtn} onClick={handleDismiss} title="Закрыть">
           ×
         </button>

@@ -70,6 +70,7 @@ export interface InferenceResult {
   score: number;
   reason: string;
   model_id: string;
+  attack_class: string | null;   // "DoS", "DDoS", etc. — только в multiclass
 }
 
 export interface AlertRecord {
@@ -128,4 +129,5 @@ export interface ToastItem {
   src_ip: string;
   event_id: string;
   timestamp: number;
+  attack_class: string | null;
 }

@@ -23,6 +23,7 @@ export function useRealtimeStream(): void {
           details: item.inference.reason,
           src_ip: item.event.src_ip,
           event_id: item.event.event_id,
+          attack_class: item.inference.attack_class ?? null,
         });
       }
     };
