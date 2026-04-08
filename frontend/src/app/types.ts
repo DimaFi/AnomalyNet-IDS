@@ -20,6 +20,10 @@ export interface AppSettings {
   catboost_model_dir: string;
   preprocessing_artifacts_dir: string;
   auto_block: boolean;
+  // Dual-mode detection
+  detection_mode: "simple" | "advanced";
+  catboost_secondary_model_dir: string;
+  catboost_secondary_artifacts_dir: string;
 }
 
 export interface ModelDescriptor {
@@ -118,6 +122,25 @@ export interface BlockResponse {
   ip_address: string;
   blocked: boolean;
   message: string;
+}
+
+// Model presets
+export interface ModelPreset {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  active_model_id: string;
+  run_mode: RunMode;
+  detection_mode: "simple" | "advanced";
+  catboost_model_dir: string;
+  preprocessing_artifacts_dir: string;
+  catboost_secondary_model_dir: string;
+  catboost_secondary_artifacts_dir: string;
+}
+
+export interface ModelPresetsRegistry {
+  presets: ModelPreset[];
 }
 
 // Toast notification

@@ -1,0 +1,56 @@
+{
+  "presets": [
+    {
+      "id": "mock",
+      "name": "Demo (Mock)",
+      "description": "Демо-режим без реального перехвата трафика. Генерирует случайные события. Работает на любой системе без прав root.",
+      "icon": "demo",
+      "active_model_id": "mock-default",
+      "run_mode": "mock",
+      "detection_mode": "simple",
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": ""
+    },
+    {
+      "id": "binary-v1",
+      "name": "Binary Detector (Stage1)",
+      "description": "Бинарный классификатор: Benign / Attack. Высокая скорость, F1=99.4%. Не определяет тип атаки. Обучен на CIC IoT 2024.",
+      "icon": "binary",
+      "active_model_id": "catboost-iot-v1",
+      "run_mode": "linux_live",
+      "detection_mode": "simple",
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": ""
+    },
+    {
+      "id": "simple-cascade",
+      "name": "Simple Cascade (Stage1 + Stage2)",
+      "description": "Каскад: Stage1 (binary gate, F1=99.4%) → Stage2 (8 классов атак). 71 CICFlowMeter признак. Определяет тип атаки: DoS, DDoS, Bot и т.д. Macro F1=0.31 на редких классах.",
+      "icon": "simple",
+      "active_model_id": "catboost-cascade-simple",
+      "run_mode": "linux_live",
+      "detection_mode": "simple",
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": ""
+    },
+    {
+      "id": "advanced-cascade",
+      "name": "Advanced Cascade (Stage1 + Stage3 IoT2023)",
+      "description": "Каскад: Stage1 (binary gate) → Stage3 CIC IoT 2023 (8 классов). Двойной extractor: 71 + 46 признаков. Macro F1=0.819. Значительно лучше на Recon (F1=0.84), Bot (F1=1.0), Spoofing (F1=0.86).",
+      "icon": "advanced",
+      "active_model_id": "catboost-cascade-advanced",
+      "run_mode": "linux_live",
+      "detection_mode": "advanced",
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": ""
+    }
+  ]
+}

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from app.contracts.schemas import AppSettings, ModelsRegistry, PipelineEvent
+from app.contracts.schemas import AppSettings, ModelPresetsRegistry, ModelsRegistry, PipelineEvent
 
 
 class JsonFileStore:
@@ -14,6 +15,11 @@ class JsonFileStore:
         self._history_dir = app_root / "data" / "history"
         self._settings_path = self._config_dir / "settings.json"
         self._models_path = self._config_dir / "models_registry.json"
+        self._presets_path = self._config_dir / "model_presets.json"
+        # Root for resolving relative model paths (env override → app_root / models)
+        self._models_root = Path(
+            os.environ.get("ANOMALYNET_MODELS_ROOT", str(app_root / "models"))
+        )
 
     def load_settings(self) -> AppSettings:
         return AppSettings.model_validate(self._read_json(self._settings_path))
@@ -21,6 +27,33 @@ class JsonFileStore:
     def save_settings(self, settings: AppSettings) -> AppSettings:
         self._write_json(self._settings_path, settings.model_dump(mode="json"))
         return settings
+
+    def load_presets(self) -> ModelPresetsRegistry:
+        """Load model presets, filling empty paths from ANOMALYNET_MODELS_ROOT."""
+        raw = self._read_json(self._presets_path)
+        # Fill model paths from environment if not set in preset
+        stage1_dir   = str(self._models_root / "stage1")
+        stage1_art   = str(self._models_root / "stage1_artifacts")
+        stage2_dir   = str(self._models_root / "stage2")
+        stage3_dir   = str(self._models_root / "stage3")
+        stage3_art   = str(self._models_root / "stage3_artifacts")
+
+        for preset in raw.get("presets", []):
+            if preset.get("id") in ("binary-v1", "simple-cascade", "advanced-cascade"):
+                if not preset.get("catboost_model_dir"):
+                    preset["catboost_model_dir"] = stage1_dir
+                if not preset.get("preprocessing_artifacts_dir"):
+                    preset["preprocessing_artifacts_dir"] = stage1_art
+            if preset.get("id") == "simple-cascade":
+                if not preset.get("catboost_secondary_model_dir"):
+                    preset["catboost_secondary_model_dir"] = stage2_dir
+            if preset.get("id") == "advanced-cascade":
+                if not preset.get("catboost_secondary_model_dir"):
+                    preset["catboost_secondary_model_dir"] = stage3_dir
+                if not preset.get("catboost_secondary_artifacts_dir"):
+                    preset["catboost_secondary_artifacts_dir"] = stage3_art
+
+        return ModelPresetsRegistry.model_validate(raw)
 
     def load_models(self) -> ModelsRegistry:
         return ModelsRegistry.model_validate(self._read_json(self._models_path))

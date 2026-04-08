@@ -20,6 +20,7 @@ from app.capture.base import CaptureAdapter
 from app.contracts.schemas import NormalizedFlowEvent
 from app.capture.adapters.linux.flow_aggregator import FlowAggregator
 from app.capture.adapters.linux.feature_computer import compute_cicflow_features
+from app.capture.adapters.linux.feature_computer_cic2023 import compute_cic2023_features
 from app.capture.adapters.linux.flow_record import FlowRecord
 
 
@@ -30,8 +31,9 @@ class LinuxScapyAdapter(CaptureAdapter):
     mode = "linux_live"
     name = "Linux Scapy Live Capture"
 
-    def __init__(self, interface: str = "eth0") -> None:
+    def __init__(self, interface: str = "eth0", detection_mode: str = "simple") -> None:
         self._interface = interface
+        self._detection_mode = detection_mode
         self._queue: asyncio.Queue[NormalizedFlowEvent] = asyncio.Queue(maxsize=500)
         self._aggregator = FlowAggregator(on_flow_complete=self._on_flow_ready)
         self._sniffer = None
@@ -81,6 +83,14 @@ class LinuxScapyAdapter(CaptureAdapter):
         except Exception:
             return  # Skip malformed flows
 
+        # Compute CIC2023 features only in advanced mode (saves CPU in simple mode)
+        raw_features_cic2023 = None
+        if self._detection_mode == "advanced":
+            try:
+                raw_features_cic2023 = compute_cic2023_features(record)
+            except Exception:
+                pass  # Missing secondary features → cascade will fallback to binary result
+
         protocol = PROTO_MAP.get(record.protocol, "OTHER")
         n_fwd = len(record.fwd_lengths)
         n_bwd = len(record.bwd_lengths)
@@ -102,6 +112,7 @@ class LinuxScapyAdapter(CaptureAdapter):
             duration_ms=duration_ms,
             risk_hint=0.0,
             raw_features=raw_features,
+            raw_features_cic2023=raw_features_cic2023,
         )
 
         try:

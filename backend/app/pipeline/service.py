@@ -7,8 +7,8 @@ from uuid import uuid4
 
 from app.capture.factory import build_capture_adapter
 from app.contracts.schemas import (
-    AlertRecord, AppSettings, ModelDescriptor, ModelsRegistry,
-    PipelineEvent, StatusLevel, StreamSnapshot,
+    AlertRecord, AppSettings, ModelDescriptor, ModelPreset, ModelPresetsRegistry,
+    ModelsRegistry, PipelineEvent, StatusLevel, StreamSnapshot,
 )
 from app.model.factory import build_model_adapter
 from app.preprocess.factory import build_preprocessing_pipeline
@@ -183,6 +183,25 @@ class PipelineService:
             self._settings.model_copy(update={"active_model_id": model_id})
         )
         return self._models
+
+    def get_presets(self) -> ModelPresetsRegistry:
+        return self._store.load_presets()
+
+    def apply_preset(self, preset: ModelPreset) -> AppSettings:
+        """Apply a model preset — updates all model-related settings at once."""
+        updated = self._settings.model_copy(update={
+            "active_model_id":                  preset.active_model_id,
+            "run_mode":                          preset.run_mode,
+            "detection_mode":                    preset.detection_mode,
+            "catboost_model_dir":                preset.catboost_model_dir,
+            "preprocessing_artifacts_dir":       preset.preprocessing_artifacts_dir,
+            "catboost_secondary_model_dir":      preset.catboost_secondary_model_dir,
+            "catboost_secondary_artifacts_dir":  preset.catboost_secondary_artifacts_dir,
+        })
+        self._settings = self._store.save_settings(updated)
+        # Also update active model in registry
+        self.select_model(preset.active_model_id)
+        return self._settings
 
     def subscribe(self) -> asyncio.Queue[PipelineEvent]:
         queue: asyncio.Queue[PipelineEvent] = asyncio.Queue(maxsize=100)

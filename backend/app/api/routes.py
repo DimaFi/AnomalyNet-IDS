@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.contracts.schemas import HealthResponse, ModelsRegistry, SettingsUpdate, StreamSnapshot
+from app.contracts.schemas import (
+    AppSettings, HealthResponse, ModelPresetsRegistry, ModelsRegistry,
+    SettingsUpdate, StreamSnapshot,
+)
 from app.dependencies import get_pipeline_service
 from app.pipeline.service import PipelineService
 from app.preprocess.contracts import DEFAULT_CONTRACT_VERSION
@@ -56,4 +59,23 @@ def get_snapshot(service: PipelineService = Depends(get_pipeline_service)) -> St
 @router.get("/history")
 def get_history(limit: int = 50, service: PipelineService = Depends(get_pipeline_service)):
     return service.history(limit=limit)
+
+
+@router.get("/model-presets", response_model=ModelPresetsRegistry)
+def get_model_presets(service: PipelineService = Depends(get_pipeline_service)) -> ModelPresetsRegistry:
+    """Returns all available model presets with resolved paths."""
+    return service.get_presets()
+
+
+@router.post("/model-presets/apply/{preset_id}", response_model=AppSettings)
+def apply_model_preset(
+    preset_id: str,
+    service: PipelineService = Depends(get_pipeline_service),
+) -> AppSettings:
+    """Applies a preset — updates settings and switches active model in one request."""
+    presets = service.get_presets()
+    preset = next((p for p in presets.presets if p.id == preset_id), None)
+    if preset is None:
+        raise HTTPException(status_code=404, detail=f"Preset '{preset_id}' not found")
+    return service.apply_preset(preset)
 

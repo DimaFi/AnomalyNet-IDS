@@ -11,7 +11,8 @@ def build_capture_adapter(mode: RunMode, settings: AppSettings | None = None) ->
     if mode == "linux_live":
         from app.capture.adapters.linux.scapy_adapter import LinuxScapyAdapter
         interface = settings.interface_name if settings else "eth0"
-        return LinuxScapyAdapter(interface=interface)
+        detection_mode = settings.detection_mode if settings else "simple"
+        return LinuxScapyAdapter(interface=interface, detection_mode=detection_mode)
 
     adapters: dict[RunMode, CaptureAdapter] = {
         "mock": MockCaptureAdapter(),

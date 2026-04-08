@@ -26,6 +26,58 @@
       "is_mock": false,
       "description": "Бинарный CatBoost-классификатор, обученный на CIC IoT-DIAD 2024. 71 CICFlowMeter-признак, порог 0.70. Recall DoS=99.6%, DDoS=96.6%.",
       "status": "idle"
+    },
+    {
+      "model_id": "catboost-iot-v2-mc",
+      "display_name": "CatBoost IoT Multi-Class Detector",
+      "version": "2.0.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_iot_71_mc",
+      "artifact_path": "artifacts/models/catboost-iot-v2-mc",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Многоклассовый CatBoost (8 классов): Benign/DoS/DDoS/Recon/BruteForce/WebAttack/Bot/Spoofing. 71 CICFlowMeter-признак. Обучен на IoT-DIAD 2024 + IDS2018 + IDS2017. Macro F1=0.31.",
+      "status": "idle"
+    },
+    {
+      "model_id": "catboost-iot-v3-cic2023",
+      "display_name": "CatBoost IoT 2023 Multi-Class Detector",
+      "version": "3.0.0",
+      "provider": "local",
+      "contract_version": "feature-contract.cic2023-v1",
+      "profile_name": "catboost_iot_46_cic2023",
+      "artifact_path": "artifacts/models/catboost-iot-v3-cic2023",
+      "supported_modes": [],
+      "is_mock": false,
+      "description": "Многоклассовый CatBoost (8 классов), обученный на CIC IoT 2023. 46 IoT-специфичных признаков. Macro F1=0.819. Используется как вторичная модель в режиме Advanced.",
+      "status": "research"
+    },
+    {
+      "model_id": "catboost-cascade-simple",
+      "display_name": "Cascade: Binary + Multi-Class [Simple]",
+      "version": "2.1.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_cascade_simple",
+      "artifact_path": "artifacts/models/catboost-cascade-simple",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Каскад Stage1+Stage2: бинарный фильтр (F1=99.4%) → 8-классовый детектор (Macro F1=0.31). Оба используют 71 CICFlowMeter-признак. Требует catboost_model_dir (Stage1) и catboost_secondary_model_dir (Stage2).",
+      "status": "idle"
+    },
+    {
+      "model_id": "catboost-cascade-advanced",
+      "display_name": "Cascade: Binary + IoT 2023 [Advanced]",
+      "version": "3.1.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_cascade_advanced",
+      "artifact_path": "artifacts/models/catboost-cascade-advanced",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Каскад Stage1+Stage3: бинарный фильтр (F1=99.4%) → IoT 2023 классификатор (Macro F1=0.819). Двойной extractor: 71 + 46 признаков. Требует все 4 пути к артефактам в настройках.",
+      "status": "idle"
     }
   ]
 }

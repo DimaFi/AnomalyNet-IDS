@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import type { AppSettings, NetworkInterface } from "../../app/types";
+import { ModelPresetPicker } from "../../components/ModelPresetPicker";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
 import selfStyles from "./SettingsView.module.css";
@@ -46,6 +47,7 @@ export function SettingsView() {
           <h2>{t("settings.title")}</h2>
           <p>{t("settings.subtitle")}</p>
         </div>
+        <ModelPresetPicker />
       </div>
 
       {/* ── General ── */}
@@ -121,7 +123,7 @@ export function SettingsView() {
         </div>
       </div>
 
-      {/* ── CatBoost model ── */}
+      {/* ── CatBoost model (primary / Stage1) ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>{t("settings.groupCatboost")}</div>
         <div className={styles.formGrid}>
@@ -149,6 +151,54 @@ export function SettingsView() {
               onChange={(e) => patch({ auto_block: e.target.checked })} />
             <span>{t("settings.autoBlock")}</span>
           </label>
+        </div>
+      </div>
+
+      {/* ── Detection mode ── */}
+      <div className={selfStyles.group}>
+        <div className={selfStyles.groupTitle}>Режим детекции</div>
+        <div className={styles.formGrid}>
+          <label className={styles.field}>
+            <span>Режим</span>
+            <select
+              value={settings.detection_mode ?? "simple"}
+              onChange={(e) => patch({ detection_mode: e.target.value as "simple" | "advanced" })}
+            >
+              <option value="simple">Simple — Stage1 + Stage2 (71 признак)</option>
+              <option value="advanced">Advanced — Stage1 + Stage3 IoT 2023 (46 признаков, Macro F1=0.82)</option>
+            </select>
+          </label>
+          <label className={styles.field}>
+            <span>
+              {settings.detection_mode === "advanced" ? "Stage3 IoT 2023 (dir)" : "Stage2 Multi-Class (dir)"}
+            </span>
+            <input
+              type="text"
+              value={settings.catboost_secondary_model_dir ?? ""}
+              placeholder={
+                settings.detection_mode === "advanced"
+                  ? "G:/Диплом/IoT/stage3_cic2023/models/catboost"
+                  : "G:/Диплом/IoT/stage2_multiclass/models/catboost"
+              }
+              onChange={(e) => patch({ catboost_secondary_model_dir: e.target.value })}
+            />
+          </label>
+          {settings.detection_mode === "advanced" && (
+            <label className={styles.field}>
+              <span>Stage3 артефакты (dir)</span>
+              <input
+                type="text"
+                value={settings.catboost_secondary_artifacts_dir ?? ""}
+                placeholder="G:/Диплом/IoT/stage3_cic2023/artifacts"
+                onChange={(e) => patch({ catboost_secondary_artifacts_dir: e.target.value })}
+              />
+            </label>
+          )}
+        </div>
+        <div style={{ marginTop: "8px", fontSize: "12px", opacity: 0.6, lineHeight: 1.5 }}>
+          {settings.detection_mode === "simple"
+            ? "Stage1 (бинарный, F1=99.4%) → Stage2 (8 классов, Macro F1=0.31). Один feature extractor (CICFlowMeter, 71 признак)."
+            : "Stage1 (бинарный, F1=99.4%) → Stage3 IoT2023 (8 классов, Macro F1=0.82). Двойной extractor: 71 + 46 признаков. Лучше для Recon, Bot, Spoofing."}
         </div>
       </div>
     </section>

@@ -11,6 +11,7 @@ LanguageCode = Literal["ru", "en"]
 RunMode = Literal["mock", "windows_stub", "linux_stub", "linux_live"]
 StatusLevel = Literal["idle", "active", "warning", "error"]
 VerdictLabel = Literal["normal", "warning", "anomaly"]
+DetectionMode = Literal["simple", "advanced"]
 
 
 class AppSettings(BaseModel):
@@ -23,11 +24,17 @@ class AppSettings(BaseModel):
     stream_autostart: bool = True
     # Network capture
     interface_name: str = "eth0"
-    # CatBoost model configuration
+    # CatBoost model configuration (primary = Stage1 binary)
     catboost_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
     catboost_model_dir: str = ""
     preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
+    # Dual-mode detection
+    detection_mode: DetectionMode = "simple"
+    # Secondary model: Stage2 (simple) or Stage3 (advanced)
+    catboost_secondary_model_dir: str = ""
+    # Secondary preprocessing artifacts (empty = reuse primary)
+    catboost_secondary_artifacts_dir: str = ""
 
 
 class ModelDescriptor(BaseModel):
@@ -63,8 +70,10 @@ class NormalizedFlowEvent(BaseModel):
     byte_count: int = Field(ge=1)
     duration_ms: int = Field(ge=1)
     risk_hint: float = Field(ge=0.0, le=1.0)
-    # Raw CICFlowMeter-style features; populated by real capture adapters, None in mock mode
+    # Raw CICFlowMeter-style features (71); populated by real capture adapters, None in mock
     raw_features: dict[str, float] | None = Field(default=None, exclude=True)
+    # Raw CIC IoT 2023 features (46); populated only in advanced detection mode
+    raw_features_cic2023: dict[str, float] | None = Field(default=None, exclude=True)
     # Attack class name from multiclass model ("DoS", "DDoS", etc.); None for binary/mock
     attack_class: str | None = None
 
@@ -74,6 +83,8 @@ class FeatureVector(BaseModel):
     contract_version: str
     profile_name: str
     values: dict[str, float | int | str]
+    # Secondary feature set for cascade advanced mode (46 CIC2023 features); None otherwise
+    secondary_values: dict[str, float] | None = None
 
 
 class InferenceResult(BaseModel):
@@ -129,6 +140,27 @@ class SettingsUpdate(BaseModel):
     catboost_model_dir: str = ""
     preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
+    detection_mode: DetectionMode = "simple"
+    catboost_secondary_model_dir: str = ""
+    catboost_secondary_artifacts_dir: str = ""
+
+
+class ModelPreset(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str = ""
+    active_model_id: str
+    run_mode: RunMode
+    detection_mode: DetectionMode = "simple"
+    catboost_model_dir: str = ""
+    preprocessing_artifacts_dir: str = ""
+    catboost_secondary_model_dir: str = ""
+    catboost_secondary_artifacts_dir: str = ""
+
+
+class ModelPresetsRegistry(BaseModel):
+    presets: list[ModelPreset]
 
 
 class BlockRequest(BaseModel):

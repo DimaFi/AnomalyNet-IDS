@@ -1,0 +1,143 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-fluent),
+              transform var(--duration-fast) var(--ease-fluent);
+}
+.trigger:hover { background: var(--accent-hover, #4a8ae8); transform: translateY(-1px); }
+.trigger:active { transform: translateY(0); }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.12s ease;
+}
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+.dialog {
+  background: var(--surface-2, #1a1d2e);
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 14px;
+  padding: 28px;
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: slideUp 0.15s var(--ease-fluent);
+}
+@keyframes slideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+.dialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.dialogTitle { font-size: 16px; font-weight: 700; margin: 0; }
+.dialogSub { font-size: 12px; opacity: 0.55; margin: 4px 0 0; }
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted, rgba(255,255,255,0.4));
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.closeBtn:hover { color: var(--text, #fff); }
+
+.presetList { display: flex; flex-direction: column; gap: 10px; }
+
+.presetCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, rgba(255,255,255,0.08));
+  border-radius: 10px;
+  background: var(--surface-1, rgba(255,255,255,0.03));
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-fluent),
+              background var(--duration-fast) var(--ease-fluent);
+  text-align: left;
+  width: 100%;
+}
+.presetCard:hover {
+  border-color: var(--accent, #5b9bf7);
+  background: rgba(91,155,247,0.06);
+}
+.presetCard.active {
+  border-color: var(--accent, #5b9bf7);
+  background: rgba(91,155,247,0.10);
+}
+.presetCard:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.presetIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.icon-demo     { background: rgba(160,160,160,0.15); }
+.icon-binary   { background: rgba(92,201,122,0.15); }
+.icon-simple   { background: rgba(240,188,94,0.15); }
+.icon-advanced { background: rgba(91,155,247,0.15); }
+
+.presetBody { flex: 1; min-width: 0; }
+.presetName {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.presetDesc {
+  font-size: 11.5px;
+  opacity: 0.6;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.activeBadge {
+  font-size: 10px;
+  background: var(--accent, #5b9bf7);
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.applyBtn {
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: var(--accent, #5b9bf7);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.applyBtn:hover { opacity: 0.85; }

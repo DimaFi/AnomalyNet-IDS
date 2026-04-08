@@ -3,6 +3,7 @@ import type {
   BlockRequest,
   BlockResponse,
   HealthResponse,
+  ModelPresetsRegistry,
   ModelsRegistry,
   NetworkInterface,
   PipelineEvent,
@@ -45,5 +46,12 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ ip_address: ip, event_id: eventId } as BlockRequest)
     }),
-  getInterfaces: () => request<NetworkInterface[]>("/api/interfaces")
+  getInterfaces: () => request<NetworkInterface[]>("/api/interfaces"),
+  getModelPresets: () => request<ModelPresetsRegistry>("/api/model-presets"),
+  applyModelPreset: (presetId: string) =>
+    request<AppSettings>(`/api/model-presets/apply/${presetId}`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: "{}",
+    })
 };
