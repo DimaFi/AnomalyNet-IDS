@@ -1,0 +1,342 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100%;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.25rem;
+}
+
+.panelHeader h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.panelHeader p {
+  margin: 0.4rem 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Metric cards ─────────────────────────────────────────── */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.85rem;
+}
+
+.metricCard {
+  background: var(--surface-2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-normal) var(--ease-fluent),
+              border-color var(--duration-normal) var(--ease-fluent);
+}
+
+.metricCard:hover {
+  box-shadow: var(--shadow-card), var(--shadow-glow);
+  border-color: var(--border-accent);
+}
+
+.metricCard span:first-child {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 0.6rem;
+}
+
+.metricCard strong {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Model card ───────────────────────────────────────────── */
+.modelCard {
+  background: var(--surface-2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--duration-normal) var(--ease-fluent),
+              border-color var(--duration-normal) var(--ease-fluent);
+}
+
+.modelCard:hover {
+  box-shadow: var(--shadow-card), var(--shadow-glow);
+  border-color: var(--border-accent);
+}
+
+/* ── Stream preview / table wrap ─────────────────────────── */
+.streamPreview,
+.tableWrap {
+  background: var(--surface-2);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 1.1rem;
+  box-shadow: var(--shadow-card);
+}
+
+.cardList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.85rem;
+}
+
+/* ── Section sub-header ───────────────────────────────────── */
+.subhead h3 {
+  margin: 0 0 1rem;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+/* ── Preview list ─────────────────────────────────────────── */
+.previewList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.previewRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.8rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.previewRow:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.previewRow p {
+  margin: 0.3rem 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.previewMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── Table ────────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  padding: 0 0.65rem 0.75rem;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 0.75rem 0.65rem;
+  text-align: left;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table tr:first-child td {
+  border-top: none;
+}
+
+.verdictCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 210px;
+}
+
+.modelHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.modelHeader h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.modelHeader p {
+  margin: 0.35rem 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.versionTag {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.modelMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.85rem 0 1.1rem;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Primary button ───────────────────────────────────────── */
+.primaryButton {
+  border: none;
+  border-radius: var(--radius-md);
+  background: linear-gradient(150deg, var(--accent) 0%, var(--accent-mid) 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 12px var(--accent-glow);
+  transition:
+    opacity var(--duration-fast) var(--ease-fluent),
+    box-shadow var(--duration-fast) var(--ease-fluent),
+    transform var(--duration-fast) var(--ease-fluent);
+}
+
+.primaryButton:hover:not(:disabled) {
+  opacity: 0.92;
+  box-shadow: 0 4px 20px var(--accent-glow);
+  transform: translateY(-1px);
+}
+
+.primaryButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.primaryButton:disabled {
+  cursor: default;
+  opacity: 0.40;
+}
+
+/* ── Settings form ────────────────────────────────────────── */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+
+.field,
+.toggleField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--surface-2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.95rem 1rem;
+  transition: border-color var(--duration-fast) var(--ease-fluent);
+}
+
+.field:focus-within,
+.toggleField:focus-within {
+  border-color: var(--border-accent);
+}
+
+.field > span {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+.field select,
+.field input[type="text"],
+.field input[type="number"] {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.75rem;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-fluent);
+}
+
+.field select:focus,
+.field input[type="text"]:focus,
+.field input[type="number"]:focus {
+  border-color: var(--accent);
+}
+
+/* Range slider */
+.field input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 2px;
+  outline: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.toggleField {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.toggleField > span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Checkbox style */
+.toggleField input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.emptyState {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 1.5rem 0;
+}
+
+@media (max-width: 900px) {
+  .tableWrap { overflow-x: auto; }
+}

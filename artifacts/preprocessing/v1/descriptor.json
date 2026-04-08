@@ -1,0 +1,6 @@
+{
+  "artifact_id": "preprocess-v1",
+  "contract_version": "feature-contract.v1",
+  "profile_name": "production_safe_features_with_ports",
+  "notes": "Placeholder preprocessing artifact bundle."
+}

@@ -1,0 +1,15 @@
+.container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+/* Individual toasts get pointer-events back */
+.container > * {
+  pointer-events: all;
+}

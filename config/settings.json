@@ -1,0 +1,14 @@
+{
+  "language": "ru",
+  "theme": "dark",
+  "run_mode": "mock",
+  "retention_days": 14,
+  "active_model_id": "mock-default",
+  "capture_enabled": true,
+  "stream_autostart": true,
+  "interface_name": "eth0",
+  "catboost_threshold": 0.7,
+  "catboost_model_dir": "G:/Диплом/IoT/stage1_v2_cl/models/catboost",
+  "preprocessing_artifacts_dir": "G:/Диплом/IoT/stage1_v2_cl/artifacts",
+  "auto_block": false
+}

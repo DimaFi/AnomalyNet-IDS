@@ -1,0 +1,163 @@
+:root {
+  font-family: "Segoe UI Variable", "Segoe UI", "Inter", system-ui, sans-serif;
+  color-scheme: dark;
+
+  /* ── Backgrounds — deep matte navy (Win11 Mica-inspired) ── */
+  --background:  #0c0e1a;
+  --surface-1:   rgba(17, 20, 36, 0.94);
+  --surface-2:   rgba(22, 26, 46, 0.80);
+  --surface-3:   rgba(30, 35, 60, 0.90);
+  --surface-hover: rgba(40, 46, 76, 0.70);
+
+  /* ── Borders ── */
+  --border:        rgba(120, 145, 210, 0.10);
+  --border-strong: rgba(120, 145, 210, 0.20);
+  --border-accent: rgba(91, 155, 247, 0.30);
+
+  /* ── Text ── */
+  --text-primary:   #e4e8f5;
+  --text-secondary: #8d97b8;
+  --text-muted:     #515b7a;
+  --muted-text:     #8d97b8;
+
+  /* ── Accent — Win11 blue, soft ── */
+  --accent:        #5b9bf7;
+  --accent-strong: #4a87e8;
+  --accent-mid:    #3ec9a7;
+  --accent-glow:   rgba(91, 155, 247, 0.20);
+
+  /* ── Semantic ── */
+  --ok:     #5cc97a;
+  --warn:   #f0bc5e;
+  --danger: #e86070;
+  --info:   #7db8f7;
+
+  /* RGB triplets */
+  --ok-rgb:     92, 201, 122;
+  --warn-rgb:   240, 188, 94;
+  --danger-rgb: 232, 96, 112;
+  --info-rgb:   125, 184, 247;
+
+  /* ── Semantic soft backgrounds ── */
+  --success-soft:    rgba(92, 201, 122, 0.10);
+  --success-border:  rgba(92, 201, 122, 0.24);
+  --success-strong:  #6edb8f;
+  --warning-soft:    rgba(240, 188, 94, 0.10);
+  --warning-border:  rgba(240, 188, 94, 0.24);
+  --warning-strong:  #f5ca7a;
+  --danger-soft:     rgba(232, 96, 112, 0.08);
+  --danger-border:   rgba(232, 96, 112, 0.22);
+  --danger-strong:   #f07a87;
+  --info-soft:       rgba(125, 184, 247, 0.08);
+  --info-border:     rgba(125, 184, 247, 0.20);
+  --info-strong:     #9fcbfc;
+
+  /* ── Shadows ── */
+  --shadow-soft:  0 2px 12px rgba(0, 0, 0, 0.30), 0 0 0 1px rgba(120, 145, 210, 0.06);
+  --shadow-card:  0 4px 24px rgba(0, 0, 0, 0.36), 0 1px 0 rgba(255,255,255,0.04) inset;
+  --shadow-large: 0 12px 48px rgba(0, 0, 0, 0.50);
+  --shadow-glow:  0 0 24px rgba(91, 155, 247, 0.15);
+
+  /* ── Motion ── */
+  --ease-fluent: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 0.14s;
+  --duration-normal: 0.22s;
+
+  /* ── Layout ── */
+  --sidebar-width: 60px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+}
+
+/* ── Light theme ───────────────────────────────────────────── */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --background:  #f0f2f8;
+  --surface-1:   rgba(255, 255, 255, 0.88);
+  --surface-2:   rgba(248, 249, 255, 0.90);
+  --surface-3:   rgba(240, 242, 252, 0.95);
+  --surface-hover: rgba(225, 230, 250, 0.70);
+
+  --border:        rgba(60, 80, 160, 0.10);
+  --border-strong: rgba(60, 80, 160, 0.20);
+  --border-accent: rgba(0, 120, 212, 0.28);
+
+  --text-primary:   #1a1e2e;
+  --text-secondary: #4a5070;
+  --text-muted:     #8890ab;
+  --muted-text:     #4a5070;
+
+  --accent:        #0078d4;
+  --accent-strong: #006cbe;
+  --accent-mid:    #00897b;
+  --accent-glow:   rgba(0, 120, 212, 0.14);
+
+  --ok:     #107c10;
+  --warn:   #c27400;
+  --danger: #d13438;
+  --info:   #0078d4;
+
+  --ok-rgb:     16, 124, 16;
+  --warn-rgb:   194, 116, 0;
+  --danger-rgb: 209, 52, 56;
+  --info-rgb:   0, 120, 212;
+
+  --success-soft:   rgba(16, 124, 16, 0.08);
+  --success-border: rgba(16, 124, 16, 0.22);
+  --success-strong: #0e8a0e;
+  --warning-soft:   rgba(194, 116, 0, 0.08);
+  --warning-border: rgba(194, 116, 0, 0.22);
+  --warning-strong: #a86300;
+  --danger-soft:    rgba(209, 52, 56, 0.06);
+  --danger-border:  rgba(209, 52, 56, 0.20);
+  --danger-strong:  #b02b2e;
+  --info-soft:      rgba(0, 120, 212, 0.07);
+  --info-border:    rgba(0, 120, 212, 0.18);
+  --info-strong:    #006cbf;
+
+  --shadow-soft:  0 2px 8px rgba(30, 40, 100, 0.08), 0 0 0 1px rgba(60,80,160,0.06);
+  --shadow-card:  0 4px 16px rgba(30, 40, 100, 0.10);
+  --shadow-large: 0 8px 32px rgba(30, 40, 100, 0.12);
+  --shadow-glow:  0 0 20px rgba(0, 120, 212, 0.12);
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea {
+  font: inherit;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Transitions on interactive elements ───────────────────── */
+button, a, select, input[type="range"] {
+  transition:
+    background var(--duration-fast) var(--ease-fluent),
+    color var(--duration-fast) var(--ease-fluent),
+    border-color var(--duration-fast) var(--ease-fluent),
+    box-shadow var(--duration-fast) var(--ease-fluent),
+    opacity var(--duration-fast) var(--ease-fluent);
+}

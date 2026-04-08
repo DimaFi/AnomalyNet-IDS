@@ -1,0 +1,31 @@
+{
+  "active_model_id": "mock-default",
+  "items": [
+    {
+      "model_id": "mock-default",
+      "display_name": "Mock Baseline Detector",
+      "version": "0.1.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "production_safe_features_with_ports",
+      "artifact_path": "artifacts/models/mock-default",
+      "supported_modes": ["mock", "windows_stub", "linux_stub"],
+      "is_mock": true,
+      "description": "Demo model adapter for UI and local API validation without real ML artifacts.",
+      "status": "active"
+    },
+    {
+      "model_id": "catboost-iot-v1",
+      "display_name": "CatBoost IoT Attack Detector",
+      "version": "1.0.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_iot_71",
+      "artifact_path": "artifacts/models/catboost-iot-v1",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Бинарный CatBoost-классификатор, обученный на CIC IoT-DIAD 2024. 71 CICFlowMeter-признак, порог 0.70. Recall DoS=99.6%, DDoS=96.6%.",
+      "status": "idle"
+    }
+  ]
+}

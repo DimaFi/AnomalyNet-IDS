@@ -1,0 +1,27 @@
+.group {
+  margin-bottom: 28px;
+}
+
+.groupTitle {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.10em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.badgeValue {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  border-radius: 6px;
+  padding: 1px 7px;
+  color: var(--accent);
+  font-weight: 600;
+}

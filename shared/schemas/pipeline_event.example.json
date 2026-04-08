@@ -1,0 +1,50 @@
+{
+  "event": {
+    "event_id": "flow-000001",
+    "timestamp": "2026-04-07T12:00:00Z",
+    "source": "sensor-lab",
+    "direction": "inbound",
+    "protocol": "TCP",
+    "src_ip": "192.168.1.10",
+    "dst_ip": "10.0.0.101",
+    "src_port": 1045,
+    "dst_port": 443,
+    "packet_count": 42,
+    "byte_count": 24576,
+    "duration_ms": 650,
+    "risk_hint": 0.55
+  },
+  "features": {
+    "event_id": "flow-000001",
+    "contract_version": "feature-contract.v1",
+    "profile_name": "production_safe_features_with_ports",
+    "values": {
+      "Protocol": "TCP",
+      "Flow Duration": 650,
+      "Total Fwd Packet": 42,
+      "Total Length of Fwd Packet": 24576,
+      "Flow Bytes/s": 37809.231,
+      "Flow Packets/s": 64.615,
+      "Average Packet Size": 585.143,
+      "Src Port": 1045,
+      "Dst Port": 443,
+      "Risk Hint": 0.55
+    }
+  },
+  "inference": {
+    "event_id": "flow-000001",
+    "label": "warning",
+    "score": 0.55,
+    "reason": "Medium confidence anomaly, should be reviewed.",
+    "model_id": "mock-default"
+  },
+  "alert": {
+    "alert_id": "e4ed8ab0-d8de-4b7f-9716-f88ba9f23b65",
+    "timestamp": "2026-04-07T12:00:01Z",
+    "level": "warning",
+    "title": "Potential anomaly detected",
+    "details": "Medium confidence anomaly, should be reviewed.",
+    "event_id": "flow-000001"
+  }
+}
+
