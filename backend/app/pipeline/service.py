@@ -26,7 +26,11 @@ class PipelineService:
         self._loop_task: asyncio.Task[None] | None = None
         # Persistent capture adapter (long-lived for real capture modes)
         self._capture_adapter = None
-        self._capture_mode: str = ""
+        self._capture_mode: str = ""   # tracks run_mode + detection_mode
+        # Cached pipeline + model — rebuilt only when active_model_id or settings change
+        self._preprocess_cache = None
+        self._model_cache = None
+        self._cache_key: tuple | None = None  # (active_model_id, relevant settings hash)
 
     @property
     def settings(self) -> AppSettings:
@@ -74,16 +78,40 @@ class PipelineService:
             self._capture_mode = ""
 
     async def _get_or_rebuild_adapter(self):
-        """Returns existing adapter or creates a new one if mode changed."""
-        current_mode = self._settings.run_mode
+        """Returns existing adapter or creates a new one if run_mode or detection_mode changed."""
+        current_mode = f"{self._settings.run_mode}:{self._settings.detection_mode}"
         if self._capture_mode != current_mode:
             await self._stop_adapter()
-            self._capture_adapter = build_capture_adapter(current_mode, self._settings)
+            self._capture_adapter = build_capture_adapter(
+                self._settings.run_mode, self._settings
+            )
             start = getattr(self._capture_adapter, "start", None)
             if start:
                 await start()
             self._capture_mode = current_mode
         return self._capture_adapter
+
+    def _make_cache_key(self) -> tuple:
+        s = self._settings
+        return (
+            s.active_model_id,
+            s.run_mode,
+            s.detection_mode,
+            s.catboost_model_dir,
+            s.preprocessing_artifacts_dir,
+            s.catboost_secondary_model_dir,
+            s.catboost_secondary_artifacts_dir,
+            s.catboost_threshold,
+        )
+
+    def _get_pipeline_and_model(self):
+        key = self._make_cache_key()
+        if key != self._cache_key:
+            descriptor = self._active_descriptor()
+            self._preprocess_cache = build_preprocessing_pipeline(descriptor, self._settings)
+            self._model_cache = build_model_adapter(descriptor, self._settings)
+            self._cache_key = key
+        return self._preprocess_cache, self._model_cache
 
     async def _run_loop(self) -> None:
         self._status = "active"
@@ -93,11 +121,8 @@ class PipelineService:
                 await asyncio.sleep(1.0)
                 continue
 
-            descriptor = self._active_descriptor()
-            preprocess = build_preprocessing_pipeline(descriptor, self._settings)
-            model = build_model_adapter(descriptor, self._settings)
-
             try:
+                preprocess, model = self._get_pipeline_and_model()
                 adapter = await self._get_or_rebuild_adapter()
                 event = await adapter.next_event()
                 features = preprocess.transform(event)
@@ -164,6 +189,7 @@ class PipelineService:
 
     def update_settings(self, updated: AppSettings) -> AppSettings:
         self._settings = self._store.save_settings(updated)
+        self._cache_key = None  # Force pipeline/model rebuild on next event
         self._store.apply_retention(self._settings.retention_days)
         if self._settings.stream_autostart and self._loop_task is None:
             self._loop_task = asyncio.create_task(self._run_loop())
@@ -182,13 +208,15 @@ class PipelineService:
         self._settings = self._store.save_settings(
             self._settings.model_copy(update={"active_model_id": model_id})
         )
+        self._cache_key = None  # Force pipeline/model rebuild on next event
         return self._models
 
     def get_presets(self) -> ModelPresetsRegistry:
         return self._store.load_presets()
 
     def apply_preset(self, preset: ModelPreset) -> AppSettings:
-        """Apply a model preset — updates all model-related settings at once."""
+        """Apply a model preset — updates all model-related settings at once.
+        Invalidates the pipeline/model cache so changes take effect immediately."""
         updated = self._settings.model_copy(update={
             "active_model_id":                  preset.active_model_id,
             "run_mode":                          preset.run_mode,
@@ -199,6 +227,7 @@ class PipelineService:
             "catboost_secondary_artifacts_dir":  preset.catboost_secondary_artifacts_dir,
         })
         self._settings = self._store.save_settings(updated)
+        self._cache_key = None  # Force pipeline/model rebuild on next event
         # Also update active model in registry
         self.select_model(preset.active_model_id)
         return self._settings
