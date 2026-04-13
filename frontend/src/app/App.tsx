@@ -116,7 +116,7 @@ export function App() {
 
   const statusDotClass = [
     styles.statusDot,
-    health?.status === "ok"      ? styles.statusDotActive  : "",
+    health?.status === "active"  ? styles.statusDotActive  : "",
     health?.status === "warning" ? styles.statusDotWarning : "",
     health?.status === "error"   ? styles.statusDotError   : "",
   ].filter(Boolean).join(" ");
