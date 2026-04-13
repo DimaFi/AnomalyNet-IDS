@@ -2,32 +2,25 @@ import { useEffect, useRef } from "react";
 import { useAppStore } from "../app/store";
 import type { PipelineEvent } from "../app/types";
 import { api } from "./api";
-import { buildMockEvent, buildMockSnapshot } from "./mockRuntime";
 
 /**
  * Subscribes to the backend WebSocket (/ws/events) and keeps the stream store in sync.
- *
- * Live mode (linux_live / linux_stub / windows_stub):
- *   – No mock data ever. On disconnect → empty stream + reconnect with exponential backoff.
- *   – On reconnect → backend sends snapshot of last 30 real events immediately.
- *
- * Mock mode:
- *   – Uses mock snapshot + polling fallback (original behaviour).
+ * No mock fallback — all events come from the backend (which handles mock mode itself).
+ * On disconnect → exponential backoff reconnect (1s → 2s → 4s → ... → 30s max).
  */
 export function useRealtimeStream(): void {
   const pushStreamItem = useAppStore((state) => state.pushStreamItem);
   const replaceStream  = useAppStore((state) => state.replaceStream);
   const addToast       = useAppStore((state) => state.addToast);
 
-  // Expose a way for StreamView's Refresh button to re-fetch the snapshot
-  const socketRef     = useRef<WebSocket | null>(null);
-  const retryDelay    = useRef(1000);
-  const retryTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mockTimer     = useRef<ReturnType<typeof setInterval> | null>(null);
-  const destroyed     = useRef(false);
+  const socketRef  = useRef<WebSocket | null>(null);
+  const retryDelay = useRef(1000);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const destroyed  = useRef(false);
 
   useEffect(() => {
     destroyed.current = false;
+    retryDelay.current = 1000;
 
     const handleItem = (item: PipelineEvent) => {
       pushStreamItem(item);
@@ -43,43 +36,15 @@ export function useRealtimeStream(): void {
       }
     };
 
-    function isMockMode(): boolean {
-      const settings = useAppStore.getState().settings;
-      return !settings || settings.run_mode === "mock";
-    }
-
-    function startMockFallback() {
-      if (mockTimer.current !== null) return; // already running
-      replaceStream(buildMockSnapshot(8).items);
-      mockTimer.current = setInterval(() => {
-        handleItem(buildMockEvent());
-      }, 1600);
-    }
-
-    function stopMockFallback() {
-      if (mockTimer.current !== null) {
-        clearInterval(mockTimer.current);
-        mockTimer.current = null;
-      }
-    }
-
     function connect() {
       if (destroyed.current) return;
-
-      if (isMockMode()) {
-        startMockFallback();
-        return;
-      }
-
-      // Live mode — real WebSocket, no mock
-      stopMockFallback();
 
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${protocol}://${window.location.host}/ws/events`);
       socketRef.current = ws;
 
       ws.onmessage = (msg) => {
-        retryDelay.current = 1000; // reset backoff on successful message
+        retryDelay.current = 1000;
         try {
           const payload = JSON.parse(msg.data) as { items?: PipelineEvent[]; event?: unknown };
           if (Array.isArray(payload.items)) {
@@ -92,16 +57,13 @@ export function useRealtimeStream(): void {
         }
       };
 
-      ws.onerror = () => {
-        // error is always followed by close, handle in onclose
-      };
+      ws.onerror = () => { /* always followed by onclose */ };
 
       ws.onclose = () => {
         socketRef.current = null;
         if (destroyed.current) return;
-        // Do NOT replace stream with mock. Just schedule reconnect.
         const delay = retryDelay.current;
-        retryDelay.current = Math.min(delay * 2, 30_000); // exponential backoff, max 30s
+        retryDelay.current = Math.min(delay * 2, 30_000);
         retryTimer.current = setTimeout(connect, delay);
       };
     }
@@ -116,14 +78,12 @@ export function useRealtimeStream(): void {
         clearTimeout(retryTimer.current);
         retryTimer.current = null;
       }
-      stopMockFallback();
     };
   }, [pushStreamItem, replaceStream, addToast]);
 }
 
 /**
  * Called by the Refresh button in StreamView.
- * Re-fetches the latest snapshot from the REST endpoint (no WS needed).
  */
 export async function refreshStreamFromSnapshot(
   replaceStream: (items: PipelineEvent[]) => void

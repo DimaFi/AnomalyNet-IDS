@@ -6,7 +6,6 @@ import { ModelsView } from "../features/models/ModelsView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StreamView } from "../features/stream/StreamView";
 import { api } from "../lib/api";
-import { mockHealth, mockModels, mockSettings } from "../lib/mockRuntime";
 import { useRealtimeStream } from "../lib/useRealtimeStream";
 import { useAppStore } from "./store";
 import styles from "./App.module.css";
@@ -102,11 +101,7 @@ export function App() {
         document.documentElement.dataset.theme = settingsRes.theme;
         await i18n.changeLanguage(settingsRes.language);
       } catch {
-        setHealth(mockHealth);
-        setSettings(mockSettings);
-        setModels(mockModels);
-        document.documentElement.dataset.theme = mockSettings.theme;
-        await i18n.changeLanguage(mockSettings.language);
+        // Backend unreachable — leave state empty, UI shows loading/empty state
       }
     }
     void bootstrap();
