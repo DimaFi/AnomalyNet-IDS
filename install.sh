@@ -198,6 +198,21 @@ cat > "$SETTINGS" <<SETTINGS_EOF
 SETTINGS_EOF
 ok "Config written (mode: $DETECTION_MODE, iface: $INTERFACE)"
 
+# ── 5b. Sync active_model_id in models_registry.json ─────────
+log "Syncing active model in registry..."
+REGISTRY="$GUI_DIR/config/models_registry.json"
+# Use python3 to update the JSON in-place
+"$PYTHON_BIN" - <<PYEOF
+import json, pathlib
+p = pathlib.Path("$REGISTRY")
+data = json.loads(p.read_text())
+data["active_model_id"] = "${ACTIVE_MODEL_ID}"
+for item in data.get("items", []):
+    item["status"] = "active" if item["model_id"] == "${ACTIVE_MODEL_ID}" else "idle"
+p.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+PYEOF
+ok "Registry synced (active: ${ACTIVE_MODEL_ID})"
+
 # ── 7. Update presets with actual paths ───────────────────────
 log "Configuring model presets..."
 PRESETS="$GUI_DIR/config/model_presets.json"
