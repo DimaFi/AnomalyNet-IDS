@@ -54,6 +54,41 @@ async def block_ip(
         )
 
 
+@block_router.get("/blocked-ips")
+async def get_blocked_ips(
+    service: PipelineService = Depends(get_pipeline_service),
+) -> dict:
+    """Returns all IPs currently blocked by this service via iptables."""
+    registry = service.get_blocked_ips()
+    return {
+        "count": len(registry),
+        "items": [{"ip": ip, "blocked_at": ts} for ip, ts in registry.items()],
+    }
+
+
+@block_router.delete("/blocked-ips/all")
+async def unblock_all_ips(
+    service: PipelineService = Depends(get_pipeline_service),
+) -> dict:
+    """Remove all iptables DROP rules added by this service."""
+    count = await service.unblock_all_ips()
+    return {"unblocked": count, "message": f"Removed {count} iptables rules"}
+
+
+@block_router.delete("/blocked-ips/{ip}")
+async def unblock_ip(
+    ip: str,
+    service: PipelineService = Depends(get_pipeline_service),
+) -> dict:
+    """Remove iptables DROP rule for a specific IP."""
+    try:
+        ipaddress.IPv4Address(ip)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid IPv4: {ip!r}")
+    success = await service.unblock_ip(ip)
+    return {"ip": ip, "unblocked": success}
+
+
 @block_router.get("/interfaces")
 async def list_interfaces() -> list[dict]:
     """

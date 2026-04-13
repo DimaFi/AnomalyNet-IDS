@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import type { AppSettings, NetworkInterface } from "../../app/types";
@@ -12,12 +12,33 @@ export function SettingsView() {
   const settings = useAppStore((state) => state.settings);
   const setSettings = useAppStore((state) => state.setSettings);
   const [interfaces, setInterfaces] = useState<NetworkInterface[]>([]);
+  const [blockedIps, setBlockedIps] = useState<{ ip: string; blocked_at: string }[]>([]);
 
   useEffect(() => {
     api.getInterfaces()
       .then(setInterfaces)
       .catch(() => setInterfaces([]));
   }, []);
+
+  const refreshBlocked = useCallback(() => {
+    api.getBlockedIps()
+      .then((res) => setBlockedIps(res.items))
+      .catch(() => setBlockedIps([]));
+  }, []);
+
+  useEffect(() => {
+    refreshBlocked();
+  }, [refreshBlocked]);
+
+  const handleUnblock = useCallback(async (ip: string) => {
+    await api.unblockIp(ip).catch(() => null);
+    refreshBlocked();
+  }, [refreshBlocked]);
+
+  const handleUnblockAll = useCallback(async () => {
+    await api.unblockAllIps().catch(() => null);
+    refreshBlocked();
+  }, [refreshBlocked]);
 
   if (!settings) return null;
 
@@ -200,6 +221,35 @@ export function SettingsView() {
             ? "Stage1 (бинарный, F1=99.4%) → Stage2 (8 классов, Macro F1=0.31). Один feature extractor (CICFlowMeter, 71 признак)."
             : "Stage1 (бинарный, F1=99.4%) → Stage3 IoT2023 (8 классов, Macro F1=0.82). Двойной extractor: 71 + 46 признаков. Лучше для Recon, Bot, Spoofing."}
         </div>
+      </div>
+
+      {/* ── Blocked IPs ── */}
+      <div className={selfStyles.group}>
+        <div className={selfStyles.groupTitle}>Заблокированные IP</div>
+        {blockedIps.length === 0 ? (
+          <p className={selfStyles.emptyBlocked}>Нет заблокированных IP-адресов.</p>
+        ) : (
+          <>
+            <div className={selfStyles.blockedList}>
+              {blockedIps.map((entry) => (
+                <div key={entry.ip} className={selfStyles.blockedRow}>
+                  <span>
+                    <span className={selfStyles.blockedIp}>{entry.ip}</span>
+                    <span className={selfStyles.blockedAt}>
+                      {new Date(entry.blocked_at).toLocaleTimeString("ru-RU")}
+                    </span>
+                  </span>
+                  <button className={selfStyles.unblockBtn} onClick={() => void handleUnblock(entry.ip)}>
+                    Разблокировать
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button className={selfStyles.unblockAllBtn} onClick={() => void handleUnblockAll()}>
+              Разблокировать все ({blockedIps.length})
+            </button>
+          </>
+        )}
       </div>
     </section>
   );

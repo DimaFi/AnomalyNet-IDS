@@ -46,6 +46,9 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ ip_address: ip, event_id: eventId } as BlockRequest)
     }),
+  getBlockedIps: () => request<{ count: number; items: { ip: string; blocked_at: string }[] }>("/api/blocked-ips"),
+  unblockIp: (ip: string) => request<{ ip: string; unblocked: boolean }>(`/api/blocked-ips/${ip}`, { method: "DELETE" }),
+  unblockAllIps: () => request<{ unblocked: number; message: string }>("/api/blocked-ips/all", { method: "DELETE" }),
   getInterfaces: () => request<NetworkInterface[]>("/api/interfaces"),
   getModelPresets: () => request<ModelPresetsRegistry>("/api/model-presets"),
   applyModelPreset: (presetId: string) =>

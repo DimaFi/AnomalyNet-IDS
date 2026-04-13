@@ -31,6 +31,8 @@ class PipelineService:
         self._preprocess_cache = None
         self._model_cache = None
         self._cache_key: tuple | None = None  # (active_model_id, relevant settings hash)
+        # Blocked IPs registry — tracks IPs blocked via iptables by this service
+        self._blocked_ips_registry: dict[str, str] = {}  # ip → ISO timestamp
         # Rolling counters for debug stats (reset on restart)
         self._total_events: int = 0
         self._label_counts: dict[str, int] = {"normal": 0, "warning": 0, "anomaly": 0}
@@ -288,9 +290,42 @@ class PipelineService:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _, stderr = await proc.communicate()
+            _, _ = await proc.communicate()
+            if proc.returncode == 0:
+                self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
             return proc.returncode == 0
         except FileNotFoundError:
             return False
         except Exception:
             return False
+
+    async def unblock_ip(self, ip: str) -> bool:
+        """Remove iptables DROP rule for an IP. Returns True on success."""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "iptables", "-D", "INPUT", "-s", ip, "-j", "DROP",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            await proc.communicate()
+            self._blocked_ips_registry.pop(ip, None)
+            return proc.returncode == 0
+        except FileNotFoundError:
+            self._blocked_ips_registry.pop(ip, None)
+            return False
+        except Exception:
+            return False
+
+    async def unblock_all_ips(self) -> int:
+        """Remove all iptables DROP rules added by this service. Returns count unblocked."""
+        ips = list(self._blocked_ips_registry.keys())
+        count = 0
+        for ip in ips:
+            success = await self.unblock_ip(ip)
+            if success:
+                count += 1
+        return count
+
+    def get_blocked_ips(self) -> dict[str, str]:
+        """Returns dict of {ip: blocked_at_iso} for all currently tracked blocked IPs."""
+        return dict(self._blocked_ips_registry)

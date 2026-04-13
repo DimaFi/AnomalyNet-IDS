@@ -185,6 +185,42 @@
   letter-spacing: 0.03em;
 }
 
+.shieldBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 11px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-fluent),
+    color var(--duration-fast) var(--ease-fluent),
+    border-color var(--duration-fast) var(--ease-fluent),
+    box-shadow var(--duration-fast) var(--ease-fluent);
+  white-space: nowrap;
+}
+
+.shieldBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.shieldActive {
+  background: rgba(var(--danger-rgb), 0.12);
+  border-color: var(--danger-border);
+  color: var(--danger-strong);
+  box-shadow: 0 0 8px rgba(var(--danger-rgb), 0.15);
+}
+
+.shieldActive:hover {
+  background: rgba(var(--danger-rgb), 0.20);
+}
+
 .mainPanel {
   flex: 1;
   overflow-y: auto;

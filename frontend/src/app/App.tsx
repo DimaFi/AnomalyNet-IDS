@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ToastContainer } from "../components/ToastContainer";
 import { DashboardView } from "../features/dashboard/DashboardView";
@@ -112,6 +112,16 @@ export function App() {
     void bootstrap();
   }, [i18n, setHealth, setModels, setSettings]);
 
+  const toggleProtection = useCallback(async () => {
+    if (!settings) return;
+    try {
+      const saved = await api.updateSettings({ ...settings, auto_block: !settings.auto_block });
+      setSettings(saved);
+    } catch {
+      setSettings({ ...settings, auto_block: !settings.auto_block });
+    }
+  }, [settings, setSettings]);
+
   const CurrentView = viewMap[view];
 
   const statusDotClass = [
@@ -163,6 +173,18 @@ export function App() {
             )}
             {settings?.active_model_id && (
               <span className={styles.modeBadge}>{settings.active_model_id}</span>
+            )}
+            {settings && (
+              <button
+                className={[styles.shieldBtn, settings.auto_block ? styles.shieldActive : ""].filter(Boolean).join(" ")}
+                onClick={toggleProtection}
+                title={settings.auto_block ? "Защита включена — нажми чтобы выключить" : "Включить авто-блокировку атак"}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                {settings.auto_block ? "Защита ВКЛ" : "Защита ВЫКЛ"}
+              </button>
             )}
           </div>
         </div>
