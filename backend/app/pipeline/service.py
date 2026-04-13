@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from app.capture.factory import build_capture_adapter
 from app.contracts.schemas import (
-    AlertRecord, AppSettings, ModelDescriptor, ModelPreset, ModelPresetsRegistry,
+    AlertRecord, AppSettings, DebugStats, ModelDescriptor, ModelPreset, ModelPresetsRegistry,
     ModelsRegistry, PipelineEvent, StatusLevel, StreamSnapshot,
 )
 from app.model.factory import build_model_adapter
@@ -31,6 +31,14 @@ class PipelineService:
         self._preprocess_cache = None
         self._model_cache = None
         self._cache_key: tuple | None = None  # (active_model_id, relevant settings hash)
+        # Rolling counters for debug stats (reset on restart)
+        self._total_events: int = 0
+        self._label_counts: dict[str, int] = {"normal": 0, "warning": 0, "anomaly": 0}
+        self._proto_counts: dict[str, int] = {}
+        self._class_counts: dict[str, int] = {}
+        self._src_ip_counts: dict[str, int] = {}
+        self._dst_port_counts: dict[str, int] = {}
+        self._scores: list[float] = []  # last 500 scores
 
     @property
     def settings(self) -> AppSettings:
@@ -141,6 +149,18 @@ class PipelineService:
                     if self._settings.auto_block and inference.label == "anomaly":
                         await self._try_block_ip(event.src_ip)
 
+                # Update rolling debug counters
+                self._total_events += 1
+                self._label_counts[inference.label] = self._label_counts.get(inference.label, 0) + 1
+                self._proto_counts[event.protocol] = self._proto_counts.get(event.protocol, 0) + 1
+                if inference.attack_class:
+                    self._class_counts[inference.attack_class] = self._class_counts.get(inference.attack_class, 0) + 1
+                self._src_ip_counts[event.src_ip] = self._src_ip_counts.get(event.src_ip, 0) + 1
+                self._dst_port_counts[str(event.dst_port)] = self._dst_port_counts.get(str(event.dst_port), 0) + 1
+                self._scores.append(inference.score)
+                if len(self._scores) > 500:
+                    self._scores = self._scores[-500:]
+
                 pipeline_event = PipelineEvent(
                     event=event, features=features, inference=inference, alert=alert
                 )
@@ -231,6 +251,26 @@ class PipelineService:
         # Also update active model in registry
         self.select_model(preset.active_model_id)
         return self._settings
+
+    def debug_stats(self) -> DebugStats:
+        """Returns detailed statistics for the developer debug view."""
+        scores = self._scores or [0.0]
+        top_ips = dict(sorted(self._src_ip_counts.items(), key=lambda x: -x[1])[:10])
+        top_ports = dict(sorted(self._dst_port_counts.items(), key=lambda x: -x[1])[:10])
+        return DebugStats(
+            uptime_events_total=self._total_events,
+            events_by_label=dict(self._label_counts),
+            events_by_protocol=dict(self._proto_counts),
+            events_by_attack_class=dict(self._class_counts),
+            top_src_ips=top_ips,
+            top_dst_ports=top_ports,
+            avg_score=round(sum(scores) / len(scores), 4),
+            max_score=round(max(scores), 4),
+            detection_mode=self._settings.detection_mode,
+            active_model_id=self._settings.active_model_id,
+            interface=self._settings.interface_name,
+            capture_status=self._status,
+        )
 
     def subscribe(self) -> asyncio.Queue[PipelineEvent]:
         queue: asyncio.Queue[PipelineEvent] = asyncio.Queue(maxsize=100)

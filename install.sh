@@ -14,6 +14,7 @@
 #    INSTALL_DIR=/opt/anomalynet
 #    DETECTION_MODE=simple   "simple" (Stage1+Stage2) or "advanced" (Stage1+Stage3)
 #    AUTO_BLOCK=false
+#    PORT=8000               port to expose the web UI
 # ============================================================
 set -euo pipefail
 
@@ -31,6 +32,7 @@ ML_REPO="https://github.com/DimaFi/AnomalyNet-ml.git"
 MODEL_DIR="${MODEL_DIR:-$INSTALL_DIR/AnomalyNet-ml}"
 AUTO_BLOCK="${AUTO_BLOCK:-false}"
 DETECTION_MODE="${DETECTION_MODE:-simple}"
+PORT="${PORT:-8000}"
 
 detect_interface() {
     ip -o link show | awk -F': ' '$2 !~ /lo|docker|br-|virbr/ {print $2; exit}'
@@ -46,32 +48,65 @@ log "Install dir     : $INSTALL_DIR"
 log "Interface       : $INTERFACE"
 log "Model dir       : $MODEL_DIR"
 log "Detection mode  : $DETECTION_MODE"
+log "Port            : $PORT"
 echo ""
+
+# ── 0. Swap (critical for 2GB RAM — npm build needs ~1.5GB) ──
+SWAP_FILE="/swapfile"
+TOTAL_RAM_MB=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
+if [ "$TOTAL_RAM_MB" -lt 3500 ] && [ ! -f "$SWAP_FILE" ]; then
+    log "Low RAM detected (${TOTAL_RAM_MB}MB). Creating 2GB swap..."
+    sudo fallocate -l 2G "$SWAP_FILE" 2>/dev/null || sudo dd if=/dev/zero of="$SWAP_FILE" bs=1M count=2048 status=none
+    sudo chmod 600 "$SWAP_FILE"
+    sudo mkswap "$SWAP_FILE" -q
+    sudo swapon "$SWAP_FILE"
+    echo "$SWAP_FILE none swap sw 0 0" | sudo tee -a /etc/fstab > /dev/null
+    ok "Swap created (2GB)"
+else
+    ok "Swap: OK (RAM=${TOTAL_RAM_MB}MB)"
+fi
 
 # ── 1. System dependencies ───────────────────────────────────
 log "Installing system packages..."
 if command -v apt-get &>/dev/null; then
     sudo apt-get update -qq
+    # python3.10-venv is separate on Ubuntu 22.04 — must install explicitly
     sudo apt-get install -y -qq \
-        python3 python3-pip python3-venv python3-dev \
+        python3 python3-pip python3-venv python3-dev python3-full \
         libpcap-dev libpcap0.8 \
-        nodejs npm \
         git curl wget \
-        net-tools iproute2 2>/dev/null || true
+        net-tools iproute2 \
+        ufw 2>/dev/null || true
+
+    # Node.js: install v20 via NodeSource (Ubuntu ships v12 which is too old)
     NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
     if [ "$NODE_VER" -lt 18 ]; then
-        warn "Node.js $NODE_VER is too old, installing v20 via NodeSource..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-        sudo apt-get install -y nodejs
+        log "Installing Node.js 20 via NodeSource..."
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - 2>/dev/null
+        sudo apt-get install -y -qq nodejs
     fi
 elif command -v dnf &>/dev/null; then
-    sudo dnf install -y python3 python3-pip libpcap libpcap-devel nodejs npm git
+    sudo dnf install -y python3 python3-pip python3-devel libpcap libpcap-devel git curl
+    # Node.js via NodeSource for RHEL/CentOS
+    curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+    sudo dnf install -y nodejs
 else
-    err "Unsupported package manager. Install manually: python3, nodejs, libpcap-dev, git"
+    err "Unsupported package manager. Install manually: python3, nodejs 20+, libpcap-dev, git"
 fi
-ok "System packages ready"
 
-# ── 2. Clone / update repos ───────────────────────────────────
+# Verify versions
+PYTHON_VER=$(python3 --version 2>&1)
+NODE_VER_FULL=$(node --version 2>&1)
+ok "System packages: $PYTHON_VER | Node $(node --version)"
+
+# ── 2. Open firewall port ─────────────────────────────────────
+log "Configuring firewall (UFW port $PORT)..."
+if command -v ufw &>/dev/null; then
+    sudo ufw allow "$PORT/tcp" comment "AnomalyNet web UI" 2>/dev/null || true
+    ok "UFW: port $PORT open"
+fi
+
+# ── 3. Clone / update repos ───────────────────────────────────
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
@@ -80,15 +115,16 @@ if [ -d "AnomalyNet-gui/.git" ]; then
     git -C AnomalyNet-gui pull --quiet
 else
     log "Cloning AnomalyNet-gui..."
-    git clone --quiet "$GUI_REPO" AnomalyNet-gui
+    git clone --quiet --depth 1 "$GUI_REPO" AnomalyNet-gui
 fi
 
 if [ -d "$MODEL_DIR/.git" ]; then
     log "Updating AnomalyNet-ml..."
     git -C "$MODEL_DIR" pull --quiet
 else
-    log "Cloning AnomalyNet-ml (models + artifacts)..."
-    git clone --quiet "$ML_REPO" "$MODEL_DIR"
+    log "Cloning AnomalyNet-ml (models — may take 1-2 min, ~120MB)..."
+    # --depth 1 skips full git history; saves ~50MB and speeds up clone
+    git clone --quiet --depth 1 "$ML_REPO" "$MODEL_DIR"
 fi
 ok "Repos ready"
 
@@ -99,35 +135,46 @@ STAGE2_MODEL_DIR="$MODEL_DIR/stage2_multiclass/models/catboost"
 STAGE3_MODEL_DIR="$MODEL_DIR/stage3_cic2023/models/catboost"
 STAGE3_ARTIFACTS="$MODEL_DIR/stage3_cic2023/artifacts"
 
+# Verify critical model files exist
+[ -d "$STAGE1_MODEL_DIR" ] || err "Stage1 model dir not found: $STAGE1_MODEL_DIR"
+[ -d "$STAGE1_ARTIFACTS" ] || err "Stage1 artifacts dir not found: $STAGE1_ARTIFACTS"
+
 # Select cascade model based on detection mode
 if [ "$DETECTION_MODE" = "advanced" ]; then
     ACTIVE_MODEL_ID="catboost-cascade-advanced"
     SEC_MODEL_DIR="$STAGE3_MODEL_DIR"
     SEC_ARTIFACTS="$STAGE3_ARTIFACTS"
+    [ -d "$STAGE3_MODEL_DIR" ] || err "Stage3 model dir not found: $STAGE3_MODEL_DIR (needed for advanced mode)"
 else
     ACTIVE_MODEL_ID="catboost-cascade-simple"
     SEC_MODEL_DIR="$STAGE2_MODEL_DIR"
     SEC_ARTIFACTS=""
+    [ -d "$STAGE2_MODEL_DIR" ] || err "Stage2 model dir not found: $STAGE2_MODEL_DIR (needed for simple mode)"
 fi
 
-# ── 3. Python venv + deps ─────────────────────────────────────
+# ── 4. Python venv + deps ─────────────────────────────────────
 GUI_DIR="$INSTALL_DIR/AnomalyNet-gui"
 VENV="$GUI_DIR/backend/.venv"
 
 log "Setting up Python venv..."
-python3 -m venv "$VENV"
-"$VENV/bin/pip" install --quiet --upgrade pip
+# Prefer python3.11 if available; fall back to python3
+PYTHON_BIN=$(command -v python3.11 || command -v python3.10 || command -v python3)
+log "Using Python: $($PYTHON_BIN --version)"
+
+"$PYTHON_BIN" -m venv "$VENV"
+"$VENV/bin/pip" install --quiet --upgrade pip setuptools wheel
 "$VENV/bin/pip" install --quiet -r "$GUI_DIR/backend/requirements.txt"
 ok "Python dependencies installed"
 
-# ── 4. Build frontend ─────────────────────────────────────────
-log "Building React frontend..."
+# ── 5. Build frontend ─────────────────────────────────────────
+log "Building React frontend (may take 2-3 min on low RAM)..."
 cd "$GUI_DIR/frontend"
-npm install --silent
-npm run build
+npm install --silent --prefer-offline
+# Limit Node.js heap to avoid OOM on 2GB VPS
+NODE_OPTIONS="--max-old-space-size=1536" npm run build
 ok "Frontend built"
 
-# ── 5. Write settings.json ────────────────────────────────────
+# ── 6. Write settings.json ────────────────────────────────────
 log "Writing config/settings.json..."
 SETTINGS="$GUI_DIR/config/settings.json"
 cat > "$SETTINGS" <<SETTINGS_EOF
@@ -151,10 +198,8 @@ cat > "$SETTINGS" <<SETTINGS_EOF
 SETTINGS_EOF
 ok "Config written (mode: $DETECTION_MODE, iface: $INTERFACE)"
 
-# ── 6. Update presets with actual paths ───────────────────────
+# ── 7. Update presets with actual paths ───────────────────────
 log "Configuring model presets..."
-# The store reads ANOMALYNET_MODELS_ROOT to resolve preset paths
-# We bake the actual paths into the presets file for clarity
 PRESETS="$GUI_DIR/config/model_presets.json"
 cat > "$PRESETS" <<PRESETS_EOF
 {
@@ -216,7 +261,7 @@ cat > "$PRESETS" <<PRESETS_EOF
 PRESETS_EOF
 ok "Model presets configured"
 
-# ── 7. Startup script ─────────────────────────────────────────
+# ── 8. Startup script ─────────────────────────────────────────
 START_SCRIPT="$INSTALL_DIR/start.sh"
 cat > "$START_SCRIPT" <<SCRIPT_EOF
 #!/usr/bin/env bash
@@ -229,17 +274,19 @@ if [ "\$(id -u)" -ne 0 ]; then
 fi
 echo ""
 echo "  AnomalyNet started"
-echo "  URL: http://\$(hostname -I | awk '{print \$1}'):8000"
+echo "  URL: http://\$(hostname -I | awk '{print \$1}'):${PORT}"
 echo ""
+export ANOMALYNET_APP_ROOT="\$GUI_DIR"
+export ANOMALYNET_MODELS_ROOT="${MODEL_DIR}"
 cd "\$GUI_DIR/backend"
 exec "\$VENV/bin/uvicorn" app.main:app \
     --host 0.0.0.0 \
-    --port 8000 \
-    --log-level warning
+    --port ${PORT} \
+    --log-level info
 SCRIPT_EOF
 chmod +x "$START_SCRIPT"
 
-# ── 8. Systemd service ────────────────────────────────────────
+# ── 9. Systemd service ────────────────────────────────────────
 SERVICE="/etc/systemd/system/anomalynet.service"
 log "Creating systemd service..."
 sudo tee "$SERVICE" > /dev/null <<SERVICE_EOF
@@ -251,7 +298,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=${GUI_DIR}/backend
-ExecStart=${VENV}/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level warning
+ExecStart=${VENV}/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --log-level info
 Restart=on-failure
 RestartSec=5
 Environment=ANOMALYNET_APP_ROOT=${GUI_DIR}
@@ -271,9 +318,14 @@ echo ""
 echo "================================================"
 echo "  Installation complete!"
 echo ""
-echo "  Start:   sudo $START_SCRIPT"
-echo "  Service: sudo systemctl start anomalynet"
-echo "  UI:      http://${IP}:8000"
+echo "  Manual start : sudo $START_SCRIPT"
+echo "  Service start: sudo systemctl start anomalynet"
+echo "  Service logs : journalctl -u anomalynet -f"
 echo ""
-echo "  Logs:    journalctl -u anomalynet -f"
+echo "  Web UI       : http://${IP}:${PORT}"
+echo "  API health   : http://${IP}:${PORT}/api/health"
+echo "  Debug stats  : http://${IP}:${PORT}/api/debug/stats"
+echo ""
+echo "  Detection mode: ${DETECTION_MODE}"
+echo "  Interface     : ${INTERFACE}"
 echo "================================================"

@@ -172,3 +172,24 @@ class BlockResponse(BaseModel):
     ip_address: str
     blocked: bool
     message: str = ""
+
+
+class AttackClassStats(BaseModel):
+    count: int
+    last_seen: datetime | None = None
+
+
+class DebugStats(BaseModel):
+    """Detailed statistics for developer/debug view."""
+    uptime_events_total: int
+    events_by_label: dict[str, int]           # normal / warning / anomaly
+    events_by_protocol: dict[str, int]         # TCP / UDP / ICMP / OTHER
+    events_by_attack_class: dict[str, int]     # DoS, DDoS, Recon, ...
+    top_src_ips: dict[str, int]                # src_ip → count (top 10)
+    top_dst_ports: dict[str, int]              # dst_port → count (top 10)
+    avg_score: float
+    max_score: float
+    detection_mode: str
+    active_model_id: str
+    interface: str
+    capture_status: str

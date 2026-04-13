@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.contracts.schemas import (
-    AppSettings, HealthResponse, ModelPresetsRegistry, ModelsRegistry,
+    AppSettings, DebugStats, HealthResponse, ModelPresetsRegistry, ModelsRegistry,
     SettingsUpdate, StreamSnapshot,
 )
 from app.dependencies import get_pipeline_service
@@ -65,6 +65,12 @@ def get_history(limit: int = 50, service: PipelineService = Depends(get_pipeline
 def get_model_presets(service: PipelineService = Depends(get_pipeline_service)) -> ModelPresetsRegistry:
     """Returns all available model presets with resolved paths."""
     return service.get_presets()
+
+
+@router.get("/debug/stats", response_model=DebugStats)
+def get_debug_stats(service: PipelineService = Depends(get_pipeline_service)) -> DebugStats:
+    """Detailed detection statistics — for developer/debug view and VPS testing."""
+    return service.debug_stats()
 
 
 @router.post("/model-presets/apply/{preset_id}", response_model=AppSettings)
