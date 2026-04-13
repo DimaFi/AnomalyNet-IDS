@@ -56,7 +56,8 @@ function nextEvent(): PipelineEvent {
       label,
       score: Number(score.toFixed(3)),
       reason,
-      model_id: "mock-default"
+      model_id: "mock-default",
+      attack_class: null
     },
     alert:
       label === "normal"
@@ -79,7 +80,15 @@ export const mockSettings: AppSettings = {
   retention_days: 14,
   active_model_id: "mock-default",
   capture_enabled: true,
-  stream_autostart: true
+  stream_autostart: true,
+  interface_name: "eth0",
+  catboost_threshold: 0.70,
+  catboost_model_dir: "",
+  preprocessing_artifacts_dir: "",
+  auto_block: false,
+  detection_mode: "simple",
+  catboost_secondary_model_dir: "",
+  catboost_secondary_artifacts_dir: ""
 };
 
 export const mockHealth: HealthResponse = {
