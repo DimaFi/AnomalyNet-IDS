@@ -169,7 +169,7 @@ ok "Python dependencies installed"
 # ── 5. Build frontend ─────────────────────────────────────────
 log "Building React frontend (may take 2-3 min on low RAM)..."
 cd "$GUI_DIR/frontend"
-npm install --silent --prefer-offline
+npm install --silent
 # Limit Node.js heap to avoid OOM on 2GB VPS
 NODE_OPTIONS="--max-old-space-size=1536" npm run build
 ok "Frontend built"
