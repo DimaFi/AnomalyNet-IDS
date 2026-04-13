@@ -6,6 +6,16 @@ import { useBlockIp } from "../../lib/useBlockIp";
 import styles from "../panel.module.css";
 import blockStyles from "./StreamView.module.css";
 
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString("ru-RU", {
+      hour: "2-digit", minute: "2-digit", second: "2-digit"
+    });
+  } catch {
+    return "—";
+  }
+}
+
 export function StreamView() {
   const { t } = useTranslation();
   const stream     = useAppStore((state) => state.stream);
@@ -30,6 +40,7 @@ export function StreamView() {
         <table className={styles.table}>
           <thead>
             <tr>
+              <th style={{ width: 70 }}>{t("stream.time", "Время")}</th>
               <th>{t("stream.source")}</th>
               <th>{t("stream.route")}</th>
               <th>{t("stream.protocol")}</th>
@@ -50,6 +61,7 @@ export function StreamView() {
                   key={item.event.event_id}
                   className={isAttack ? blockStyles.attackRow : ""}
                 >
+                  <td className={blockStyles.timeCell}>{formatTime(item.event.timestamp)}</td>
                   <td>{item.event.source}</td>
                   <td className={blockStyles.route}>
                     <span className={blockStyles.ip}>{item.event.src_ip}</span>

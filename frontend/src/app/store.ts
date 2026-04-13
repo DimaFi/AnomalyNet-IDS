@@ -43,7 +43,14 @@ export const useAppStore = create<AppState>((set) => ({
 
   setView: (view) => set({ view }),
   setHealth: (health) => set({ health }),
-  setSettings: (settings) => set({ settings }),
+  setSettings: (settings) => set((state) => {
+    const prevMode = state.settings?.run_mode;
+    const switchingFromMock = prevMode === "mock" && settings.run_mode !== "mock";
+    return {
+      settings,
+      ...(switchingFromMock ? { stream: [] } : {}),
+    };
+  }),
   setModels: (models) => set({ models }),
 
   pushStreamItem: (item) =>

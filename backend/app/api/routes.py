@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.contracts.schemas import (
@@ -71,6 +73,23 @@ def get_model_presets(service: PipelineService = Depends(get_pipeline_service)) 
 def get_debug_stats(service: PipelineService = Depends(get_pipeline_service)) -> DebugStats:
     """Detailed detection statistics — for developer/debug view and VPS testing."""
     return service.debug_stats()
+
+
+@router.get("/export")
+def export_data(
+    limit: int = 200,
+    service: PipelineService = Depends(get_pipeline_service)
+):
+    """Export structured detection report: summary stats + recent events history.
+    Useful for thesis/research data collection after a test session."""
+    stats = service.debug_stats()
+    history = service.history(limit=limit)
+    return {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "summary": stats.model_dump(),
+        "events_count": len(history),
+        "events": [e.model_dump(mode="json") for e in history],
+    }
 
 
 @router.post("/model-presets/apply/{preset_id}", response_model=AppSettings)
