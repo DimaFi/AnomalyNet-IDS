@@ -172,6 +172,26 @@ export function SettingsView() {
               onChange={(e) => patch({ auto_block: e.target.checked })} />
             <span>{t("settings.autoBlock")}</span>
           </label>
+          <label className={styles.field}>
+            <span>
+              Белый список IP
+              <span className={selfStyles.badgeValue} style={{ marginLeft: 8, fontSize: 11 }}>
+                не блокируются
+              </span>
+            </span>
+            <input
+              type="text"
+              value={(settings.whitelist_ips ?? []).join(", ")}
+              placeholder="192.168.1.1, 10.0.0.5"
+              onChange={(e) => {
+                const ips = e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                patch({ whitelist_ips: ips });
+              }}
+            />
+          </label>
         </div>
       </div>
 

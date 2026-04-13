@@ -148,9 +148,13 @@ class PipelineService:
                         details=inference.reason,
                         event_id=event.event_id,
                     )
-                    # Auto-block on both anomaly and warning (real attacks)
-                    if self._settings.auto_block and inference.label in ("anomaly", "warning"):
-                        await self._try_block_ip(event.src_ip)
+                    # Auto-block: anomaly always, warning only if not in whitelist
+                    if self._settings.auto_block and inference.label == "anomaly":
+                        if event.src_ip not in self._settings.whitelist_ips:
+                            await self._try_block_ip(event.src_ip)
+                    elif self._settings.auto_block and inference.label == "warning":
+                        if event.src_ip not in self._settings.whitelist_ips:
+                            await self._try_block_ip(event.src_ip)
 
                 # Update rolling debug counters
                 self._total_events += 1

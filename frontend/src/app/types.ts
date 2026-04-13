@@ -20,6 +20,7 @@ export interface AppSettings {
   catboost_model_dir: string;
   preprocessing_artifacts_dir: string;
   auto_block: boolean;
+  whitelist_ips: string[];
   // Dual-mode detection
   detection_mode: "simple" | "advanced";
   catboost_secondary_model_dir: string;

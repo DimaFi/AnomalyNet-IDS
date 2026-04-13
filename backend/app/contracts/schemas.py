@@ -29,6 +29,8 @@ class AppSettings(BaseModel):
     catboost_model_dir: str = ""
     preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
+    # IPs that are never auto-blocked (whitelist)
+    whitelist_ips: list[str] = Field(default_factory=list)
     # Dual-mode detection
     detection_mode: DetectionMode = "simple"
     # Secondary model: Stage2 (simple) or Stage3 (advanced)
