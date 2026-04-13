@@ -99,6 +99,16 @@ class CascadeAdvancedAdapter:
                 secondary_values=None,
             )
             result3 = self._stage3.infer(sec_fv)
+            # If Stage3 is not confident (returned normal) — fall back to Stage1 result
+            if result3.label == "normal":
+                return InferenceResult(
+                    event_id=result1.event_id,
+                    label=result1.label,
+                    score=result1.score,
+                    reason=result1.reason + " [Stage3: низкая уверенность в классе]",
+                    model_id=self._model_id,
+                    attack_class=None,
+                )
             return InferenceResult(
                 event_id=result3.event_id,
                 label=result3.label,

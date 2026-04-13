@@ -127,11 +127,12 @@ class CatBoostModelAdapter:
                     f"(уверенность {max_proba:.3f})"
                 )
             else:
-                # Низкая уверенность — всё равно помечаем, но как warning
-                label  = "warning"
-                reason = (
-                    f"Неоднозначный трафик: возможно {class_name} "
-                    f"(уверенность {max_proba:.3f} < порог {self._threshold})"
+                # Низкая уверенность — не навязываем класс атаки
+                label        = "normal"
+                attack_class = None
+                reason       = (
+                    f"Низкая уверенность: возможно {class_name} "
+                    f"({max_proba:.3f} < порог {self._threshold})"
                 )
 
         return InferenceResult(
