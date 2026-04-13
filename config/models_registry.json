@@ -51,7 +51,7 @@
       "supported_modes": [],
       "is_mock": false,
       "description": "Многоклассовый CatBoost (8 классов), обученный на CIC IoT 2023. 46 IoT-специфичных признаков. Macro F1=0.819. Используется как вторичная модель в режиме Advanced.",
-      "status": "research"
+      "status": "idle"
     },
     {
       "model_id": "catboost-cascade-simple",
