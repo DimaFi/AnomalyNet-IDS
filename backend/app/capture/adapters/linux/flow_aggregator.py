@@ -50,12 +50,7 @@ class FlowAggregator:
                 await self._reaper_task
             except asyncio.CancelledError:
                 pass
-        # Finalize all remaining flows
-        for record in list(self._flows.values()):
-            try:
-                await self._on_flow_complete(record)
-            except Exception:
-                pass
+        # On shutdown just discard in-flight flows — no need to finalize them
         self._flows.clear()
         self._closing.clear()
 

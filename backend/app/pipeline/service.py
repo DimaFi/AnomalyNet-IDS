@@ -69,12 +69,15 @@ class PipelineService:
         if self._loop_task:
             self._loop_task.cancel()
             try:
-                await self._loop_task
-            except asyncio.CancelledError:
+                await asyncio.wait_for(asyncio.shield(self._loop_task), timeout=3.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
                 pass
             finally:
                 self._loop_task = None
-        await self._stop_adapter()
+        try:
+            await asyncio.wait_for(self._stop_adapter(), timeout=5.0)
+        except asyncio.TimeoutError:
+            pass
 
     async def _stop_adapter(self) -> None:
         if self._capture_adapter is not None:
