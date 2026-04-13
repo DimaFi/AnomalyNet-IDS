@@ -29,6 +29,9 @@ class AppSettings(BaseModel):
     catboost_model_dir: str = ""
     preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
+    # "anomaly" = блокировать только аномалии (score≥0.85)
+    # "warning"  = блокировать и предупреждения, и аномалии
+    auto_block_level: Literal["anomaly", "warning"] = "anomaly"
     # IPs that are never auto-blocked (whitelist)
     whitelist_ips: list[str] = Field(default_factory=list)
     # Dual-mode detection

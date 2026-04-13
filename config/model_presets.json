@@ -2,8 +2,8 @@
   "presets": [
     {
       "id": "mock",
-      "name": "Demo (Mock)",
-      "description": "Демо-режим без реального перехвата трафика. Генерирует случайные события. Работает на любой системе без прав root.",
+      "name": "Demo (без захвата)",
+      "description": "Демо-режим: генерирует случайные события для ознакомления с интерфейсом. Не требует прав root и реального трафика. Подходит для презентации.",
       "icon": "demo",
       "active_model_id": "mock-default",
       "run_mode": "mock",
@@ -15,42 +15,42 @@
     },
     {
       "id": "binary-v1",
-      "name": "Binary Detector (Stage1)",
-      "description": "Бинарный классификатор: Benign / Attack. Высокая скорость, F1=99.4%. Не определяет тип атаки. Обучен на CIC IoT 2024.",
+      "name": "Быстрый детектор (только атака/норма)",
+      "description": "Определяет: атака или нет. Высокая скорость, F1=99.4%. Не показывает тип атаки. Хороший выбор для минимальной нагрузки на систему.",
       "icon": "binary",
       "active_model_id": "catboost-iot-v1",
       "run_mode": "linux_live",
       "detection_mode": "simple",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
+      "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
+      "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
       "catboost_secondary_model_dir": "",
       "catboost_secondary_artifacts_dir": ""
     },
     {
       "id": "simple-cascade",
-      "name": "Simple Cascade (Stage1 + Stage2)",
-      "description": "Каскад: Stage1 (binary gate, F1=99.4%) → Stage2 (8 классов атак). 71 CICFlowMeter признак. Определяет тип атаки: DoS, DDoS, Bot и т.д. Macro F1=0.31 на редких классах.",
+      "name": "Simple — обнаружение + тип атаки",
+      "description": "Сначала фильтрует трафик (атака/норма), затем определяет тип: DoS, DDoS, Recon, BruteForce и др. Стандартный режим для большинства задач.",
       "icon": "simple",
       "active_model_id": "catboost-cascade-simple",
       "run_mode": "linux_live",
       "detection_mode": "simple",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
+      "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
+      "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
+      "catboost_secondary_model_dir": "/opt/anomalynet/models/stage2/catboost",
       "catboost_secondary_artifacts_dir": ""
     },
     {
       "id": "advanced-cascade",
-      "name": "Advanced Cascade (Stage1 + Stage3 IoT2023)",
-      "description": "Каскад: Stage1 (binary gate) → Stage3 CIC IoT 2023 (8 классов). Двойной extractor: 71 + 46 признаков. Macro F1=0.819. Значительно лучше на Recon (F1=0.84), Bot (F1=1.0), Spoofing (F1=0.86).",
+      "name": "Advanced — улучшенная классификация IoT",
+      "description": "Использует расширенный набор признаков специально для IoT-трафика. Значительно точнее распознаёт Recon, Bot и Spoofing-атаки. Macro F1=0.82 против 0.31 у Simple.",
       "icon": "advanced",
       "active_model_id": "catboost-cascade-advanced",
       "run_mode": "linux_live",
       "detection_mode": "advanced",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": ""
+      "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
+      "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
+      "catboost_secondary_model_dir": "/opt/anomalynet/models/stage3/catboost",
+      "catboost_secondary_artifacts_dir": "/opt/anomalynet/models/stage3/artifacts"
     }
   ]
 }

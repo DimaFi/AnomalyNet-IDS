@@ -86,6 +86,7 @@ export const mockSettings: AppSettings = {
   catboost_model_dir: "",
   preprocessing_artifacts_dir: "",
   auto_block: false,
+  auto_block_level: "anomaly" as const,
   whitelist_ips: [],
   detection_mode: "simple",
   catboost_secondary_model_dir: "",

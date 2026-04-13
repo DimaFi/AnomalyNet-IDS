@@ -169,10 +169,14 @@ export function App() {
           <span className={styles.topbarTitle}>{PAGE_TITLES[view]}</span>
           <div className={styles.topbarMeta}>
             {settings?.run_mode && (
-              <span className={styles.modeBadge}>{settings.run_mode}</span>
+              <span className={styles.modeBadge}>
+                {settings.run_mode === "mock" ? "Demo" : settings.run_mode === "linux_live" ? "Live" : settings.run_mode}
+              </span>
             )}
-            {settings?.active_model_id && (
-              <span className={styles.modeBadge}>{settings.active_model_id}</span>
+            {settings?.run_mode !== "mock" && settings?.detection_mode && (
+              <span className={[styles.modeBadge, settings.detection_mode === "advanced" ? styles.modeBadgeAdvanced : ""].filter(Boolean).join(" ")}>
+                {settings.detection_mode === "advanced" ? "Advanced" : "Simple"}
+              </span>
             )}
             {settings && (
               <button

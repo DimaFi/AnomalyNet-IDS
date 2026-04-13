@@ -173,6 +173,17 @@ export function SettingsView() {
             <span>{t("settings.autoBlock")}</span>
           </label>
           <label className={styles.field}>
+            <span>Уровень авто-блокировки</span>
+            <select
+              value={settings.auto_block_level ?? "anomaly"}
+              disabled={!settings.auto_block}
+              onChange={(e) => patch({ auto_block_level: e.target.value as "anomaly" | "warning" })}
+            >
+              <option value="anomaly">Только аномалии (score ≥ 0.85) — консервативно</option>
+              <option value="warning">Предупреждения + аномалии (score ≥ 0.70) — агрессивно</option>
+            </select>
+          </label>
+          <label className={styles.field}>
             <span>
               Белый список IP
               <span className={selfStyles.badgeValue} style={{ marginLeft: 8, fontSize: 11 }}>

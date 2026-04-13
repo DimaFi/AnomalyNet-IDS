@@ -8,11 +8,12 @@
   "stream_autostart": true,
   "interface_name": "eth0",
   "catboost_threshold": 0.7,
-  "catboost_model_dir": "G:/Диплом/IoT/stage1_v2_cl/models/catboost",
-  "preprocessing_artifacts_dir": "G:/Диплом/IoT/stage1_v2_cl/artifacts",
+  "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
+  "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
   "auto_block": false,
+  "auto_block_level": "anomaly",
   "whitelist_ips": [],
   "detection_mode": "simple",
-  "catboost_secondary_model_dir": "G:/Диплом/IoT/stage2_multiclass/models/catboost",
+  "catboost_secondary_model_dir": "/opt/anomalynet/models/stage2/catboost",
   "catboost_secondary_artifacts_dir": ""
 }
