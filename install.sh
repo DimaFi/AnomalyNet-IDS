@@ -140,8 +140,8 @@ copy_dir() {
     fi
 }
 
-copy_dir "$ML_DIR/stage1_v2_cl/models/catboost"    "$MODELS_DIR/stage1/catboost"   "Stage1 модель (binary)"
-copy_dir "$ML_DIR/stage1_v2_cl/artifacts"           "$MODELS_DIR/stage1/artifacts"  "Stage1 артефакты"
+copy_dir "$ML_DIR/model"        "$MODELS_DIR/stage1/catboost"  "Stage1 модель (binary)"
+copy_dir "$ML_DIR/artifacts"    "$MODELS_DIR/stage1/artifacts" "Stage1 артефакты"
 copy_dir "$ML_DIR/stage2_multiclass/models/catboost" "$MODELS_DIR/stage2/catboost"  "Stage2 модель (simple, 71 признак)"
 copy_dir "$ML_DIR/stage3_cic2023/models/catboost"   "$MODELS_DIR/stage3/catboost"   "Stage3 модель (advanced, 46 признаков)"
 copy_dir "$ML_DIR/stage3_cic2023/artifacts"         "$MODELS_DIR/stage3/artifacts"  "Stage3 артефакты"
@@ -198,6 +198,8 @@ ok "Python-зависимости установлены"
 # ── 7. Сборка фронтенда ──────────────────────────────────────
 log "Сборка React-фронтенда (2-3 мин на слабом сервере)..."
 cd "$GUI_DIR/frontend"
+# Удаляем node_modules и lock-файл чтобы избежать rollup-бага npm (optional deps)
+rm -rf node_modules package-lock.json
 npm install --silent
 NODE_OPTIONS="--max-old-space-size=1536" npm run build
 ok "Фронтенд собран"
