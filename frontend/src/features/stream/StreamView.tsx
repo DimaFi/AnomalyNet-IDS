@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import { StatusPill } from "../../components/StatusPill";
 import { formatBytes } from "../../lib/format";
 import { useBlockIp } from "../../lib/useBlockIp";
+import { refreshStreamFromSnapshot } from "../../lib/useRealtimeStream";
 import styles from "../panel.module.css";
 import blockStyles from "./StreamView.module.css";
 
@@ -18,9 +20,17 @@ function formatTime(iso: string): string {
 
 export function StreamView() {
   const { t } = useTranslation();
-  const stream     = useAppStore((state) => state.stream);
-  const blockedIps = useAppStore((state) => state.blockedIps);
-  const blockIp    = useBlockIp();
+  const stream      = useAppStore((state) => state.stream);
+  const blockedIps  = useAppStore((state) => state.blockedIps);
+  const replaceStream = useAppStore((state) => state.replaceStream);
+  const blockIp     = useBlockIp();
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await refreshStreamFromSnapshot(replaceStream);
+    setRefreshing(false);
+  }
 
   return (
     <section className={styles.panel}>
@@ -31,9 +41,19 @@ export function StreamView() {
             {t("stream.subtitle", "Потоки в реальном времени — признаки, предсказания, статус")}
           </p>
         </div>
-        <span className={blockStyles.counter}>
-          {stream.length} {t("stream.events", "событий")}
-        </span>
+        <div className={blockStyles.headerRight}>
+          <span className={blockStyles.counter}>
+            {stream.length} {t("stream.events", "событий")}
+          </span>
+          <button
+            className={blockStyles.refreshBtn}
+            onClick={() => void handleRefresh()}
+            disabled={refreshing}
+            title="Обновить из последнего снапшота"
+          >
+            {refreshing ? "..." : "↺ Обновить"}
+          </button>
+        </div>
       </div>
 
       <div className={styles.tableWrap}>

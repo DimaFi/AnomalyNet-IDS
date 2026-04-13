@@ -148,7 +148,8 @@ class PipelineService:
                         details=inference.reason,
                         event_id=event.event_id,
                     )
-                    if self._settings.auto_block and inference.label == "anomaly":
+                    # Auto-block on both anomaly and warning (real attacks)
+                    if self._settings.auto_block and inference.label in ("anomaly", "warning"):
                         await self._try_block_ip(event.src_ip)
 
                 # Update rolling debug counters
@@ -179,6 +180,8 @@ class PipelineService:
                 await asyncio.sleep(2.0)
 
     async def _try_block_ip(self, ip: str) -> None:
+        if ip in self._blocked_ips_registry:
+            return  # already blocked, skip duplicate iptables call
         try:
             proc = await asyncio.create_subprocess_exec(
                 "iptables", "-I", "INPUT", "-s", ip, "-j", "DROP",
@@ -186,6 +189,8 @@ class PipelineService:
                 stderr=asyncio.subprocess.DEVNULL,
             )
             await proc.wait()
+            if proc.returncode == 0:
+                self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
         except Exception:
             pass
 
