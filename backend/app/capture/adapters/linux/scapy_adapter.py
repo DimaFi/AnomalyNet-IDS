@@ -60,12 +60,14 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._sniffer.start()
 
     async def stop(self) -> None:
-        """Stop sniffer and aggregator."""
+        """Stop sniffer and aggregator.
+        join=False avoids blocking on socket.recv() in the scapy capture thread."""
         if self._sniffer is not None:
             try:
-                self._sniffer.stop()
+                self._sniffer.stop(join=False)
             except Exception:
                 pass
+            self._sniffer = None
         await self._aggregator.stop()
 
     def _packet_callback(self, pkt) -> None:
