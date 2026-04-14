@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ToastContainer } from "../components/ToastContainer";
 import { DashboardView } from "../features/dashboard/DashboardView";
-import { ModelsView } from "../features/models/ModelsView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StreamView } from "../features/stream/StreamView";
 import { api } from "../lib/api";
@@ -10,12 +9,11 @@ import { useRealtimeStream } from "../lib/useRealtimeStream";
 import { useAppStore } from "./store";
 import styles from "./App.module.css";
 
-type ViewKey = "dashboard" | "stream" | "models" | "settings";
+type ViewKey = "dashboard" | "stream" | "settings";
 
 const viewMap: Record<ViewKey, React.ComponentType> = {
   dashboard: DashboardView,
   stream: StreamView,
-  models: ModelsView,
   settings: SettingsView,
 };
 
@@ -39,18 +37,6 @@ function IconStream() {
   );
 }
 
-function IconModels() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <circle cx="12" cy="12" r="9" />
-      <line x1="12" y1="3" x2="12" y2="9" />
-      <line x1="12" y1="15" x2="12" y2="21" />
-      <line x1="3" y1="12" x2="9" y2="12" />
-      <line x1="15" y1="12" x2="21" y2="12" />
-    </svg>
-  );
-}
 
 function IconSettings() {
   return (
@@ -64,14 +50,12 @@ function IconSettings() {
 const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = [
   { key: "dashboard", Icon: IconDashboard, label: "Dashboard" },
   { key: "stream",    Icon: IconStream,    label: "Stream" },
-  { key: "models",    Icon: IconModels,    label: "Models" },
   { key: "settings",  Icon: IconSettings,  label: "Settings" },
 ];
 
 const PAGE_TITLES: Record<ViewKey, string> = {
   dashboard: "Dashboard",
   stream:    "Live Stream",
-  models:    "Models",
   settings:  "Settings",
 };
 

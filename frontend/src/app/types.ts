@@ -3,7 +3,7 @@ export type LanguageCode = "ru" | "en";
 export type RunMode = "mock" | "windows_stub" | "linux_stub" | "linux_live";
 export type StatusLevel = "idle" | "active" | "warning" | "error";
 export type VerdictLabel = "normal" | "warning" | "anomaly";
-export type AppView = "dashboard" | "stream" | "models" | "settings";
+export type AppView = "dashboard" | "stream" | "settings";
 
 export interface AppSettings {
   language: LanguageCode;
