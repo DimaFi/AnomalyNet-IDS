@@ -15,11 +15,12 @@ from typing import Callable, Awaitable
 from app.capture.adapters.linux.flow_record import FlowRecord
 
 # Maximum simultaneous tracked flows (DoS / SYN-flood protection)
-MAX_FLOWS = 50_000
+# When cap is reached, new flows are DROPPED (not evicted) — O(1), no CPU spike
+MAX_FLOWS = 10_000
 # Flow is expired if last packet was more than this many seconds ago
-FLOW_TIMEOUT_S: float = 120.0
+FLOW_TIMEOUT_S: float = 60.0
 # How often the reaper wakes up to sweep expired flows
-REAPER_INTERVAL_S: float = 10.0
+REAPER_INTERVAL_S: float = 5.0
 # Grace period after FIN/RST before finalizing (seconds)
 FIN_GRACE_S: float = 2.0
 
@@ -117,16 +118,10 @@ class FlowAggregator:
         ts = time.monotonic()
 
         if key not in self._flows:
-            # Enforce MAX_FLOWS cap: evict oldest flow
+            # Enforce MAX_FLOWS cap: DROP new flows when full (O(1), prevents CPU spike)
+            # Existing flows continue to be processed and will expire via reaper
             if len(self._flows) >= MAX_FLOWS:
-                oldest_key = min(self._flows, key=lambda k: self._flows[k].last_time)
-                old_record = self._flows.pop(oldest_key, None)
-                self._closing.pop(oldest_key, None)
-                if old_record and self._loop:
-                    self._loop.call_soon_threadsafe(
-                        asyncio.ensure_future,
-                        self._on_flow_complete(old_record),
-                    )
+                return
 
             record = FlowRecord(
                 src_ip=src_ip,
