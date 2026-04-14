@@ -49,7 +49,19 @@ class CascadeSimpleAdapter:
 
         # Stage2: multiclass classification (uses the same 71-feature values)
         result2 = self._stage2.infer(features)
-        # Override model_id to reflect cascade
+
+        # If Stage2 is not confident (predicted Benign) — keep Stage1's detection
+        # so that confirmed attacks are never silently downgraded to "normal"
+        if result2.label == "normal":
+            return InferenceResult(
+                event_id=result1.event_id,
+                label=result1.label,
+                score=result1.score,
+                reason=result1.reason + " [Stage2: низкая уверенность в классе]",
+                model_id=self._model_id,
+                attack_class=None,
+            )
+
         return InferenceResult(
             event_id=result2.event_id,
             label=result2.label,

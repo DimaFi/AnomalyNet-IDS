@@ -78,6 +78,19 @@
       "is_mock": false,
       "description": "Каскад Stage1+Stage3: бинарный фильтр (F1=99.4%) → IoT 2023 классификатор (Macro F1=0.819). Двойной extractor: 71 + 46 признаков. Требует все 4 пути к артефактам в настройках.",
       "status": "idle"
+    },
+    {
+      "model_id": "catboost-cascade-advanced2",
+      "display_name": "Cascade: Binary + Extended [Advanced2]",
+      "version": "4.0.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_cascade_advanced",
+      "artifact_path": "artifacts/models/catboost-cascade-advanced2",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Каскад Stage1+Stage4: бинарный фильтр (F1=99.4%) → Extended классификатор (IoT 2023 + CIC-IDS-2018, Macro F1=0.76 на внешних атаках). Решает domain shift для VPS-атак. DoS/DDoS/BruteForce F1≥0.97.",
+      "status": "idle"
     }
   ]
 }
