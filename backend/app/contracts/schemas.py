@@ -145,6 +145,8 @@ class SettingsUpdate(BaseModel):
     catboost_model_dir: str = ""
     preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
+    auto_block_level: Literal["anomaly", "warning"] = "anomaly"
+    whitelist_ips: list[str] = Field(default_factory=list)
     detection_mode: DetectionMode = "simple"
     catboost_secondary_model_dir: str = ""
     catboost_secondary_artifacts_dir: str = ""

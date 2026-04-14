@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ToastContainer } from "../components/ToastContainer";
 import { DashboardView } from "../features/dashboard/DashboardView";
@@ -107,15 +107,40 @@ export function App() {
     void bootstrap();
   }, [i18n, setHealth, setModels, setSettings]);
 
+  const [showShieldConfirm, setShowShieldConfirm] = useState(false);
+  const [shieldIp, setShieldIp] = useState("");
+
   const toggleProtection = useCallback(async () => {
     if (!settings) return;
-    try {
-      const saved = await api.updateSettings({ ...settings, auto_block: !settings.auto_block });
-      setSettings(saved);
-    } catch {
-      setSettings({ ...settings, auto_block: !settings.auto_block });
+    if (!settings.auto_block) {
+      // Turning ON → show confirm dialog
+      setShowShieldConfirm(true);
+    } else {
+      // Turning OFF → immediate
+      try {
+        const saved = await api.updateSettings({ ...settings, auto_block: false });
+        setSettings(saved);
+      } catch {
+        setSettings({ ...settings, auto_block: false });
+      }
     }
   }, [settings, setSettings]);
+
+  const confirmShield = useCallback(async (addIp: boolean) => {
+    if (!settings) return;
+    const ip = shieldIp.trim();
+    const list = settings.whitelist_ips ?? [];
+    const nextList = addIp && ip && !list.includes(ip) ? [...list, ip] : list;
+    const next = { ...settings, auto_block: true, whitelist_ips: nextList };
+    try {
+      const saved = await api.updateSettings(next);
+      setSettings(saved);
+    } catch {
+      setSettings(next);
+    }
+    setShowShieldConfirm(false);
+    setShieldIp("");
+  }, [settings, setSettings, shieldIp]);
 
   const CurrentView = viewMap[view];
 
@@ -194,6 +219,44 @@ export function App() {
       </div>
 
       <ToastContainer />
+
+      {/* Shield confirm dialog */}
+      {showShieldConfirm && (
+        <div className={styles.confirmOverlay}>
+          <div className={styles.confirmDialog}>
+            <h3>⚠ Включить авто-блокировку?</h3>
+            <p>
+              Система будет блокировать IP-адреса через <code>iptables</code> при обнаружении атак.
+              Если ваш IP не в белом списке — вы можете заблокировать сами себя.
+            </p>
+            <div className={styles.confirmIpRow}>
+              <label>Добавить ваш IP в белый список (необязательно):</label>
+              <input
+                type="text"
+                value={shieldIp}
+                placeholder="например: 1.2.3.4"
+                onChange={(e) => setShieldIp(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void confirmShield(true); }}
+                autoFocus
+              />
+            </div>
+            <div className={styles.confirmButtons}>
+              <button className={styles.confirmBtnSecondary}
+                onClick={() => { setShowShieldConfirm(false); setShieldIp(""); }}>
+                Отмена
+              </button>
+              <button className={styles.confirmBtnSecondary}
+                onClick={() => void confirmShield(false)}>
+                Включить без добавления
+              </button>
+              <button className={styles.confirmBtnPrimary}
+                onClick={() => void confirmShield(true)}>
+                {shieldIp.trim() ? "Добавить IP и включить" : "Включить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

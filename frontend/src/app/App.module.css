@@ -237,3 +237,51 @@
 @media (max-width: 600px) {
   .topbarMeta { display: none; }
 }
+
+/* ── Shield confirm dialog ── */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.confirmDialog {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.confirmDialog h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.confirmDialog p  { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 0; }
+.confirmIpRow { display: flex; flex-direction: column; gap: 5px; }
+.confirmIpRow label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.confirmIpRow input {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+}
+.confirmIpRow input:focus { outline: none; border-color: var(--accent); }
+.confirmButtons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+.confirmBtnPrimary {
+  padding: 7px 16px; border-radius: var(--radius-sm); border: none;
+  background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.confirmBtnPrimary:hover { opacity: 0.88; }
+.confirmBtnSecondary {
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-secondary); font-size: 13px; cursor: pointer;
+}
+.confirmBtnSecondary:hover { background: var(--surface-hover); }
