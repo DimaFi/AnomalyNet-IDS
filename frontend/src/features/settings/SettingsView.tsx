@@ -214,51 +214,17 @@ export function SettingsView() {
         </div>
       </div>
 
-      {/* ── Detection mode ── */}
+      {/* ── Detection mode (read-only info) ── */}
       <div className={selfStyles.group}>
-        <div className={selfStyles.groupTitle}>Режим детекции</div>
-        <div className={styles.formGrid}>
-          <label className={styles.field}>
-            <span>Режим</span>
-            <select
-              value={settings.detection_mode ?? "simple"}
-              onChange={(e) => patch({ detection_mode: e.target.value as "simple" | "advanced" })}
-            >
-              <option value="simple">Simple — Stage1 + Stage2 (71 признак)</option>
-              <option value="advanced">Advanced — Stage1 + Stage3 IoT 2023 (46 признаков, Macro F1=0.82)</option>
-            </select>
-          </label>
-          <label className={styles.field}>
-            <span>
-              {settings.detection_mode === "advanced" ? "Stage3 IoT 2023 (dir)" : "Stage2 Multi-Class (dir)"}
-            </span>
-            <input
-              type="text"
-              value={settings.catboost_secondary_model_dir ?? ""}
-              placeholder={
-                settings.detection_mode === "advanced"
-                  ? "/opt/anomalynet/models/stage3/catboost"
-                  : "/opt/anomalynet/models/stage2/catboost"
-              }
-              onChange={(e) => patch({ catboost_secondary_model_dir: e.target.value })}
-            />
-          </label>
-          {settings.detection_mode === "advanced" && (
-            <label className={styles.field}>
-              <span>Stage3 артефакты (dir)</span>
-              <input
-                type="text"
-                value={settings.catboost_secondary_artifacts_dir ?? ""}
-                placeholder="/opt/anomalynet/models/stage3/artifacts"
-                onChange={(e) => patch({ catboost_secondary_artifacts_dir: e.target.value })}
-              />
-            </label>
-          )}
-        </div>
-        <div style={{ marginTop: "8px", fontSize: "12px", opacity: 0.6, lineHeight: 1.5 }}>
-          {settings.detection_mode === "simple"
-            ? "Stage1 (бинарный, F1=99.4%) → Stage2 (8 классов, Macro F1=0.31). Один feature extractor (CICFlowMeter, 71 признак)."
-            : "Stage1 (бинарный, F1=99.4%) → Stage3 IoT2023 (8 классов, Macro F1=0.82). Двойной extractor: 71 + 46 признаков. Лучше для Recon, Bot, Spoofing."}
+        <div className={selfStyles.groupTitle}>Текущий режим детекции</div>
+        <div style={{ fontSize: "12.5px", color: "var(--text-secondary)", lineHeight: 1.6, padding: "4px 0" }}>
+          {s.detection_mode === "advanced"
+            ? <><strong>Advanced</strong> — Stage1 (бинарный, F1=99.4%) → Stage3 IoT2023 (8 классов, Macro F1=0.82). Двойной extractor: 71 + 46 признаков.</>
+            : s.detection_mode === "simple"
+            ? <><strong>Simple</strong> — Stage1 (бинарный, F1=99.4%) → Stage2 (8 классов, Macro F1=0.31). CICFlowMeter, 71 признак.</>
+            : <><strong>Binary</strong> — только Stage1, бинарная детекция (атака/норма).</>
+          }
+          <span style={{ marginLeft: 8, opacity: 0.5 }}>— сменить через «Выбрать модель»</span>
         </div>
       </div>
 

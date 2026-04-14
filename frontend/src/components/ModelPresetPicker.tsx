@@ -41,7 +41,9 @@ export function ModelPresetPicker() {
   }
 
   const activePresetId = presets.find(
-    (p) => p.active_model_id === settings?.active_model_id
+    (p) =>
+      p.active_model_id === settings?.active_model_id &&
+      p.detection_mode  === (settings?.detection_mode ?? "simple")
   )?.id;
 
   return (
