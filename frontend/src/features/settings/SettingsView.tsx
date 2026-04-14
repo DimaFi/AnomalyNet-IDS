@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import type { AppSettings, NetworkInterface } from "../../app/types";
@@ -13,6 +13,14 @@ export function SettingsView() {
   const setSettings = useAppStore((state) => state.setSettings);
   const [interfaces, setInterfaces] = useState<NetworkInterface[]>([]);
   const [blockedIps, setBlockedIps] = useState<{ ip: string; blocked_at: string }[]>([]);
+
+  // Whitelist tag input
+  const [ipInput, setIpInput] = useState("");
+  const ipInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-block confirm dialog
+  const [showAutoBlockConfirm, setShowAutoBlockConfirm] = useState(false);
+  const [confirmIp, setConfirmIp] = useState("");
 
   useEffect(() => {
     api.getInterfaces()
@@ -166,8 +174,17 @@ export function SettingsView() {
               onChange={(e) => patch({ preprocessing_artifacts_dir: e.target.value })} />
           </label>
           <label className={styles.toggleField}>
-            <input type="checkbox" checked={settings.auto_block}
-              onChange={(e) => patch({ auto_block: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={settings.auto_block}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setShowAutoBlockConfirm(true);
+                } else {
+                  patch({ auto_block: false });
+                }
+              }}
+            />
             <span>{t("settings.autoBlock")}</span>
           </label>
           <label className={styles.field}>
@@ -181,26 +198,118 @@ export function SettingsView() {
               <option value="warning">Предупреждения + аномалии (score ≥ 0.70) — агрессивно</option>
             </select>
           </label>
-          <label className={styles.field}>
+          <div className={styles.field}>
             <span>
               Белый список IP
               <span className={selfStyles.badgeValue} style={{ marginLeft: 8, fontSize: 11 }}>
                 не блокируются
               </span>
             </span>
-            <input
-              type="text"
-              value={(settings.whitelist_ips ?? []).join(", ")}
-              placeholder="192.168.1.1, 10.0.0.5"
-              onChange={(e) => {
-                const ips = e.target.value
-                  .split(",")
-                  .map((s) => s.trim())
-                  .filter(Boolean);
-                patch({ whitelist_ips: ips });
-              }}
-            />
-          </label>
+            <div
+              className={selfStyles.ipTagsWrap}
+              onClick={() => ipInputRef.current?.focus()}
+            >
+              {(settings.whitelist_ips ?? []).map((ip) => (
+                <span key={ip} className={selfStyles.ipTag}>
+                  {ip}
+                  <button
+                    className={selfStyles.ipTagRemove}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      patch({ whitelist_ips: (settings.whitelist_ips ?? []).filter((x) => x !== ip) });
+                    }}
+                  >×</button>
+                </span>
+              ))}
+              <input
+                ref={ipInputRef}
+                className={selfStyles.ipTagInput}
+                value={ipInput}
+                placeholder={(settings.whitelist_ips ?? []).length === 0 ? "Введите IP и нажмите Enter" : ""}
+                onChange={(e) => setIpInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    const val = ipInput.trim().replace(/,$/, "");
+                    if (val && !(settings.whitelist_ips ?? []).includes(val)) {
+                      patch({ whitelist_ips: [...(settings.whitelist_ips ?? []), val] });
+                    }
+                    setIpInput("");
+                  } else if (e.key === "Backspace" && ipInput === "") {
+                    const list = settings.whitelist_ips ?? [];
+                    if (list.length > 0) {
+                      patch({ whitelist_ips: list.slice(0, -1) });
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  const val = ipInput.trim();
+                  if (val && !(settings.whitelist_ips ?? []).includes(val)) {
+                    patch({ whitelist_ips: [...(settings.whitelist_ips ?? []), val] });
+                    setIpInput("");
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Auto-block confirmation dialog */}
+          {showAutoBlockConfirm && (
+            <div className={selfStyles.confirmOverlay}>
+              <div className={selfStyles.confirmDialog}>
+                <h3>⚠ Включить авто-блокировку?</h3>
+                <p>
+                  Система будет автоматически добавлять правила <code>iptables</code> для
+                  блокировки IP-адресов при обнаружении атак.
+                  <br /><br />
+                  Если ваш IP не в белом списке — вы можете заблокировать сами себя.
+                </p>
+                <div className={selfStyles.confirmIpRow}>
+                  <label>Добавить ваш IP в белый список (необязательно):</label>
+                  <input
+                    type="text"
+                    value={confirmIp}
+                    placeholder="например: 1.2.3.4"
+                    onChange={(e) => setConfirmIp(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div className={selfStyles.confirmButtons}>
+                  <button
+                    className={selfStyles.confirmBtnSecondary}
+                    onClick={() => { setShowAutoBlockConfirm(false); setConfirmIp(""); }}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    className={selfStyles.confirmBtnSecondary}
+                    onClick={() => {
+                      patch({ auto_block: true });
+                      setShowAutoBlockConfirm(false);
+                      setConfirmIp("");
+                    }}
+                  >
+                    Включить без добавления
+                  </button>
+                  <button
+                    className={selfStyles.confirmBtnPrimary}
+                    onClick={() => {
+                      const ip = confirmIp.trim();
+                      const list = settings.whitelist_ips ?? [];
+                      patch({
+                        auto_block: true,
+                        whitelist_ips: ip && !list.includes(ip) ? [...list, ip] : list,
+                      });
+                      setShowAutoBlockConfirm(false);
+                      setConfirmIp("");
+                    }}
+                  >
+                    {confirmIp.trim() ? "Добавить IP и включить" : "Включить"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

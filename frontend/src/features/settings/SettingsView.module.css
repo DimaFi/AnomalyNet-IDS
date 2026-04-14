@@ -95,3 +95,162 @@
   color: var(--accent);
   font-weight: 600;
 }
+
+/* ── IP tag input ── */
+.ipTagsWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  min-height: 36px;
+  cursor: text;
+}
+
+.ipTagsWrap:focus-within {
+  border-color: var(--accent);
+}
+
+.ipTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  border-radius: 5px;
+  padding: 1px 6px 1px 8px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ipTagRemove {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--accent);
+  opacity: 0.6;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+
+.ipTagRemove:hover {
+  opacity: 1;
+}
+
+.ipTagInput {
+  flex: 1;
+  min-width: 120px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  padding: 0 2px;
+}
+
+/* ── Auto-block confirm dialog ── */
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirmDialog {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  max-width: 420px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.confirmDialog h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.confirmDialog p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.confirmIpRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.confirmIpRow label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.confirmIpRow input {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+}
+
+.confirmIpRow input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.confirmButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.confirmBtnPrimary {
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmBtnPrimary:hover {
+  opacity: 0.88;
+}
+
+.confirmBtnSecondary {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.confirmBtnSecondary:hover {
+  background: var(--surface-hover);
+}
