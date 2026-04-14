@@ -80,6 +80,32 @@
       "status": "idle"
     },
     {
+      "model_id": "catboost-standard",
+      "display_name": "Standard: Binary Detector [Stage1]",
+      "version": "1.0.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_iot_71",
+      "artifact_path": "artifacts/models/catboost-standard",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Бинарный классификатор Stage1: обнаруживает атаки без определения типа. 71 CICFlowMeter-признак, порог 0.70. F1=99.4%. Минимальные ресурсы.",
+      "status": "idle"
+    },
+    {
+      "model_id": "catboost-standard-ultra",
+      "display_name": "StandardUltra: Direct Multi-Class [Stage4]",
+      "version": "4.0.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_iot_46_cic2023",
+      "artifact_path": "artifacts/models/catboost-standard-ultra",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Прямой многоклассовый классификатор Stage4: 46 IoT-признаков, 8 классов, без бинарного фильтра. Обучен на IoT 2023 + CIC-IDS-2018. Macro F1=0.76 на внешних VPS-атаках. Требует detection_mode=advanced.",
+      "status": "idle"
+    },
+    {
       "model_id": "catboost-cascade-advanced2",
       "display_name": "Cascade: Binary + Extended [Advanced2]",
       "version": "4.0.0",

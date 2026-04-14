@@ -25,7 +25,7 @@ def build_preprocessing_pipeline(descriptor: ModelDescriptor, settings: AppSetti
         artifacts_dir = Path(settings.preprocessing_artifacts_dir)
         return CatBoostPreprocessingPipeline(artifacts_dir=artifacts_dir)
 
-    # Cascade Advanced: Stage1 (71 features) + Stage3 (46 features)
+    # Cascade Advanced: Stage1 (71 features) + Stage3/Stage4 (46 features)
     if profile == "catboost_cascade_advanced":
         from app.preprocess.cascade_pipeline import CascadeAdvancedPipeline
         primary_dir = Path(settings.preprocessing_artifacts_dir)
@@ -38,6 +38,17 @@ def build_preprocessing_pipeline(descriptor: ModelDescriptor, settings: AppSetti
             primary_artifacts_dir=primary_dir,
             secondary_artifacts_dir=secondary_dir,
         )
+
+    # Standalone Stage3/Stage4: only 46 CIC IoT 2023 features (no binary gate)
+    # Requires detection_mode == "advanced" so scapy computes raw_features_cic2023
+    if profile == "catboost_iot_46_cic2023":
+        from app.preprocess.cic2023_pipeline import CIC2023StandalonePipeline
+        artifacts_dir = (
+            Path(settings.catboost_secondary_artifacts_dir)
+            if settings.catboost_secondary_artifacts_dir
+            else Path(settings.preprocessing_artifacts_dir)
+        )
+        return CIC2023StandalonePipeline(artifacts_dir=artifacts_dir)
 
     raise ValueError(
         f"Unknown model profile '{profile}' "
