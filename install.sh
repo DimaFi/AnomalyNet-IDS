@@ -316,9 +316,11 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=${GUI_DIR}/backend
-ExecStart=${VENV}/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --log-level info
+ExecStart=${VENV}/bin/uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --log-level info --timeout-graceful-shutdown 3
 Restart=on-failure
-RestartSec=5
+RestartSec=3
+TimeoutStopSec=8
+KillMode=mixed
 Environment=ANOMALYNET_APP_ROOT=${GUI_DIR}
 
 [Install]

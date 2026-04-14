@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -61,8 +62,13 @@ async def events_ws(websocket: WebSocket) -> None:
     try:
         await websocket.send_text(json.dumps(service.snapshot().model_dump(mode="json"), ensure_ascii=False))
         while True:
-            item = await queue.get()
-            await websocket.send_text(json.dumps(item.model_dump(mode="json"), ensure_ascii=False))
+            try:
+                # Wait up to 20s for a new event; send a keepalive ping if idle
+                item = await asyncio.wait_for(queue.get(), timeout=20.0)
+                await websocket.send_text(json.dumps(item.model_dump(mode="json"), ensure_ascii=False))
+            except asyncio.TimeoutError:
+                # No events — send ping to keep connection alive
+                await websocket.send_text(json.dumps({"type": "ping"}))
     except WebSocketDisconnect:
         service.unsubscribe(queue)
     finally:

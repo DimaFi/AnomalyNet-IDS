@@ -46,7 +46,8 @@ export function useRealtimeStream(): void {
       ws.onmessage = (msg) => {
         retryDelay.current = 1000;
         try {
-          const payload = JSON.parse(msg.data) as { items?: PipelineEvent[]; event?: unknown };
+          const payload = JSON.parse(msg.data) as { type?: string; items?: PipelineEvent[]; event?: unknown };
+          if (payload.type === "ping") return; // keepalive — ignore
           if (Array.isArray(payload.items)) {
             replaceStream(payload.items);
           } else if (payload.event) {
