@@ -32,6 +32,9 @@ class AppSettings(BaseModel):
     # "anomaly" = блокировать только аномалии (score≥0.85)
     # "warning"  = блокировать и предупреждения, и аномалии
     auto_block_level: Literal["anomaly", "warning"] = "anomaly"
+    # Автоматически снимать блокировку после cooldown минут
+    auto_unblock: bool = False
+    auto_unblock_cooldown_min: int = Field(default=10, ge=1, le=120)
     # IPs that are never auto-blocked (whitelist)
     whitelist_ips: list[str] = Field(default_factory=list)
     # Dual-mode detection
@@ -146,6 +149,8 @@ class SettingsUpdate(BaseModel):
     preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
     auto_block_level: Literal["anomaly", "warning"] = "anomaly"
+    auto_unblock: bool = False
+    auto_unblock_cooldown_min: int = Field(default=10, ge=1, le=120)
     whitelist_ips: list[str] = Field(default_factory=list)
     detection_mode: DetectionMode = "simple"
     catboost_secondary_model_dir: str = ""

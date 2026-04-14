@@ -211,6 +211,27 @@ export function SettingsView() {
               <option value="warning">Предупреждения + аномалии (score ≥ 0.70) — агрессивно</option>
             </select>
           </label>
+          <label className={styles.toggleField}>
+            <input
+              type="checkbox"
+              checked={settings.auto_unblock ?? false}
+              disabled={!settings.auto_block}
+              onChange={(e) => patch({ auto_unblock: e.target.checked })}
+            />
+            <span>Авто-разблокировка через cooldown</span>
+          </label>
+          <label className={styles.field}>
+            <span>
+              Cooldown (мин)
+              <span className={selfStyles.badgeValue}>{settings.auto_unblock_cooldown_min ?? 10}</span>
+            </span>
+            <input
+              type="number" min={1} max={120}
+              value={settings.auto_unblock_cooldown_min ?? 10}
+              disabled={!settings.auto_block || !settings.auto_unblock}
+              onChange={(e) => patch({ auto_unblock_cooldown_min: Math.min(120, Math.max(1, Number(e.target.value))) })}
+            />
+          </label>
         </div>
       </div>
 

@@ -4,11 +4,22 @@ FlowAggregator — aggregates raw packets into bidirectional network flows.
 Uses a canonical 5-tuple key so packets from both directions end up in the
 same FlowRecord.  When a flow expires (TCP FIN/RST or idle timeout), the
 on_flow_complete callback is called with the completed FlowRecord.
+
+Thread-safety model
+-------------------
+_process_packet() (called directly from the scapy capture thread) and
+_expire_flow() / _reaper_loop() (called from the asyncio event loop) both
+touch self._flows / self._closing.  A plain threading.Lock protects those
+dicts so no data is lost and no asyncio overhead is paid per-packet.
+
+Key invariant: the lock is *never* held across an await — we pop the record
+first, release the lock, then call the async callback.
 """
 
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 from typing import Callable, Awaitable
 
@@ -35,6 +46,7 @@ class FlowAggregator:
         self._flows: dict[tuple, FlowRecord] = {}
         # Maps flow key → timestamp when FIN/RST was seen (for grace period)
         self._closing: dict[tuple, float] = {}
+        self._lock = threading.Lock()          # protects _flows and _closing
         self._on_flow_complete = on_flow_complete
         self._flow_timeout = flow_timeout
         self._reaper_task: asyncio.Task | None = None
@@ -51,14 +63,14 @@ class FlowAggregator:
                 await self._reaper_task
             except asyncio.CancelledError:
                 pass
-        # On shutdown just discard in-flight flows — no need to finalize them
-        self._flows.clear()
-        self._closing.clear()
+        with self._lock:
+            self._flows.clear()
+            self._closing.clear()
 
     def ingest(self, pkt) -> None:
         """
-        Called from scapy callback (may run in a different thread).
-        Must be synchronous; schedule async work via call_soon_threadsafe.
+        Called DIRECTLY from the scapy capture thread (not via call_soon_threadsafe).
+        Must be fully synchronous.  threading.Lock makes _flows access safe.
         """
         try:
             self._process_packet(pkt)
@@ -92,7 +104,6 @@ class FlowAggregator:
             tcp_flags = int(tcp.flags)
             tcp_win   = tcp.window
         elif proto == 17 and UDP in pkt:
-            from scapy.layers.inet import UDP as ScapyUDP
             udp = pkt[UDP]
             src_port = udp.sport
             dst_port = udp.dport
@@ -117,44 +128,50 @@ class FlowAggregator:
         key = self._canonical_key(src_ip, dst_ip, src_port, dst_port, proto)
         ts = time.monotonic()
 
-        if key not in self._flows:
-            # Enforce MAX_FLOWS cap: DROP new flows when full (O(1), prevents CPU spike)
-            # Existing flows continue to be processed and will expire via reaper
-            if len(self._flows) >= MAX_FLOWS:
-                return
+        schedule_fin = False
 
-            record = FlowRecord(
-                src_ip=src_ip,
-                dst_ip=dst_ip,
-                src_port=src_port,
-                dst_port=dst_port,
-                protocol=proto,
-                start_time=ts,
-                last_time=ts,
-                _active_start=ts,
-            )
-            self._flows[key] = record
+        with self._lock:
+            if key not in self._flows:
+                # Enforce MAX_FLOWS cap: DROP new flows when full (O(1), prevents CPU spike)
+                if len(self._flows) >= MAX_FLOWS:
+                    return
 
-        record = self._flows[key]
-        is_fwd = (record.src_ip == src_ip and record.src_port == src_port)
-        record.add_packet(
-            ts=ts,
-            payload_len=payload_len,
-            header_len=header_len,
-            is_fwd=is_fwd,
-            tcp_flags=tcp_flags,
-            tcp_win=tcp_win,
-        )
-
-        # Schedule FIN/RST grace expiry
-        if record.closing and key not in self._closing:
-            self._closing[key] = ts
-            if self._loop:
-                self._loop.call_soon_threadsafe(
-                    self._loop.call_later,
-                    FIN_GRACE_S,
-                    lambda k=key: asyncio.ensure_future(self._expire_flow(k)),
+                record = FlowRecord(
+                    src_ip=src_ip,
+                    dst_ip=dst_ip,
+                    src_port=src_port,
+                    dst_port=dst_port,
+                    protocol=proto,
+                    start_time=ts,
+                    last_time=ts,
+                    _active_start=ts,
                 )
+                self._flows[key] = record
+
+            record = self._flows[key]
+            is_fwd = (record.src_ip == src_ip and record.src_port == src_port)
+            record.add_packet(
+                ts=ts,
+                payload_len=payload_len,
+                header_len=header_len,
+                is_fwd=is_fwd,
+                tcp_flags=tcp_flags,
+                tcp_win=tcp_win,
+            )
+
+            # Mark for FIN/RST grace scheduling (outside the lock)
+            if record.closing and key not in self._closing:
+                self._closing[key] = ts
+                schedule_fin = True
+
+        # Schedule FIN/RST grace expiry — done OUTSIDE lock so we don't hold
+        # it across the (thread-safe but potentially contended) call_soon_threadsafe
+        if schedule_fin and self._loop:
+            self._loop.call_soon_threadsafe(
+                self._loop.call_later,
+                FIN_GRACE_S,
+                lambda k=key: asyncio.ensure_future(self._expire_flow(k)),
+            )
 
     @staticmethod
     def _canonical_key(
@@ -165,8 +182,10 @@ class FlowAggregator:
         return (proto, dst_ip, dst_port, src_ip, src_port)
 
     async def _expire_flow(self, key: tuple) -> None:
-        record = self._flows.pop(key, None)
-        self._closing.pop(key, None)
+        # Pop under lock, then call async callback WITHOUT holding lock
+        with self._lock:
+            record = self._flows.pop(key, None)
+            self._closing.pop(key, None)
         if record:
             await self._on_flow_complete(record)
 
@@ -174,9 +193,10 @@ class FlowAggregator:
         while True:
             await asyncio.sleep(REAPER_INTERVAL_S)
             now = time.monotonic()
-            expired = [
-                k for k, r in self._flows.items()
-                if (now - r.last_time) >= self._flow_timeout
-            ]
+            with self._lock:
+                expired = [
+                    k for k, r in self._flows.items()
+                    if (now - r.last_time) >= self._flow_timeout
+                ]
             for key in expired:
                 await self._expire_flow(key)

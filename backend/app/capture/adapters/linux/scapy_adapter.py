@@ -73,10 +73,11 @@ class LinuxScapyAdapter(CaptureAdapter):
     def _packet_callback(self, pkt) -> None:
         """
         Called by scapy in its capture thread.
-        Must NOT await — use call_soon_threadsafe to push work to asyncio loop.
+        ingest() is thread-safe (threading.Lock inside FlowAggregator) — call
+        directly here so the asyncio event loop is NOT touched per-packet.
+        This eliminates asyncio saturation under flood (2000+ pps).
         """
-        if self._loop and not self._loop.is_closed():
-            self._loop.call_soon_threadsafe(self._aggregator.ingest, pkt)
+        self._aggregator.ingest(pkt)
 
     async def _on_flow_ready(self, record: FlowRecord) -> None:
         """Called by FlowAggregator when a flow is finalized."""

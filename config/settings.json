@@ -12,6 +12,8 @@
   "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
   "auto_block": false,
   "auto_block_level": "anomaly",
+  "auto_unblock": false,
+  "auto_unblock_cooldown_min": 10,
   "whitelist_ips": [],
   "detection_mode": "simple",
   "catboost_secondary_model_dir": "/opt/anomalynet/models/stage2/catboost",

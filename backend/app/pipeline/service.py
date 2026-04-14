@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
 from app.capture.factory import build_capture_adapter
@@ -24,6 +24,7 @@ class PipelineService:
         self._recent_items: deque[PipelineEvent] = deque(maxlen=30)
         self._subscribers: set[asyncio.Queue[PipelineEvent]] = set()
         self._loop_task: asyncio.Task[None] | None = None
+        self._unblock_task: asyncio.Task[None] | None = None
         # Persistent capture adapter (long-lived for real capture modes)
         self._capture_adapter = None
         self._capture_mode: str = ""   # tracks run_mode + detection_mode
@@ -64,16 +65,18 @@ class PipelineService:
     async def start(self) -> None:
         if self._settings.stream_autostart and self._loop_task is None:
             self._loop_task = asyncio.create_task(self._run_loop())
+        self._unblock_task = asyncio.create_task(self._auto_unblock_loop())
 
     async def shutdown(self) -> None:
-        if self._loop_task:
-            self._loop_task.cancel()
-            try:
-                await asyncio.wait_for(asyncio.shield(self._loop_task), timeout=3.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
-                pass
-            finally:
-                self._loop_task = None
+        for task in (self._loop_task, self._unblock_task):
+            if task:
+                task.cancel()
+                try:
+                    await asyncio.wait_for(asyncio.shield(task), timeout=3.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass
+        self._loop_task = None
+        self._unblock_task = None
         try:
             await asyncio.wait_for(self._stop_adapter(), timeout=5.0)
         except asyncio.TimeoutError:
@@ -202,6 +205,21 @@ class PipelineService:
                 self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
         except Exception:
             pass
+
+    async def _auto_unblock_loop(self) -> None:
+        """Background task: automatically unblock IPs after the configured cooldown."""
+        while True:
+            await asyncio.sleep(60)  # check every minute
+            if not self._settings.auto_unblock or not self._blocked_ips_registry:
+                continue
+            cooldown = timedelta(minutes=self._settings.auto_unblock_cooldown_min)
+            now = datetime.now(timezone.utc)
+            to_unblock = [
+                ip for ip, ts_str in list(self._blocked_ips_registry.items())
+                if (now - datetime.fromisoformat(ts_str)) >= cooldown
+            ]
+            for ip in to_unblock:
+                await self.unblock_ip(ip)
 
     async def _fan_out(self, pipeline_event: PipelineEvent) -> None:
         stale: list[asyncio.Queue[PipelineEvent]] = []

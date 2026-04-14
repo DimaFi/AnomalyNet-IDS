@@ -21,6 +21,8 @@ export interface AppSettings {
   preprocessing_artifacts_dir: string;
   auto_block: boolean;
   auto_block_level: "anomaly" | "warning";
+  auto_unblock: boolean;
+  auto_unblock_cooldown_min: number;
   whitelist_ips: string[];
   // Dual-mode detection
   detection_mode: "simple" | "advanced";
