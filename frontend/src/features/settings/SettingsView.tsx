@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import type { AppSettings, NetworkInterface } from "../../app/types";
@@ -14,9 +14,8 @@ export function SettingsView() {
   const [interfaces, setInterfaces] = useState<NetworkInterface[]>([]);
   const [blockedIps, setBlockedIps] = useState<{ ip: string; blocked_at: string }[]>([]);
 
-  // Whitelist tag input
-  const [ipInput, setIpInput] = useState("");
-  const ipInputRef = useRef<HTMLInputElement>(null);
+  // Whitelist add input (local only — save on Add/Enter)
+  const [whitelistInput, setWhitelistInput] = useState("");
 
   // Auto-block confirm dialog
   const [showAutoBlockConfirm, setShowAutoBlockConfirm] = useState(false);
@@ -34,9 +33,7 @@ export function SettingsView() {
       .catch(() => setBlockedIps([]));
   }, []);
 
-  useEffect(() => {
-    refreshBlocked();
-  }, [refreshBlocked]);
+  useEffect(() => { refreshBlocked(); }, [refreshBlocked]);
 
   const handleUnblock = useCallback(async (ip: string) => {
     await api.unblockIp(ip).catch(() => null);
@@ -49,6 +46,8 @@ export function SettingsView() {
   }, [refreshBlocked]);
 
   if (!settings) return null;
+  // settings is non-null from here — TypeScript doesn't narrow through closures
+  const s = settings;
 
   async function persist(nextSettings: AppSettings) {
     try {
@@ -64,9 +63,23 @@ export function SettingsView() {
   }
 
   function patch(partial: Partial<AppSettings>) {
-    const next = { ...settings, ...partial } as AppSettings;
+    const next = { ...s, ...partial } as AppSettings;
     setSettings(next);
     void persist(next);
+  }
+
+  function addWhitelistIp() {
+    const val = whitelistInput.trim();
+    if (!val) return;
+    const list = s.whitelist_ips ?? [];
+    if (!list.includes(val)) {
+      patch({ whitelist_ips: [...list, val] });
+    }
+    setWhitelistInput("");
+  }
+
+  function removeWhitelistIp(ip: string) {
+    patch({ whitelist_ips: (s.whitelist_ips ?? []).filter((x) => x !== ip) });
   }
 
   return (
@@ -150,7 +163,7 @@ export function SettingsView() {
         </div>
       </div>
 
-      {/* ── CatBoost model (primary / Stage1) ── */}
+      {/* ── CatBoost model ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>{t("settings.groupCatboost")}</div>
         <div className={styles.formGrid}>
@@ -198,118 +211,6 @@ export function SettingsView() {
               <option value="warning">Предупреждения + аномалии (score ≥ 0.70) — агрессивно</option>
             </select>
           </label>
-          <div className={styles.field}>
-            <span>
-              Белый список IP
-              <span className={selfStyles.badgeValue} style={{ marginLeft: 8, fontSize: 11 }}>
-                не блокируются
-              </span>
-            </span>
-            <div
-              className={selfStyles.ipTagsWrap}
-              onClick={() => ipInputRef.current?.focus()}
-            >
-              {(settings.whitelist_ips ?? []).map((ip) => (
-                <span key={ip} className={selfStyles.ipTag}>
-                  {ip}
-                  <button
-                    className={selfStyles.ipTagRemove}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      patch({ whitelist_ips: (settings.whitelist_ips ?? []).filter((x) => x !== ip) });
-                    }}
-                  >×</button>
-                </span>
-              ))}
-              <input
-                ref={ipInputRef}
-                className={selfStyles.ipTagInput}
-                value={ipInput}
-                placeholder={(settings.whitelist_ips ?? []).length === 0 ? "Введите IP и нажмите Enter" : ""}
-                onChange={(e) => setIpInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    const val = ipInput.trim().replace(/,$/, "");
-                    if (val && !(settings.whitelist_ips ?? []).includes(val)) {
-                      patch({ whitelist_ips: [...(settings.whitelist_ips ?? []), val] });
-                    }
-                    setIpInput("");
-                  } else if (e.key === "Backspace" && ipInput === "") {
-                    const list = settings.whitelist_ips ?? [];
-                    if (list.length > 0) {
-                      patch({ whitelist_ips: list.slice(0, -1) });
-                    }
-                  }
-                }}
-                onBlur={() => {
-                  const val = ipInput.trim();
-                  if (val && !(settings.whitelist_ips ?? []).includes(val)) {
-                    patch({ whitelist_ips: [...(settings.whitelist_ips ?? []), val] });
-                    setIpInput("");
-                  }
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Auto-block confirmation dialog */}
-          {showAutoBlockConfirm && (
-            <div className={selfStyles.confirmOverlay}>
-              <div className={selfStyles.confirmDialog}>
-                <h3>⚠ Включить авто-блокировку?</h3>
-                <p>
-                  Система будет автоматически добавлять правила <code>iptables</code> для
-                  блокировки IP-адресов при обнаружении атак.
-                  <br /><br />
-                  Если ваш IP не в белом списке — вы можете заблокировать сами себя.
-                </p>
-                <div className={selfStyles.confirmIpRow}>
-                  <label>Добавить ваш IP в белый список (необязательно):</label>
-                  <input
-                    type="text"
-                    value={confirmIp}
-                    placeholder="например: 1.2.3.4"
-                    onChange={(e) => setConfirmIp(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className={selfStyles.confirmButtons}>
-                  <button
-                    className={selfStyles.confirmBtnSecondary}
-                    onClick={() => { setShowAutoBlockConfirm(false); setConfirmIp(""); }}
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    className={selfStyles.confirmBtnSecondary}
-                    onClick={() => {
-                      patch({ auto_block: true });
-                      setShowAutoBlockConfirm(false);
-                      setConfirmIp("");
-                    }}
-                  >
-                    Включить без добавления
-                  </button>
-                  <button
-                    className={selfStyles.confirmBtnPrimary}
-                    onClick={() => {
-                      const ip = confirmIp.trim();
-                      const list = settings.whitelist_ips ?? [];
-                      patch({
-                        auto_block: true,
-                        whitelist_ips: ip && !list.includes(ip) ? [...list, ip] : list,
-                      });
-                      setShowAutoBlockConfirm(false);
-                      setConfirmIp("");
-                    }}
-                  >
-                    {confirmIp.trim() ? "Добавить IP и включить" : "Включить"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -336,8 +237,8 @@ export function SettingsView() {
               value={settings.catboost_secondary_model_dir ?? ""}
               placeholder={
                 settings.detection_mode === "advanced"
-                  ? "G:/Диплом/IoT/stage3_cic2023/models/catboost"
-                  : "G:/Диплом/IoT/stage2_multiclass/models/catboost"
+                  ? "/opt/anomalynet/models/stage3/catboost"
+                  : "/opt/anomalynet/models/stage2/catboost"
               }
               onChange={(e) => patch({ catboost_secondary_model_dir: e.target.value })}
             />
@@ -348,7 +249,7 @@ export function SettingsView() {
               <input
                 type="text"
                 value={settings.catboost_secondary_artifacts_dir ?? ""}
-                placeholder="G:/Диплом/IoT/stage3_cic2023/artifacts"
+                placeholder="/opt/anomalynet/models/stage3/artifacts"
                 onChange={(e) => patch({ catboost_secondary_artifacts_dir: e.target.value })}
               />
             </label>
@@ -361,34 +262,130 @@ export function SettingsView() {
         </div>
       </div>
 
-      {/* ── Blocked IPs ── */}
+      {/* ── IP management: two-column table ── */}
       <div className={selfStyles.group}>
-        <div className={selfStyles.groupTitle}>Заблокированные IP</div>
-        {blockedIps.length === 0 ? (
-          <p className={selfStyles.emptyBlocked}>Нет заблокированных IP-адресов.</p>
-        ) : (
-          <>
-            <div className={selfStyles.blockedList}>
-              {blockedIps.map((entry) => (
-                <div key={entry.ip} className={selfStyles.blockedRow}>
-                  <span>
-                    <span className={selfStyles.blockedIp}>{entry.ip}</span>
-                    <span className={selfStyles.blockedAt}>
+        <div className={selfStyles.groupTitle}>Управление IP-адресами</div>
+        <div className={selfStyles.ipTableGrid}>
+
+          {/* Blocked IPs column */}
+          <div className={selfStyles.ipColumn}>
+            <div className={selfStyles.ipColumnHeader}>
+              <span>Заблокированные IP</span>
+              {blockedIps.length > 0 && (
+                <button className={selfStyles.clearAllBtn} onClick={() => void handleUnblockAll()}>
+                  Разблокировать все
+                </button>
+              )}
+            </div>
+            {blockedIps.length === 0 ? (
+              <p className={selfStyles.emptyList}>Нет заблокированных адресов</p>
+            ) : (
+              <div className={selfStyles.ipList}>
+                {blockedIps.map((entry) => (
+                  <div key={entry.ip} className={selfStyles.ipRow}>
+                    <span className={selfStyles.ipAddr}>{entry.ip}</span>
+                    <span className={selfStyles.ipMeta}>
                       {new Date(entry.blocked_at).toLocaleTimeString("ru-RU")}
                     </span>
-                  </span>
-                  <button className={selfStyles.unblockBtn} onClick={() => void handleUnblock(entry.ip)}>
-                    Разблокировать
-                  </button>
-                </div>
-              ))}
+                    <button className={selfStyles.ipRemoveBtn} onClick={() => void handleUnblock(entry.ip)}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Whitelist column */}
+          <div className={selfStyles.ipColumn}>
+            <div className={selfStyles.ipColumnHeader}>
+              <span>Белый список <span className={selfStyles.whitelistHint}>не блокируются</span></span>
+              {(settings.whitelist_ips ?? []).length > 0 && (
+                <button className={selfStyles.clearAllBtn}
+                  onClick={() => patch({ whitelist_ips: [] })}>
+                  Очистить всё
+                </button>
+              )}
             </div>
-            <button className={selfStyles.unblockAllBtn} onClick={() => void handleUnblockAll()}>
-              Разблокировать все ({blockedIps.length})
-            </button>
-          </>
-        )}
+            <div className={selfStyles.ipAddRow}>
+              <input
+                className={selfStyles.ipAddInput}
+                type="text"
+                value={whitelistInput}
+                placeholder="Введите IP-адрес"
+                onChange={(e) => setWhitelistInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addWhitelistIp(); }}
+              />
+              <button className={selfStyles.ipAddBtn} onClick={addWhitelistIp}>
+                Добавить
+              </button>
+            </div>
+            {(settings.whitelist_ips ?? []).length === 0 ? (
+              <p className={selfStyles.emptyList}>Список пуст</p>
+            ) : (
+              <div className={selfStyles.ipList}>
+                {(settings.whitelist_ips ?? []).map((ip) => (
+                  <div key={ip} className={selfStyles.ipRow}>
+                    <span className={selfStyles.ipAddr}>{ip}</span>
+                    <button className={selfStyles.ipRemoveBtn} onClick={() => removeWhitelistIp(ip)}>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
+
+      {/* Auto-block confirmation dialog */}
+      {showAutoBlockConfirm && (
+        <div className={selfStyles.confirmOverlay}>
+          <div className={selfStyles.confirmDialog}>
+            <h3>⚠ Включить авто-блокировку?</h3>
+            <p>
+              Система будет автоматически блокировать IP-адреса через <code>iptables</code> при
+              обнаружении атак. Если ваш IP не в белом списке — вы можете заблокировать сами себя.
+            </p>
+            <div className={selfStyles.confirmIpRow}>
+              <label>Добавить ваш IP в белый список (необязательно):</label>
+              <input
+                type="text"
+                value={confirmIp}
+                placeholder="например: 1.2.3.4"
+                onChange={(e) => setConfirmIp(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") {
+                  const ip = confirmIp.trim();
+                  const list = settings.whitelist_ips ?? [];
+                  patch({ auto_block: true, whitelist_ips: ip && !list.includes(ip) ? [...list, ip] : list });
+                  setShowAutoBlockConfirm(false); setConfirmIp("");
+                }}}
+                autoFocus
+              />
+            </div>
+            <div className={selfStyles.confirmButtons}>
+              <button className={selfStyles.confirmBtnSecondary}
+                onClick={() => { setShowAutoBlockConfirm(false); setConfirmIp(""); }}>
+                Отмена
+              </button>
+              <button className={selfStyles.confirmBtnSecondary}
+                onClick={() => { patch({ auto_block: true }); setShowAutoBlockConfirm(false); setConfirmIp(""); }}>
+                Включить без добавления
+              </button>
+              <button className={selfStyles.confirmBtnPrimary}
+                onClick={() => {
+                  const ip = confirmIp.trim();
+                  const list = settings.whitelist_ips ?? [];
+                  patch({ auto_block: true, whitelist_ips: ip && !list.includes(ip) ? [...list, ip] : list });
+                  setShowAutoBlockConfirm(false); setConfirmIp("");
+                }}>
+                {confirmIp.trim() ? "Добавить IP и включить" : "Включить"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
