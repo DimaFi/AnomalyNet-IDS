@@ -2,6 +2,7 @@ import type {
   AppSettings,
   BlockRequest,
   BlockResponse,
+  DebugStats,
   HealthResponse,
   ModelPresetsRegistry,
   ModelsRegistry,
@@ -50,6 +51,7 @@ export const api = {
   unblockIp: (ip: string) => request<{ ip: string; unblocked: boolean }>(`/api/blocked-ips/${ip}`, { method: "DELETE" }),
   unblockAllIps: () => request<{ unblocked: number; message: string }>("/api/blocked-ips/all", { method: "DELETE" }),
   getInterfaces: () => request<NetworkInterface[]>("/api/interfaces"),
+  getDebugStats: () => request<DebugStats>("/api/debug/stats"),
   getModelPresets: () => request<ModelPresetsRegistry>("/api/model-presets"),
   applyModelPreset: (presetId: string) =>
     request<AppSettings>(`/api/model-presets/apply/${presetId}`, {

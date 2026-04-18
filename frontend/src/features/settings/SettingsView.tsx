@@ -175,6 +175,22 @@ export function SettingsView() {
             <input type="range" min={0.5} max={0.99} step={0.01}
               value={settings.catboost_threshold}
               onChange={(e) => patch({ catboost_threshold: parseFloat(e.target.value) })} />
+            <div className={selfStyles.thresholdPresets}>
+              <button
+                className={[selfStyles.presetBtn, settings.catboost_threshold === 0.5 ? selfStyles.presetBtnActive : ""].join(" ")}
+                onClick={() => patch({ catboost_threshold: 0.5 })}
+                title="Минимальный порог — максимальная чувствительность, больше ложных тревог"
+              >
+                Макс. защита (0.50)
+              </button>
+              <button
+                className={[selfStyles.presetBtn, settings.catboost_threshold === 0.85 ? selfStyles.presetBtnActive : ""].join(" ")}
+                onClick={() => patch({ catboost_threshold: 0.85 })}
+                title="Высокий порог — меньше ложных тревог, только уверенные атаки"
+              >
+                Мин. тревог (0.85)
+              </button>
+            </div>
           </label>
           <label className={styles.field}>
             <span>{t("settings.catboostModelDir")}</span>

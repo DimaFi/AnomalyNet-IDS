@@ -1,14 +1,44 @@
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
+import type { DebugStats } from "../../app/types";
 import { StatusPill } from "../../components/StatusPill";
+import { api } from "../../lib/api";
 import styles from "../panel.module.css";
 
 export function DashboardView() {
   const { t } = useTranslation();
-  const health = useAppStore((state) => state.health);
+  const health   = useAppStore((state) => state.health);
   const settings = useAppStore((state) => state.settings);
-  const stream = useAppStore((state) => state.stream);
-  const latest = stream.slice(0, 4);
+  const stream   = useAppStore((state) => state.stream);
+  const latest   = stream.slice(0, 4);
+
+  const [stats, setStats] = useState<DebugStats | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchStats() {
+      try {
+        const data = await api.getDebugStats();
+        if (!cancelled) setStats(data);
+      } catch { /* endpoint недоступен в mock */ }
+    }
+    void fetchStats();
+    const id = setInterval(() => { void fetchStats(); }, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const attackCount = stats
+    ? (stats.events_by_label["warning"] ?? 0) + (stats.events_by_label["anomaly"] ?? 0)
+    : null;
+
+  const topClass = stats && Object.keys(stats.events_by_attack_class).length > 0
+    ? Object.entries(stats.events_by_attack_class).sort((a, b) => b[1] - a[1])[0][0]
+    : null;
+
+  const topIp = stats && Object.keys(stats.top_src_ips).length > 0
+    ? Object.entries(stats.top_src_ips).sort((a, b) => b[1] - a[1])[0][0]
+    : null;
 
   return (
     <section className={styles.panel}>
@@ -39,6 +69,28 @@ export function DashboardView() {
           <span>{t("dashboard.contract")}</span>
           <strong>{health?.contract_version ?? "feature-contract.v1"}</strong>
         </article>
+        <article className={styles.metricCard}>
+          <span>Всего потоков</span>
+          <strong>{stats ? stats.uptime_events_total : "—"}</strong>
+        </article>
+        <article className={styles.metricCard}>
+          <span>Атак обнаружено</span>
+          <strong style={{ color: attackCount ? "var(--danger)" : undefined }}>
+            {attackCount !== null ? attackCount : "—"}
+          </strong>
+        </article>
+        <article className={styles.metricCard}>
+          <span>Топ класс атак</span>
+          <strong>{topClass ?? "—"}</strong>
+        </article>
+        <article className={styles.metricCard}>
+          <span>Топ атакующий IP</span>
+          <strong style={{ fontFamily: "monospace", fontSize: "12px" }}>{topIp ?? "—"}</strong>
+        </article>
+        <article className={styles.metricCard}>
+          <span>Средний score</span>
+          <strong>{stats ? stats.avg_score.toFixed(3) : "—"}</strong>
+        </article>
       </div>
       <div className={styles.streamPreview}>
         <div className={styles.subhead}>
@@ -65,4 +117,3 @@ export function DashboardView() {
     </section>
   );
 }
-

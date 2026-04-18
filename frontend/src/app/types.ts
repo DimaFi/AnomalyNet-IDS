@@ -147,6 +147,17 @@ export interface ModelPresetsRegistry {
   presets: ModelPreset[];
 }
 
+export interface DebugStats {
+  uptime_events_total: number;
+  events_by_label: Record<string, number>;
+  events_by_attack_class: Record<string, number>;
+  top_src_ips: Record<string, number>;
+  avg_score: number;
+  max_score: number;
+  detection_mode: string;
+  active_model_id: string;
+}
+
 // Toast notification
 export interface ToastItem {
   id: string;
