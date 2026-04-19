@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Any
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from app.contracts.schemas import (
     AppSettings, DebugStats, HealthResponse, ModelPresetsRegistry, ModelsRegistry,
-    SettingsUpdate, StreamSnapshot,
+    NormalizedFlowEvent, SettingsUpdate, StreamSnapshot,
 )
 from app.dependencies import get_pipeline_service
 from app.pipeline.service import PipelineService
@@ -90,6 +93,66 @@ def export_data(
         "events_count": len(history),
         "events": [e.model_dump(mode="json") for e in history],
     }
+
+
+class InferRow(BaseModel):
+    raw_features: dict[str, Any]
+    raw_features_cic2023: dict[str, Any] | None = None
+    src_ip: str = "0.0.0.0"
+    dst_ip: str = "0.0.0.0"
+    src_port: int = 0
+    dst_port: int = 80
+    protocol: str = "TCP"
+    packet_count: int = 10
+    byte_count: int = 500
+    duration_ms: int = 100
+    true_label: str | None = None   # ground truth for accuracy measurement
+
+
+class InferBatchRequest(BaseModel):
+    rows: list[InferRow]
+
+
+@router.post("/debug/infer")
+def debug_infer(
+    payload: InferBatchRequest,
+    service: PipelineService = Depends(get_pipeline_service),
+):
+    """Batch inference on pre-computed features — bypasses capture layer.
+    Used for offline accuracy testing: send test dataset rows, get predictions back."""
+    preprocess, model = service._get_pipeline_and_model()
+    results = []
+    for row in payload.rows:
+        try:
+            event = NormalizedFlowEvent(
+                event_id=str(uuid4()),
+                timestamp=datetime.now(timezone.utc),
+                source="debug/infer",
+                direction="inbound",
+                protocol=row.protocol,
+                src_ip=row.src_ip,
+                dst_ip=row.dst_ip,
+                src_port=row.src_port,
+                dst_port=row.dst_port,
+                packet_count=row.packet_count,
+                byte_count=row.byte_count,
+                duration_ms=row.duration_ms,
+                risk_hint=0.0,
+                raw_features=row.raw_features,
+                raw_features_cic2023=row.raw_features_cic2023,
+            )
+            features = preprocess.transform(event)
+            inference = model.infer(features)
+            results.append({
+                "predicted_label": inference.label,
+                "predicted_class": inference.attack_class,
+                "score": inference.score,
+                "true_label": row.true_label,
+                "correct": (row.true_label == inference.attack_class) if row.true_label else None,
+            })
+        except Exception as e:
+            results.append({"error": str(e), "true_label": row.true_label})
+    return {"count": len(results), "results": results}
 
 
 @router.post("/model-presets/apply/{preset_id}", response_model=AppSettings)
