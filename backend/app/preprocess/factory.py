@@ -39,6 +39,25 @@ def build_preprocessing_pipeline(descriptor: ModelDescriptor, settings: AppSetti
             secondary_artifacts_dir=secondary_dir,
         )
 
+    # Cascade Routed: Stage1 (71 features) + Stage2 (71) + Stage3 (46 CIC2023)
+    # Needs dual-feature extraction: primary (71) + secondary (46)
+    if profile == "catboost_cascade_routed":
+        from app.preprocess.cascade_pipeline import CascadeAdvancedPipeline
+        primary_dir = Path(settings.preprocessing_artifacts_dir)
+        secondary_dir = (
+            Path(settings.catboost_stage3_artifacts_dir)
+            if settings.catboost_stage3_artifacts_dir
+            else (
+                Path(settings.catboost_secondary_artifacts_dir)
+                if settings.catboost_secondary_artifacts_dir
+                else primary_dir
+            )
+        )
+        return CascadeAdvancedPipeline(
+            primary_artifacts_dir=primary_dir,
+            secondary_artifacts_dir=secondary_dir,
+        )
+
     # Standalone Stage3/Stage4: only 46 CIC IoT 2023 features (no binary gate)
     # Requires detection_mode == "advanced" so scapy computes raw_features_cic2023
     if profile == "catboost_iot_46_cic2023":

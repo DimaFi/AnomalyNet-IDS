@@ -68,4 +68,5 @@ class CIC2023StandalonePipeline:
             contract_version=CATBOOST_CONTRACT_VERSION,
             profile_name=CATBOOST_CIC2023_PROFILE,
             values=values,
+            src_ip=event.src_ip,
         )

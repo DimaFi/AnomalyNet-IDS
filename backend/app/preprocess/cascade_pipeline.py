@@ -82,4 +82,5 @@ class CascadeAdvancedPipeline:
             profile_name=CATBOOST_CASCADE_ADV_PROFILE,
             values=fv.values,
             secondary_values=secondary_values,
+            src_ip=event.src_ip,
         )

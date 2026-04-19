@@ -39,10 +39,13 @@ class AppSettings(BaseModel):
     whitelist_ips: list[str] = Field(default_factory=list)
     # Dual-mode detection
     detection_mode: DetectionMode = "simple"
-    # Secondary model: Stage2 (simple) or Stage3 (advanced)
+    # Secondary model: Stage2 (simple) or Stage3/Stage4 (advanced)
     catboost_secondary_model_dir: str = ""
     # Secondary preprocessing artifacts (empty = reuse primary)
     catboost_secondary_artifacts_dir: str = ""
+    # Stage3 model (IoT 2023, 46 features) for routed cascade
+    catboost_stage3_model_dir: str = ""
+    catboost_stage3_artifacts_dir: str = ""
 
 
 class ModelDescriptor(BaseModel):
@@ -93,6 +96,8 @@ class FeatureVector(BaseModel):
     values: dict[str, float | int | str]
     # Secondary feature set for cascade advanced mode (46 CIC2023 features); None otherwise
     secondary_values: dict[str, float] | None = None
+    # Source IP — populated by preprocessing pipelines for routing in CascadeRoutedAdapter
+    src_ip: str | None = None
 
 
 class InferenceResult(BaseModel):
@@ -155,6 +160,8 @@ class SettingsUpdate(BaseModel):
     detection_mode: DetectionMode = "simple"
     catboost_secondary_model_dir: str = ""
     catboost_secondary_artifacts_dir: str = ""
+    catboost_stage3_model_dir: str = ""
+    catboost_stage3_artifacts_dir: str = ""
 
 
 class ModelPreset(BaseModel):

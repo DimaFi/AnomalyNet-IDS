@@ -117,6 +117,19 @@
       "is_mock": false,
       "description": "Каскад Stage1+Stage4: бинарный фильтр (F1=99.4%) → Extended классификатор (IoT 2023 + CIC-IDS-2018, Macro F1=0.76 на внешних атаках). Решает domain shift для VPS-атак. DoS/DDoS/BruteForce F1≥0.97.",
       "status": "idle"
+    },
+    {
+      "model_id": "catboost-cascade-routed",
+      "display_name": "Cascade: Routed [Stage1 → Stage2/Stage3]",
+      "version": "5.0.0",
+      "provider": "local",
+      "contract_version": "feature-contract.v1",
+      "profile_name": "catboost_cascade_routed",
+      "artifact_path": "artifacts/models/catboost-cascade-routed",
+      "supported_modes": ["linux_live"],
+      "is_mock": false,
+      "description": "Каскад с маршрутизацией: Stage1 (бинарный) → Stage2 (71-признак, TCP/SSH/HTTP) или Stage3 (46-признак, ICMP/UDP/IoT/VPS). ICMP/UDP→Stage3(flood), TCP SSH/FTP→Stage2(BruteForce), TCP HTTP/HTTPS→Stage2(WebAttack), src_ip RFC1918→Stage3(IoT), default→Stage3(VPS). Требует catboost_model_dir(Stage1), catboost_secondary_model_dir(Stage2), catboost_stage3_model_dir(Stage3), detection_mode=advanced.",
+      "status": "idle"
     }
   ]
 }

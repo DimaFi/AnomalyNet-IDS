@@ -57,4 +57,5 @@ class CatBoostPreprocessingPipeline:
             contract_version=CATBOOST_CONTRACT_VERSION,
             profile_name=CATBOOST_PROFILE_NAME,
             values=values,
+            src_ip=event.src_ip,
         )

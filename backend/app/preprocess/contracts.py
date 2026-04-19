@@ -14,5 +14,6 @@ CATBOOST_PROFILE_NAME     = "catboost_iot_71"
 CATBOOST_CIC2023_PROFILE      = "catboost_iot_46_cic2023"
 
 # Cascade profile names
-CATBOOST_CASCADE_SIMPLE_PROFILE = "catboost_cascade_simple"
-CATBOOST_CASCADE_ADV_PROFILE    = "catboost_cascade_advanced"
+CATBOOST_CASCADE_SIMPLE_PROFILE  = "catboost_cascade_simple"
+CATBOOST_CASCADE_ADV_PROFILE     = "catboost_cascade_advanced"
+CATBOOST_CASCADE_ROUTED_PROFILE  = "catboost_cascade_routed"

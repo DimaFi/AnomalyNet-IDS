@@ -57,6 +57,17 @@ def build_model_adapter(descriptor: ModelDescriptor, settings: AppSettings):
             threshold=settings.catboost_threshold,
         )
 
+    # Cascade Routed: Stage1 (binary) → Stage2 (71-feat, TCP ports) or Stage3 (46-feat, rest)
+    if profile == "catboost_cascade_routed":
+        from app.model.cascade_adapter import CascadeRoutedAdapter
+        return CascadeRoutedAdapter(
+            stage1_dir=Path(settings.catboost_model_dir),
+            stage2_dir=Path(settings.catboost_secondary_model_dir),
+            stage3_dir=Path(settings.catboost_stage3_model_dir),
+            model_id=descriptor.model_id,
+            threshold=settings.catboost_threshold,
+        )
+
     # Standalone Stage3/Stage4: 46 CIC IoT 2023 features, direct multiclass (no binary gate)
     if profile == "catboost_iot_46_cic2023":
         from app.model.catboost_adapter import CatBoostModelAdapter
