@@ -1,0 +1,76 @@
+"""
+Builtin wrapper: CatBoostModelAdapter (multiclass, 46 CIC2023 features) → BaseModel.
+
+Обёртывает многоклассовый CatBoostModelAdapter Stage3 (model_mc.cbm, 46 признаков).
+Принимает PluginFeatureVector со schema_id="cic_iot2023_46",
+возвращает PluginVerdict с attack_class.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+
+from app.plugins.base_model import BaseModel
+from app.plugins.contracts import PluginFeatureVector, PluginVerdict
+from app.plugins.builtin.model_stage1 import _to_feature_vector, _to_plugin_verdict
+
+
+class BuiltinStage3Model(BaseModel):
+    """
+    Wraps CatBoostModelAdapter (model_mc.cbm, 46 CIC IoT 2023 признаков).
+
+    model_dir: папка с model_mc.cbm + class_mapping.json (stage3_cic2023/models/catboost)
+    threshold: порог срабатывания (default 0.70)
+    """
+
+    def __init__(self, model_dir: str | Path, threshold: float = 0.70) -> None:
+        self._model_dir = Path(model_dir)
+        self._threshold = threshold
+        self._adapter   = None
+
+    # ── BaseModel interface ────────────────────────────────────────────────────
+
+    def get_name(self) -> str:
+        return "builtin_stage3_iot2023"
+
+    def get_description(self) -> str:
+        return (
+            "Stage3: многоклассовый CatBoost (46 CIC IoT 2023 признаков, 8 классов). "
+            "Macro F1=0.819. Используется в Advanced режиме."
+        )
+
+    def get_version(self) -> str:
+        return "1.0.0"
+
+    def get_accepted_schema_ids(self) -> list[str]:
+        return ["cic_iot2023_46"]
+
+    def get_output_classes(self) -> list[str]:
+        if self._adapter and self._adapter._class_mapping:
+            return list(self._adapter._class_mapping.values())
+        return ["Benign", "DoS", "DDoS", "Recon", "BruteForce", "WebAttack", "Bot", "Spoofing"]
+
+    def on_load(self) -> None:
+        from app.model.catboost_adapter import CatBoostModelAdapter
+        self._adapter = CatBoostModelAdapter(
+            model_dir=self._model_dir,
+            model_id="builtin_stage3_iot2023",
+            threshold=self._threshold,
+        )
+
+    def on_unload(self) -> None:
+        self._adapter = None
+
+    def predict(self, features: PluginFeatureVector) -> PluginVerdict:
+        if self._adapter is None:
+            raise RuntimeError(
+                "BuiltinStage3Model не загружен. "
+                "Вызови on_load() или зарегистрируй в PluginRegistry."
+            )
+
+        ok, reason = self.check_compatibility(features.schema_id)
+        if not ok:
+            raise ValueError(reason)
+
+        fv = _to_feature_vector(features)
+        result = self._adapter.infer(fv)
+        return _to_plugin_verdict(result, stage="stage3")

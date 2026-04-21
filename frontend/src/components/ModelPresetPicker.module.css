@@ -158,3 +158,191 @@
   transition: opacity 0.12s;
 }
 .applyBtn:hover { opacity: 0.85; }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.tabBtn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.tabBtn:hover { background: var(--surface-hover); color: var(--text-primary); }
+.tabActive {
+  border-color: var(--accent);
+  background: rgba(91,155,247,0.10);
+  color: var(--accent);
+}
+
+/* ── Pipeline tab ── */
+.tabToolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.smallBtn {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.smallBtn:hover { background: var(--surface-hover); color: var(--text-primary); }
+.smallBtnAccent {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: rgba(91,155,247,0.12);
+  color: var(--accent);
+  cursor: pointer;
+}
+.smallBtnAccent:hover { background: rgba(91,155,247,0.2); }
+.reloadMsg { font-size: 11px; color: var(--ok, #52b788); }
+
+.pipelineCard {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  margin-bottom: 8px;
+}
+.pipelineHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.pipelineName { font-size: 13px; font-weight: 600; }
+.pipelineDesc { font-size: 11.5px; opacity: 0.55; margin: 0 0 6px; }
+.stageList { display: flex; flex-wrap: wrap; gap: 5px; }
+.stagePill {
+  font-size: 10.5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.builtinBadge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.07);
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.deleteBtn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
+  cursor: pointer;
+  margin-left: auto;
+}
+.deleteBtn:hover { background: rgba(var(--danger-rgb), 0.18); }
+
+/* Create form */
+.createForm {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.createTitle { font-size: 12px; font-weight: 700; margin: 0 0 10px; }
+.stageTitle  { font-size: 11.5px; font-weight: 600; margin: 10px 0 6px; opacity: 0.7; }
+.formRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+  font-size: 12px;
+}
+.formRow label { width: 90px; flex-shrink: 0; color: var(--text-secondary); }
+.formInput {
+  flex: 1;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  outline: none;
+}
+.formInput:focus { border-color: var(--accent); }
+
+/* Guide */
+.guideSection { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 10px; }
+.guideToggle {
+  background: none;
+  border: none;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+.guideToggle:hover { color: var(--text-primary); }
+.guideContent {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  background: var(--surface-1);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+.guideContent code {
+  background: var(--surface-3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: 'Cascadia Code', monospace;
+  font-size: 11px;
+}
+
+/* Plugins tab */
+.sectionTitle { font-size: 12px; font-weight: 700; margin: 0 0 8px; }
+.pluginCard {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  margin-bottom: 6px;
+  background: var(--surface-1);
+}
+.pluginCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.pluginName  { font-size: 12px; font-weight: 600; }
+.pluginSchema {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(91,155,247,0.12);
+  color: var(--accent);
+}
+.pluginDesc  { font-size: 11px; opacity: 0.55; margin: 0 0 3px; }
+.pluginMeta  { font-size: 10.5px; color: var(--text-muted); }
+.emptyNote   { font-size: 12px; opacity: 0.5; padding: 8px 0; }

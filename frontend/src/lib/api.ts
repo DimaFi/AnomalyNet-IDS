@@ -12,6 +12,13 @@ import type {
   UpdateApplyResult,
   UpdateCheckResult,
 } from "../app/types";
+import type {
+  CreatePipelinePayload,
+  ModelMeta,
+  PipelineConfig,
+  PreprocessorMeta,
+  ValidateResponse,
+} from "../types/plugins";
 
 const jsonHeaders = {
   "Content-Type": "application/json"
@@ -63,4 +70,21 @@ export const api = {
     }),
   checkUpdates: () => request<UpdateCheckResult>("/api/update/check"),
   applyUpdates: () => request<UpdateApplyResult>("/api/update/apply", { method: "POST" }),
+
+  // ── Plugin API ─────────────────────────────────────────────────────────────
+  getPluginPreprocessors: () => request<PreprocessorMeta[]>("/api/plugins/preprocessors"),
+  getPluginModels: () => request<ModelMeta[]>("/api/plugins/models"),
+  getPluginPipelines: () => request<PipelineConfig[]>("/api/plugins/pipelines"),
+  createPluginPipeline: (payload: CreatePipelinePayload) =>
+    request<PipelineConfig>("/api/plugins/pipelines", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify(payload),
+    }),
+  deletePluginPipeline: (name: string) =>
+    request<{ deleted: string }>(`/api/plugins/pipelines/${name}`, { method: "DELETE" }),
+  validatePluginPipeline: (name: string) =>
+    request<ValidateResponse>(`/api/plugins/pipelines/${name}/validate`, { method: "POST" }),
+  reloadPlugins: () =>
+    request<{ discovered: number; message: string }>("/api/plugins/reload", { method: "POST" }),
 };
