@@ -290,6 +290,11 @@
 }
 
 .unblockBtnDisabled {
-  opacity: 0.3;
+  background: none !important;
+  border-color: transparent !important;
+  color: var(--text-muted) !important;
+  opacity: 0.4;
   cursor: default;
+  box-shadow: none !important;
+  padding: 3px 4px;
 }

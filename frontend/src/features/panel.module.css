@@ -95,6 +95,7 @@
   border-radius: var(--radius-xl);
   padding: 1.1rem;
   box-shadow: var(--shadow-card);
+  overflow-x: auto;
 }
 
 .cardList {
