@@ -262,24 +262,26 @@ export function StreamView() {
                       <span className={blockStyles.noClass}>—</span>
                     )}
                   </td>
-                  <td className={blockStyles.actionsCell}>
-                    {isAttack && !isBlocked && (
+                  <td>
+                    <div className={blockStyles.actionsCell}>
+                      {isAttack && !isBlocked && (
+                        <button
+                          className={blockStyles.blockBtn}
+                          onClick={() => blockIp(item.event.src_ip, item.event.event_id)}
+                          title={`Заблокировать ${item.event.src_ip}`}
+                        >
+                          Блокировать
+                        </button>
+                      )}
                       <button
-                        className={blockStyles.blockBtn}
-                        onClick={() => blockIp(item.event.src_ip, item.event.event_id)}
-                        title={`Заблокировать ${item.event.src_ip}`}
+                        className={[blockStyles.unblockBtn, !isBlocked ? blockStyles.unblockBtnDisabled : ""].join(" ")}
+                        disabled={!isBlocked}
+                        onClick={() => void handleUnblock(item.event.src_ip)}
+                        title={isBlocked ? `Разблокировать ${item.event.src_ip}` : "IP не заблокирован"}
                       >
-                        Блокировать
+                        Разблокировать
                       </button>
-                    )}
-                    <button
-                      className={[blockStyles.unblockBtn, !isBlocked ? blockStyles.unblockBtnDisabled : ""].join(" ")}
-                      disabled={!isBlocked}
-                      onClick={() => void handleUnblock(item.event.src_ip)}
-                      title={isBlocked ? `Разблокировать ${item.event.src_ip}` : "IP не заблокирован"}
-                    >
-                      Разблокировать
-                    </button>
+                    </div>
                   </td>
                 </tr>
               );
