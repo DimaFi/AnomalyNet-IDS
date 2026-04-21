@@ -53,6 +53,10 @@ if _DIST.exists():
         if full_path.startswith("api/") or full_path.startswith("ws/"):
             from fastapi import HTTPException
             raise HTTPException(status_code=404)
+        # Serve real files (logo.png, favicon, etc.) if they exist in dist
+        candidate = _DIST / full_path
+        if candidate.is_file():
+            return FileResponse(str(candidate))
         return FileResponse(str(_DIST / "index.html"))
 
 

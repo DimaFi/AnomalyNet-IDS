@@ -3,7 +3,7 @@ import type { UpdateApplyResult, UpdateCheckResult } from "../../app/types";
 import { api } from "../../lib/api";
 import styles from "./AboutView.module.css";
 
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "v1.0.0";
 const GUI_REPO    = "https://github.com/DimaFi/AnomalyNet-gui";
 const ML_REPO     = "https://github.com/DimaFi/AnomalyNet-ml";
 
@@ -50,7 +50,7 @@ export function AboutView() {
         <div className={styles.heroText}>
           <h1 className={styles.appName}>AnomalyNet IDS</h1>
           <p className={styles.appSub}>Система обнаружения вторжений на основе машинного обучения</p>
-          <span className={styles.versionBadge}>v{APP_VERSION}</span>
+          <span className={styles.versionBadge}>{APP_VERSION}</span>
         </div>
       </div>
 
@@ -151,11 +151,13 @@ function RepoStatus({ label, info }: { label: string; info: { has_update?: boole
       <span className={styles.repoStatusLabel}>{label}</span>
       {info.has_update ? (
         <span className={styles.statusNew}>
-          Новая версия: <code>{info.latest}</code>
+          Доступно: <code>{info.latest}</code>
           {info.latest_msg && <span className={styles.commitMsg}> — {info.latest_msg}</span>}
         </span>
       ) : (
-        <span className={styles.statusOk}>Актуально <code>{info.current}</code></span>
+        <span className={styles.statusOk}>
+          Актуально: <code>{info.current}</code>
+        </span>
       )}
     </div>
   );
