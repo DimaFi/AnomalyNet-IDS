@@ -89,21 +89,57 @@ async def unblock_ip(
     return {"ip": ip, "unblocked": success}
 
 
+async def _detect_default_interface() -> str:
+    """Returns the interface used for the default route (e.g. enp0s3, eth0)."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ip", "route", "get", "8.8.8.8",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=3.0)
+        line = stdout.decode(errors="ignore")
+        # Output: "8.8.8.8 via 1.2.3.1 dev eth0 src ..."
+        parts = line.split()
+        idx = parts.index("dev") if "dev" in parts else -1
+        if idx >= 0 and idx + 1 < len(parts):
+            return parts[idx + 1]
+    except Exception:
+        pass
+    return ""
+
+
 @block_router.get("/interfaces")
 async def list_interfaces() -> list[dict]:
     """
-    Returns network interfaces visible to the OS.
-    Uses psutil if available; falls back to a basic socket-based list.
+    Returns all non-loopback network interfaces with IPv4 addresses.
+    Marks the default route interface with is_default=true.
     """
+    default_iface = await _detect_default_interface()
+
     try:
         import psutil
         result = []
+        stats = psutil.net_if_stats()
         for name, addrs in psutil.net_if_addrs().items():
             ipv4 = [a.address for a in addrs if a.family == 2]  # AF_INET
-            result.append({"name": name, "addresses": ipv4})
+            # Skip pure loopback (lo) but keep real interfaces even if no IP yet
+            if name == "lo" and ipv4 == ["127.0.0.1"]:
+                continue
+            is_up = stats[name].isup if name in stats else False
+            result.append({
+                "name": name,
+                "addresses": ipv4,
+                "is_default": name == default_iface,
+                "is_up": is_up,
+            })
+        # Sort: default first, then by name
+        result.sort(key=lambda x: (not x["is_default"], x["name"]))
         return result
     except ImportError:
         pass
 
-    # Fallback: just return a placeholder
-    return [{"name": "eth0", "addresses": []}, {"name": "lo", "addresses": ["127.0.0.1"]}]
+    # Fallback
+    return [
+        {"name": default_iface or "eth0", "addresses": [], "is_default": True, "is_up": True},
+    ]

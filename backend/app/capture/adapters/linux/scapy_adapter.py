@@ -31,8 +31,8 @@ class LinuxScapyAdapter(CaptureAdapter):
     mode = "linux_live"
     name = "Linux Scapy Live Capture"
 
-    def __init__(self, interface: str = "eth0", detection_mode: str = "simple") -> None:
-        self._interface = interface
+    def __init__(self, interfaces: list[str] | str = "eth0", detection_mode: str = "simple") -> None:
+        self._interfaces: list[str] = [interfaces] if isinstance(interfaces, str) else interfaces
         self._detection_mode = detection_mode
         self._queue: asyncio.Queue[NormalizedFlowEvent] = asyncio.Queue(maxsize=500)
         self._aggregator = FlowAggregator(on_flow_complete=self._on_flow_ready)
@@ -51,8 +51,9 @@ class LinuxScapyAdapter(CaptureAdapter):
                 "scapy is not installed. Run: pip install scapy"
             ) from exc
 
+        iface_arg = self._interfaces[0] if len(self._interfaces) == 1 else self._interfaces
         self._sniffer = AsyncSniffer(
-            iface=self._interface,
+            iface=iface_arg,
             filter="ip",
             prn=self._packet_callback,
             store=False,
@@ -103,7 +104,7 @@ class LinuxScapyAdapter(CaptureAdapter):
         event = NormalizedFlowEvent(
             event_id=str(uuid4()),
             timestamp=datetime.now(timezone.utc),
-            source=f"iface:{self._interface}",
+            source=f"iface:{','.join(self._interfaces)}",
             direction="inbound",
             protocol=protocol,
             src_ip=record.src_ip,

@@ -21,7 +21,7 @@ class PipelineService:
         self._settings = store.load_settings()
         self._models = store.load_models()
         self._status: StatusLevel = "idle"
-        self._recent_items: deque[PipelineEvent] = deque(maxlen=30)
+        self._recent_items: deque[PipelineEvent] = deque(maxlen=10000)
         self._subscribers: set[asyncio.Queue[PipelineEvent]] = set()
         self._loop_task: asyncio.Task[None] | None = None
         self._unblock_task: asyncio.Task[None] | None = None
@@ -253,8 +253,11 @@ class PipelineService:
             items=list(self._recent_items),
         )
 
-    def history(self, limit: int = 50) -> list[PipelineEvent]:
-        return self._store.read_recent_history(limit=limit)
+    def history(self, limit: int = 50, offset: int = 0) -> list[PipelineEvent]:
+        items = list(self._recent_items)
+        if offset:
+            items = items[offset:]
+        return items[:limit] if limit > 0 else items
 
     def update_settings(self, updated: AppSettings) -> AppSettings:
         self._settings = self._store.save_settings(updated)
@@ -306,6 +309,7 @@ class PipelineService:
         scores = self._scores or [0.0]
         top_ips = dict(sorted(self._src_ip_counts.items(), key=lambda x: -x[1])[:10])
         top_ports = dict(sorted(self._dst_port_counts.items(), key=lambda x: -x[1])[:10])
+        ifaces = self._settings.interface_names or [self._settings.interface_name]
         return DebugStats(
             uptime_events_total=self._total_events,
             events_by_label=dict(self._label_counts),
@@ -317,7 +321,7 @@ class PipelineService:
             max_score=round(max(scores), 4),
             detection_mode=self._settings.detection_mode,
             active_model_id=self._settings.active_model_id,
-            interface=self._settings.interface_name,
+            interface=", ".join(ifaces),
             capture_status=self._status,
         )
 

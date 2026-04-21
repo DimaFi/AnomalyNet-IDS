@@ -22,8 +22,9 @@ class AppSettings(BaseModel):
     active_model_id: str = "mock-default"
     capture_enabled: bool = True
     stream_autostart: bool = True
-    # Network capture
+    # Network capture — single or multi-interface (interface_names takes precedence)
     interface_name: str = "eth0"
+    interface_names: list[str] = Field(default_factory=list)
     # CatBoost model configuration (primary = Stage1 binary)
     catboost_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
     catboost_model_dir: str = ""
@@ -149,6 +150,7 @@ class SettingsUpdate(BaseModel):
     capture_enabled: bool
     stream_autostart: bool
     interface_name: str = "eth0"
+    interface_names: list[str] = Field(default_factory=list)
     catboost_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
     catboost_model_dir: str = ""
     preprocessing_artifacts_dir: str = ""

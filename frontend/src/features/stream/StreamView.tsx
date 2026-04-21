@@ -56,6 +56,8 @@ export function StreamView() {
   const [filterVerdict,  setFilterVerdict]  = useState<"all" | VerdictLabel>("all");
   const [filterClass,    setFilterClass]    = useState("all");
   const [filterProtocol, setFilterProtocol] = useState("all");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -89,6 +91,10 @@ export function StreamView() {
 
   const hasFilters = filterVerdict !== "all" || filterClass !== "all" || filterProtocol !== "all";
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage   = Math.min(page, totalPages - 1);
+  const paginated  = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+
   return (
     <section className={styles.panel}>
       <div className={styles.panelHeader}>
@@ -104,6 +110,21 @@ export function StreamView() {
               ? `${filtered.length} / ${stream.length} ${t("stream.events", "событий")}`
               : `${stream.length} ${t("stream.events", "событий")}`}
           </span>
+          {totalPages > 1 && (
+            <div className={blockStyles.pagination}>
+              <button className={blockStyles.pageBtn} disabled={safePage === 0}
+                onClick={() => setPage(0)}>«</button>
+              <button className={blockStyles.pageBtn} disabled={safePage === 0}
+                onClick={() => setPage(p => Math.max(0, p - 1))}>‹</button>
+              <span className={blockStyles.pageInfo}>
+                {safePage + 1} / {totalPages}
+              </span>
+              <button className={blockStyles.pageBtn} disabled={safePage >= totalPages - 1}
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}>›</button>
+              <button className={blockStyles.pageBtn} disabled={safePage >= totalPages - 1}
+                onClick={() => setPage(totalPages - 1)}>»</button>
+            </div>
+          )}
           <button
             className={blockStyles.refreshBtn}
             onClick={() => void exportCsv(filtered)}
@@ -172,7 +193,7 @@ export function StreamView() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((item) => {
+            {paginated.map((item) => {
               const isAttack  = item.inference.label !== "normal";
               const isBlocked = blockedIps.has(item.event.src_ip);
 

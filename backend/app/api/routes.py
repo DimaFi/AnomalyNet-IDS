@@ -62,8 +62,18 @@ def get_snapshot(service: PipelineService = Depends(get_pipeline_service)) -> St
 
 
 @router.get("/history")
-def get_history(limit: int = 50, service: PipelineService = Depends(get_pipeline_service)):
-    return service.history(limit=limit)
+def get_history(
+    limit: int = 100,
+    offset: int = 0,
+    service: PipelineService = Depends(get_pipeline_service),
+):
+    items = service.history(limit=limit, offset=offset)
+    return {
+        "total": len(service._recent_items),
+        "offset": offset,
+        "limit": limit,
+        "items": [e.model_dump(mode="json") for e in items],
+    }
 
 
 @router.get("/model-presets", response_model=ModelPresetsRegistry)

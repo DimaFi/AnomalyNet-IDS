@@ -142,25 +142,50 @@ export function SettingsView() {
       {/* ── Network capture ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>{t("settings.groupCapture")}</div>
-        <div className={styles.formGrid}>
-          <label className={styles.field}>
-            <span>{t("settings.interfaceName")}</span>
-            {interfaces.length > 0 ? (
-              <select value={settings.interface_name}
-                onChange={(e) => patch({ interface_name: e.target.value })}>
-                {interfaces.map((iface) => (
-                  <option key={iface.name} value={iface.name}>
-                    {iface.name}{iface.addresses.length > 0 ? ` (${iface.addresses[0]})` : ""}
-                  </option>
-                ))}
-              </select>
-            ) : (
+        {interfaces.length > 0 ? (
+          <div className={selfStyles.ifaceList}>
+            {interfaces.map((iface) => {
+              const selected = (settings.interface_names ?? []).includes(iface.name);
+              return (
+                <label key={iface.name} className={selfStyles.ifaceRow}>
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={(e) => {
+                      const prev = settings.interface_names ?? [];
+                      const next = e.target.checked
+                        ? [...prev, iface.name]
+                        : prev.filter((n) => n !== iface.name);
+                      patch({ interface_names: next });
+                    }}
+                  />
+                  <span className={selfStyles.ifaceName}>{iface.name}</span>
+                  {iface.addresses[0] && (
+                    <span className={selfStyles.ifaceAddr}>{iface.addresses[0]}</span>
+                  )}
+                  {iface.is_default && (
+                    <span className={selfStyles.ifaceDefault}>рекомендуется</span>
+                  )}
+                  {!iface.is_up && (
+                    <span className={selfStyles.ifaceDown}>выкл</span>
+                  )}
+                </label>
+              );
+            })}
+            {(settings.interface_names ?? []).length === 0 && (
+              <p className={selfStyles.ifaceHint}>Выберите хотя бы один интерфейс</p>
+            )}
+          </div>
+        ) : (
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              <span>{t("settings.interfaceName")}</span>
               <input type="text" value={settings.interface_name}
                 onChange={(e) => patch({ interface_name: e.target.value })}
                 placeholder="eth0" />
-            )}
-          </label>
-        </div>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* ── CatBoost model ── */}

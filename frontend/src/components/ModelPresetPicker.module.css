@@ -16,6 +16,23 @@
 .trigger:hover { background: var(--accent-hover, #4a8ae8); transform: translateY(-1px); }
 .trigger:active { transform: translateY(0); }
 
+.triggerCompact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-fluent),
+              color var(--duration-fast) var(--ease-fluent);
+  flex-shrink: 0;
+}
+.triggerCompact:hover { background: var(--surface-hover); color: var(--accent); }
+
 .overlay {
   position: fixed;
   inset: 0;

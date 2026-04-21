@@ -15,6 +15,7 @@ export interface AppSettings {
   stream_autostart: boolean;
   // Network capture
   interface_name: string;
+  interface_names: string[];
   // CatBoost
   catboost_threshold: number;
   catboost_model_dir: string;
@@ -115,6 +116,8 @@ export interface HealthResponse {
 export interface NetworkInterface {
   name: string;
   addresses: string[];
+  is_default: boolean;
+  is_up: boolean;
 }
 
 export interface BlockRequest {

@@ -10,9 +10,14 @@ from app.contracts.schemas import AppSettings, RunMode
 def build_capture_adapter(mode: RunMode, settings: AppSettings | None = None) -> CaptureAdapter:
     if mode == "linux_live":
         from app.capture.adapters.linux.scapy_adapter import LinuxScapyAdapter
-        interface = settings.interface_name if settings else "eth0"
+        if settings and settings.interface_names:
+            interfaces = settings.interface_names
+        elif settings:
+            interfaces = [settings.interface_name]
+        else:
+            interfaces = ["eth0"]
         detection_mode = settings.detection_mode if settings else "simple"
-        return LinuxScapyAdapter(interface=interface, detection_mode=detection_mode)
+        return LinuxScapyAdapter(interfaces=interfaces, detection_mode=detection_mode)
 
     adapters: dict[RunMode, CaptureAdapter] = {
         "mock": MockCaptureAdapter(),

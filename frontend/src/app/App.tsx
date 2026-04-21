@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ToastContainer } from "../components/ToastContainer";
+import { ModelPresetPicker } from "../components/ModelPresetPicker";
 import { DashboardView } from "../features/dashboard/DashboardView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StreamView } from "../features/stream/StreamView";
@@ -71,25 +72,29 @@ export function App() {
 
   useRealtimeStream();
 
-  useEffect(() => {
-    async function bootstrap() {
-      try {
-        const [healthRes, settingsRes, modelsRes] = await Promise.all([
-          api.getHealth(),
-          api.getSettings(),
-          api.getModels(),
-        ]);
-        setHealth(healthRes);
-        setSettings(settingsRes);
-        setModels(modelsRes);
-        document.documentElement.dataset.theme = settingsRes.theme;
-        await i18n.changeLanguage(settingsRes.language);
-      } catch {
-        // Backend unreachable — leave state empty, UI shows loading/empty state
-      }
+  const [refreshing, setRefreshing] = useState(false);
+
+  const bootstrap = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [healthRes, settingsRes, modelsRes] = await Promise.all([
+        api.getHealth(),
+        api.getSettings(),
+        api.getModels(),
+      ]);
+      setHealth(healthRes);
+      setSettings(settingsRes);
+      setModels(modelsRes);
+      document.documentElement.dataset.theme = settingsRes.theme;
+      await i18n.changeLanguage(settingsRes.language);
+    } catch {
+      // Backend unreachable — leave state empty, UI shows loading/empty state
+    } finally {
+      setRefreshing(false);
     }
-    void bootstrap();
   }, [i18n, setHealth, setModels, setSettings]);
+
+  useEffect(() => { void bootstrap(); }, [bootstrap]);
 
   const [showShieldConfirm, setShowShieldConfirm] = useState(false);
   const [shieldIp, setShieldIp] = useState("");
@@ -182,6 +187,13 @@ export function App() {
                 {settings.detection_mode === "advanced" ? "Advanced" : "Simple"}
               </span>
             )}
+            {/* Warning: linux_live + mock model */}
+            {settings?.run_mode === "linux_live" && settings?.active_model_id === "mock-default" && (
+              <span className={styles.mockWarningBadge} title="Активирована demo-модель — выберите реальный детектор">
+                ⚠ Demo-модель
+              </span>
+            )}
+            <ModelPresetPicker compact />
             {settings && (
               <button
                 className={[styles.shieldBtn, settings.auto_block ? styles.shieldActive : ""].filter(Boolean).join(" ")}
@@ -194,6 +206,18 @@ export function App() {
                 {settings.auto_block ? "Защита ВКЛ" : "Защита ВЫКЛ"}
               </button>
             )}
+            <button
+              className={styles.refreshBtn}
+              onClick={() => void bootstrap()}
+              disabled={refreshing}
+              title="Обновить данные без перезагрузки страницы"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+            </button>
           </div>
         </div>
 
