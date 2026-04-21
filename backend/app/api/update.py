@@ -38,9 +38,9 @@ def _git_info(repo_dir: Path) -> dict:
         current = _run(["git", "rev-parse", "HEAD"], repo_dir).stdout.strip()
         latest  = _run(["git", "rev-parse", "origin/main"], repo_dir).stdout.strip()
         msg     = _run(["git", "log", "--oneline", "-1", "origin/main"], repo_dir).stdout.strip()
-        # Try to get a tag for display
-        cur_tag = _run(["git", "describe", "--tags", "--exact-match", "HEAD"], repo_dir).stdout.strip()
-        lat_tag = _run(["git", "describe", "--tags", "--exact-match", "origin/main"], repo_dir).stdout.strip()
+        # Nearest tag (e.g. v1.0.0), fallback to short hash
+        cur_tag = _run(["git", "describe", "--tags", "--abbrev=0", "HEAD"], repo_dir).stdout.strip()
+        lat_tag = _run(["git", "describe", "--tags", "--abbrev=0", "origin/main"], repo_dir).stdout.strip()
         return {
             "current":     cur_tag or current[:8],
             "latest":      lat_tag or latest[:8],
