@@ -98,4 +98,10 @@ export const api = {
   },
   deletePluginFile: (filename: string) =>
     request<{ deleted: string }>(`/api/plugins/files/${encodeURIComponent(filename)}`, { method: "DELETE" }),
+  activatePluginPipeline: (pipelineName: string, currentSettings: AppSettings) =>
+    request<AppSettings>("/api/settings", {
+      method: "PUT",
+      headers: jsonHeaders,
+      body: JSON.stringify({ ...currentSettings, active_model_id: `plugin:${pipelineName}` }),
+    }),
 };

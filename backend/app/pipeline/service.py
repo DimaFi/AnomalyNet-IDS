@@ -123,9 +123,17 @@ class PipelineService:
     def _get_pipeline_and_model(self):
         key = self._make_cache_key()
         if key != self._cache_key:
-            descriptor = self._active_descriptor()
-            self._preprocess_cache = build_preprocessing_pipeline(descriptor, self._settings)
-            self._model_cache = build_model_adapter(descriptor, self._settings)
+            active_id = self._settings.active_model_id
+            if active_id.startswith("plugin:"):
+                pipeline_name = active_id[len("plugin:"):]
+                from app.plugins.runner import PluginPipelineRunner
+                runner = PluginPipelineRunner(pipeline_name)
+                self._preprocess_cache = runner
+                self._model_cache = runner
+            else:
+                descriptor = self._active_descriptor()
+                self._preprocess_cache = build_preprocessing_pipeline(descriptor, self._settings)
+                self._model_cache = build_model_adapter(descriptor, self._settings)
             self._cache_key = key
         return self._preprocess_cache, self._model_cache
 

@@ -171,6 +171,11 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface-1);
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+.pipelineCardActive {
+  border-color: var(--accent);
+  background: rgba(91,155,247,0.07);
 }
 .pipelineCardHeader {
   display: flex;

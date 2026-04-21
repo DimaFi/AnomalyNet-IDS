@@ -52,7 +52,7 @@ export function PluginsView() {
   }, []);
 
   useEffect(() => {
-    if (tab === "pipelines" || tab === "plugins") fetchAll();
+    if (tab === "presets" || tab === "pipelines" || tab === "plugins") fetchAll();
     if (tab === "files") loadFiles();
   }, [tab]);
 
@@ -120,6 +120,23 @@ export function PluginsView() {
     if (!confirm(`Удалить pipeline «${name}»?`)) return;
     try { await deletePipeline(name); } catch (e) { alert(String(e)); }
   }
+
+  const [activating, setActivating] = useState<string | null>(null);
+
+  async function handleActivatePipeline(name: string) {
+    if (!settings) return;
+    setActivating(name);
+    try {
+      const saved = await api.activatePluginPipeline(name, settings);
+      setSettings(saved);
+    } finally {
+      setActivating(null);
+    }
+  }
+
+  const activePipelineName = settings?.active_model_id?.startsWith("plugin:")
+    ? settings.active_model_id.slice("plugin:".length)
+    : null;
 
   async function handleCreate() {
     try {
@@ -232,25 +249,38 @@ export function PluginsView() {
             {loading && <p style={{ opacity: 0.4, fontSize: 13 }}>Загрузка...</p>}
 
             <div className={styles.pipelineList}>
-              {pipelines.map((cfg) => (
-                <div key={cfg.name} className={styles.pipelineCard}>
+              {pipelines.map((cfg) => {
+                const isActive = activePipelineName === cfg.name;
+                return (
+                <div key={cfg.name} className={`${styles.pipelineCard} ${isActive ? styles.pipelineCardActive : ""}`}>
                   <div className={styles.pipelineCardHeader}>
                     <span className={styles.pipelineName}>{cfg.name}</span>
-                    {cfg.is_builtin
-                      ? <span className={styles.builtinBadge}>builtin</span>
-                      : <button className={styles.deleteBtn} onClick={() => handleDeletePipeline(cfg.name)}>Удалить</button>
-                    }
+                    {isActive && <span className={styles.activeBadge}>Активен</span>}
+                    {cfg.is_builtin && !isActive && <span className={styles.builtinBadge}>builtin</span>}
+                    {!cfg.is_builtin && (
+                      <button className={styles.deleteBtn} onClick={() => handleDeletePipeline(cfg.name)}>Удалить</button>
+                    )}
                   </div>
                   <p className={styles.pipelineDesc}>{cfg.description}</p>
                   <div className={styles.stageList}>
-                    {Object.entries(cfg.stages).map(([name, s]) => (
-                      <span key={name} className={styles.stagePill}>
-                        {name}: {s.preprocessor_name} → {s.model_name}{s.is_gate ? " [gate]" : ""}
+                    {Object.entries(cfg.stages).map(([sname, s]) => (
+                      <span key={sname} className={styles.stagePill}>
+                        {sname}: {s.preprocessor_name} → {s.model_name}{s.is_gate ? " [gate]" : ""}
                       </span>
                     ))}
                   </div>
+                  {!isActive && (
+                    <button
+                      className={styles.applyBtn}
+                      style={{ marginTop: 10 }}
+                      disabled={activating === cfg.name}
+                      onClick={() => handleActivatePipeline(cfg.name)}
+                    >
+                      {activating === cfg.name ? "Активируется..." : "Активировать"}
+                    </button>
+                  )}
                 </div>
-              ))}
+              );})}
             </div>
 
             {!loading && pipelines.length === 0 && (
