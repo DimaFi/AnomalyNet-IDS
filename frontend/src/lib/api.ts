@@ -8,7 +8,9 @@ import type {
   ModelsRegistry,
   NetworkInterface,
   PipelineEvent,
-  StreamSnapshot
+  StreamSnapshot,
+  UpdateApplyResult,
+  UpdateCheckResult,
 } from "../app/types";
 
 const jsonHeaders = {
@@ -58,5 +60,7 @@ export const api = {
       method: "POST",
       headers: jsonHeaders,
       body: "{}",
-    })
+    }),
+  checkUpdates: () => request<UpdateCheckResult>("/api/update/check"),
+  applyUpdates: () => request<UpdateApplyResult>("/api/update/apply", { method: "POST" }),
 };

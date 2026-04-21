@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 
 from app.api.block import block_router
 from app.api.routes import router
+from app.api.update import update_router
 from app.core import APP_ROOT
 from app.pipeline.service import PipelineService
 from app.storage.json_store import JsonFileStore
@@ -39,6 +40,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(block_router)
+app.include_router(update_router)
 
 # Serve built frontend in production / packaged mode
 _DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"

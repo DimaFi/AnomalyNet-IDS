@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ToastContainer } from "../components/ToastContainer";
 import { ModelPresetPicker } from "../components/ModelPresetPicker";
+import { AboutView } from "../features/about/AboutView";
 import { DashboardView } from "../features/dashboard/DashboardView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StreamView } from "../features/stream/StreamView";
@@ -10,12 +11,13 @@ import { useRealtimeStream } from "../lib/useRealtimeStream";
 import { useAppStore } from "./store";
 import styles from "./App.module.css";
 
-type ViewKey = "dashboard" | "stream" | "settings";
+type ViewKey = "dashboard" | "stream" | "settings" | "about";
 
 const viewMap: Record<ViewKey, React.ComponentType> = {
   dashboard: DashboardView,
   stream: StreamView,
   settings: SettingsView,
+  about: AboutView,
 };
 
 /* ── Inline SVG icons ─────────────────────────────────────── */
@@ -48,16 +50,28 @@ function IconSettings() {
   );
 }
 
+function IconAbout() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = [
   { key: "dashboard", Icon: IconDashboard, label: "Dashboard" },
   { key: "stream",    Icon: IconStream,    label: "Stream" },
   { key: "settings",  Icon: IconSettings,  label: "Settings" },
+  { key: "about",     Icon: IconAbout,     label: "About" },
 ];
 
 const PAGE_TITLES: Record<ViewKey, string> = {
   dashboard: "Dashboard",
   stream:    "Live Stream",
   settings:  "Settings",
+  about:     "О программе",
 };
 
 export function App() {

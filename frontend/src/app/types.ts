@@ -3,7 +3,7 @@ export type LanguageCode = "ru" | "en";
 export type RunMode = "mock" | "windows_stub" | "linux_stub" | "linux_live";
 export type StatusLevel = "idle" | "active" | "warning" | "error";
 export type VerdictLabel = "normal" | "warning" | "anomaly";
-export type AppView = "dashboard" | "stream" | "settings";
+export type AppView = "dashboard" | "stream" | "settings" | "about";
 
 export interface AppSettings {
   language: LanguageCode;
@@ -159,6 +159,31 @@ export interface DebugStats {
   max_score: number;
   detection_mode: string;
   active_model_id: string;
+}
+
+// Update
+export interface RepoUpdateInfo {
+  current: string;
+  latest: string;
+  has_update: boolean;
+  latest_msg?: string;
+  available: boolean;
+  error?: string;
+}
+
+export interface UpdateCheckResult {
+  gui: RepoUpdateInfo;
+  ml: RepoUpdateInfo;
+  has_any_update: boolean;
+}
+
+export interface UpdateApplyResult {
+  gui: { ok: boolean; output?: string; changed_files?: string[] };
+  ml: { ok: boolean; output?: string };
+  dist_rebuilt: boolean;
+  restart_scheduled: boolean;
+  message: string;
+  errors: string[];
 }
 
 // Toast notification
