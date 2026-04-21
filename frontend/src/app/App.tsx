@@ -4,6 +4,7 @@ import { ToastContainer } from "../components/ToastContainer";
 import { ModelPresetPicker } from "../components/ModelPresetPicker";
 import { AboutView } from "../features/about/AboutView";
 import { DashboardView } from "../features/dashboard/DashboardView";
+import { PluginsView } from "../features/plugins/PluginsView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StreamView } from "../features/stream/StreamView";
 import { api } from "../lib/api";
@@ -11,13 +12,14 @@ import { useRealtimeStream } from "../lib/useRealtimeStream";
 import { useAppStore } from "./store";
 import styles from "./App.module.css";
 
-type ViewKey = "dashboard" | "stream" | "settings" | "about";
+type ViewKey = "dashboard" | "stream" | "plugins" | "settings" | "about";
 
 const viewMap: Record<ViewKey, React.ComponentType> = {
   dashboard: DashboardView,
-  stream: StreamView,
-  settings: SettingsView,
-  about: AboutView,
+  stream:    StreamView,
+  plugins:   PluginsView,
+  settings:  SettingsView,
+  about:     AboutView,
 };
 
 /* ── Inline SVG icons ─────────────────────────────────────── */
@@ -41,6 +43,16 @@ function IconStream() {
 }
 
 
+function IconPlugins() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -63,6 +75,7 @@ function IconAbout() {
 const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = [
   { key: "dashboard", Icon: IconDashboard, label: "Dashboard" },
   { key: "stream",    Icon: IconStream,    label: "Stream" },
+  { key: "plugins",   Icon: IconPlugins,   label: "Plugins" },
   { key: "settings",  Icon: IconSettings,  label: "Settings" },
   { key: "about",     Icon: IconAbout,     label: "About" },
 ];
@@ -70,6 +83,7 @@ const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = 
 const PAGE_TITLES: Record<ViewKey, string> = {
   dashboard: "Dashboard",
   stream:    "Live Stream",
+  plugins:   "Плагины",
   settings:  "Settings",
   about:     "О программе",
 };
