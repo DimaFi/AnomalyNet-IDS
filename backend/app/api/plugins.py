@@ -2,17 +2,22 @@
 REST API для системы плагинов AnomalyNet.
 
 Endpoints:
-  GET  /api/plugins/preprocessors          — список зарегистрированных препроцессоров
-  GET  /api/plugins/models                 — список зарегистрированных моделей
-  GET  /api/plugins/pipelines              — список pipeline конфигов
-  POST /api/plugins/pipelines              — создать пользовательский pipeline
-  DELETE /api/plugins/pipelines/{name}     — удалить пользовательский pipeline
-  POST /api/plugins/reload                 — перезагрузить плагины из папки plugins/
-  POST /api/plugins/pipelines/{name}/validate — проверить pipeline на корректность
+  GET    /api/plugins/preprocessors            — список зарегистрированных препроцессоров
+  GET    /api/plugins/models                   — список зарегистрированных моделей
+  GET    /api/plugins/pipelines                — список pipeline конфигов
+  POST   /api/plugins/pipelines                — создать пользовательский pipeline
+  DELETE /api/plugins/pipelines/{name}         — удалить пользовательский pipeline
+  POST   /api/plugins/reload                   — перезагрузить плагины из папки plugins/
+  POST   /api/plugins/pipelines/{name}/validate — проверить pipeline на корректность
+  POST   /api/plugins/upload                   — загрузить .py файл в папку plugins/
+  GET    /api/plugins/files                    — список файлов в папке plugins/
+  DELETE /api/plugins/files/{filename}         — удалить файл из plugins/
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
 from app.plugins.registry import get_registry
@@ -150,3 +155,75 @@ def reload_plugins() -> ReloadResponse:
         discovered=count,
         message=f"Загружено {count} плагинов из папки plugins/",
     )
+
+
+# ── Файловые операции ─────────────────────────────────────────────────────────
+
+_PLUGINS_FOLDER = Path(__file__).parent.parent.parent.parent / "plugins"
+
+
+@plugins_router.get("/files")
+def list_plugin_files() -> list[dict]:
+    """Возвращает список .py файлов в папке plugins/ (пользовательские плагины)."""
+    if not _PLUGINS_FOLDER.exists():
+        return []
+    files = []
+    for f in sorted(_PLUGINS_FOLDER.glob("*.py")):
+        if f.name.startswith("_"):
+            continue
+        files.append({
+            "filename": f.name,
+            "size_bytes": f.stat().st_size,
+            "is_example": f.name.startswith("example_"),
+        })
+    return files
+
+
+@plugins_router.post("/upload", status_code=201)
+async def upload_plugin_file(file: UploadFile = File(...)) -> dict:
+    """
+    Загружает .py файл в папку plugins/ и автоматически перезагружает плагины.
+
+    Принимает multipart/form-data с полем 'file'.
+    Имя файла сохраняется как есть (без пути). Разрешены только .py файлы.
+    После загрузки автоматически вызывает discover_plugins().
+    """
+    if not file.filename or not file.filename.endswith(".py"):
+        raise HTTPException(status_code=422, detail="Разрешены только .py файлы")
+
+    # Безопасное имя файла — только basename, без пути
+    safe_name = Path(file.filename).name
+    if safe_name.startswith("_"):
+        raise HTTPException(status_code=422, detail="Имя файла не должно начинаться с '_'")
+
+    _PLUGINS_FOLDER.mkdir(parents=True, exist_ok=True)
+    dest = _PLUGINS_FOLDER / safe_name
+
+    content = await file.read()
+    dest.write_bytes(content)
+
+    # Автоматически перезагрузить плагины после загрузки
+    registry = get_registry()
+    discovered = registry.discover_plugins()
+
+    return {
+        "filename": safe_name,
+        "size_bytes": len(content),
+        "discovered": discovered,
+        "message": f"Файл '{safe_name}' загружен, обнаружено плагинов: {discovered}",
+    }
+
+
+@plugins_router.delete("/files/{filename}", status_code=200)
+def delete_plugin_file(filename: str) -> dict:
+    """Удаляет .py файл из папки plugins/."""
+    safe_name = Path(filename).name
+    if not safe_name.endswith(".py"):
+        raise HTTPException(status_code=422, detail="Разрешены только .py файлы")
+
+    target = _PLUGINS_FOLDER / safe_name
+    if not target.exists():
+        raise HTTPException(status_code=404, detail=f"Файл '{safe_name}' не найден")
+
+    target.unlink()
+    return {"deleted": safe_name}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../app/store";
 import type { ModelPreset } from "../../app/types";
 import { api } from "../../lib/api";
@@ -6,7 +6,9 @@ import { usePluginsStore } from "../../store/pluginsStore";
 import type { CreatePipelinePayload, StageConfig } from "../../types/plugins";
 import styles from "./PluginsView.module.css";
 
-type Tab = "presets" | "pipelines" | "plugins";
+type Tab = "presets" | "pipelines" | "plugins" | "files";
+
+type PluginFile = { filename: string; size_bytes: number; is_example: boolean };
 
 const ICONS: Record<string, string> = {
   binary:   "⚡",
@@ -25,6 +27,14 @@ export function PluginsView() {
   const [showGuide, setShowGuide] = useState(false);
   const [reloadMsg, setReloadMsg] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Files tab state
+  const [pluginFiles, setPluginFiles] = useState<PluginFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newPipeline, setNewPipeline] = useState<CreatePipelinePayload>({
     name: "", description: "", entry_stage: "stage1",
     stages: {
@@ -42,10 +52,43 @@ export function PluginsView() {
   }, []);
 
   useEffect(() => {
-    if (tab === "pipelines" || tab === "plugins") {
-      fetchAll();
-    }
+    if (tab === "pipelines" || tab === "plugins") fetchAll();
+    if (tab === "files") loadFiles();
   }, [tab]);
+
+  async function loadFiles() {
+    setFilesLoading(true);
+    try { setPluginFiles(await api.getPluginFiles()); }
+    catch { setPluginFiles([]); }
+    finally { setFilesLoading(false); }
+  }
+
+  async function handleUpload(file: File) {
+    setUploadMsg(""); setUploadError("");
+    try {
+      const r = await api.uploadPluginFile(file);
+      setUploadMsg(r.message);
+      await loadFiles();
+      await fetchAll();
+      setTimeout(() => setUploadMsg(""), 5000);
+    } catch (e) {
+      setUploadError(String(e));
+    }
+  }
+
+  async function handleDeleteFile(filename: string) {
+    if (!confirm(`Удалить файл «${filename}»?`)) return;
+    try {
+      await api.deletePluginFile(filename);
+      setPluginFiles((f) => f.filter((x) => x.filename !== filename));
+    } catch (e) { alert(String(e)); }
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleUpload(file);
+  }
 
   const activePresetId = presets.find(
     (p) =>
@@ -100,6 +143,7 @@ export function PluginsView() {
         <button className={`${styles.tabBtn} ${tab === "presets"   ? styles.tabActive : ""}`} onClick={() => setTab("presets")}>Пресеты</button>
         <button className={`${styles.tabBtn} ${tab === "pipelines" ? styles.tabActive : ""}`} onClick={() => setTab("pipelines")}>Pipeline</button>
         <button className={`${styles.tabBtn} ${tab === "plugins"   ? styles.tabActive : ""}`} onClick={() => setTab("plugins")}>Плагины</button>
+        <button className={`${styles.tabBtn} ${tab === "files"     ? styles.tabActive : ""}`} onClick={() => setTab("files")}>Файлы</button>
       </div>
 
       <div className={styles.tabContent}>
@@ -276,6 +320,59 @@ export function PluginsView() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ── Файлы ─────────────────────────────────────────── */}
+        {tab === "files" && (
+          <div>
+            <div
+              className={`${styles.dropZone} ${dragOver ? styles.dropZoneOver : ""}`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={onDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <div className={styles.dropIcon}>📦</div>
+              <p className={styles.dropText}>Перетащи <code>.py</code> файл сюда или нажми для выбора</p>
+              <p className={styles.dropSub}>Файл сохранится в <code>plugins/</code> и загрузится автоматически</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".py"
+                style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }}
+              />
+            </div>
+
+            {uploadMsg   && <p className={styles.uploadOk}>✓ {uploadMsg}</p>}
+            {uploadError && <p className={styles.uploadErr}>✗ {uploadError}</p>}
+
+            <div className={styles.fileList}>
+              {filesLoading && <p style={{ opacity: 0.4, fontSize: 13 }}>Загрузка...</p>}
+              {!filesLoading && pluginFiles.length === 0 && (
+                <p className={styles.emptyNote}>Нет загруженных файлов плагинов</p>
+              )}
+              {pluginFiles.map((f) => (
+                <div key={f.filename} className={styles.fileRow}>
+                  <span className={styles.fileIcon}>🐍</span>
+                  <span className={styles.fileName}>{f.filename}</span>
+                  <span className={styles.fileSize}>{(f.size_bytes / 1024).toFixed(1)} KB</span>
+                  {f.is_example && <span className={styles.exampleBadge}>example</span>}
+                  <button
+                    className={styles.fileDeleteBtn}
+                    onClick={() => handleDeleteFile(f.filename)}
+                    disabled={f.is_example}
+                    title={f.is_example ? "Пример нельзя удалить" : "Удалить файл"}
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+
+            <p className={styles.fileHint}>
+              После загрузки плагины регистрируются автоматически.<br/>
+              Если что-то пошло не так — перейди на таб <strong>Pipeline</strong> и нажми <strong>Reload plugins</strong>.
+            </p>
           </div>
         )}
 

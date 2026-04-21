@@ -259,6 +259,98 @@
   text-align: center;
 }
 
+/* ── Files tab ── */
+.dropZone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+  margin-bottom: 16px;
+  max-width: 600px;
+  user-select: none;
+}
+.dropZone:hover { border-color: var(--accent); background: rgba(91,155,247,0.04); }
+.dropZoneOver   { border-color: var(--accent); background: rgba(91,155,247,0.10); }
+.dropIcon { font-size: 28px; margin-bottom: 8px; }
+.dropText {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+.dropText code, .dropSub code {
+  background: var(--surface-3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: 'Cascadia Code', monospace;
+  font-size: 11px;
+}
+.dropSub { font-size: 11.5px; color: var(--text-muted); margin: 0; }
+
+.uploadOk  { font-size: 12px; color: var(--ok, #52b788); margin: 0 0 12px; }
+.uploadErr { font-size: 12px; color: var(--danger); margin: 0 0 12px; }
+
+.fileList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 600px;
+  margin-bottom: 16px;
+}
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+}
+.fileIcon  { font-size: 16px; flex-shrink: 0; }
+.fileName  {
+  flex: 1;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: 'Cascadia Code', monospace;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fileSize  { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.exampleBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+}
+.fileDeleteBtn {
+  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fileDeleteBtn:hover:not(:disabled) { background: rgba(var(--danger-rgb), 0.18); }
+.fileDeleteBtn:disabled { opacity: 0.25; cursor: default; }
+
+.fileHint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  max-width: 600px;
+}
+
 /* ── Guide section ── */
 .guideSection {
   margin-top: 24px;

@@ -87,4 +87,15 @@ export const api = {
     request<ValidateResponse>(`/api/plugins/pipelines/${name}/validate`, { method: "POST" }),
   reloadPlugins: () =>
     request<{ discovered: number; message: string }>("/api/plugins/reload", { method: "POST" }),
+  getPluginFiles: () =>
+    request<{ filename: string; size_bytes: number; is_example: boolean }[]>("/api/plugins/files"),
+  uploadPluginFile: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return request<{ filename: string; size_bytes: number; discovered: number; message: string }>(
+      "/api/plugins/upload", { method: "POST", body: form }
+    );
+  },
+  deletePluginFile: (filename: string) =>
+    request<{ deleted: string }>(`/api/plugins/files/${encodeURIComponent(filename)}`, { method: "DELETE" }),
 };
