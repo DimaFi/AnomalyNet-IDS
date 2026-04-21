@@ -1,19 +1,6 @@
 {
   "presets": [
     {
-      "id": "mock",
-      "name": "Demo (без захвата)",
-      "description": "Демо-режим: генерирует случайные события для ознакомления с интерфейсом. Не требует прав root и реального трафика. Подходит для презентации.",
-      "icon": "demo",
-      "active_model_id": "mock-default",
-      "run_mode": "mock",
-      "detection_mode": "simple",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": ""
-    },
-    {
       "id": "binary-v1",
       "name": "Быстрый детектор (только атака/норма)",
       "description": "Определяет: атака или нет. Высокая скорость, F1=99.4%. Не показывает тип атаки. Хороший выбор для минимальной нагрузки на систему.",
@@ -21,8 +8,8 @@
       "active_model_id": "catboost-iot-v1",
       "run_mode": "linux_live",
       "detection_mode": "simple",
-      "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
-      "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
+      "catboost_model_dir": "/opt/anomalynet-ml/model",
+      "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
       "catboost_secondary_model_dir": "",
       "catboost_secondary_artifacts_dir": ""
     },
@@ -34,10 +21,23 @@
       "active_model_id": "catboost-cascade-simple",
       "run_mode": "linux_live",
       "detection_mode": "simple",
-      "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
-      "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
-      "catboost_secondary_model_dir": "/opt/anomalynet/models/stage2/catboost",
+      "catboost_model_dir": "/opt/anomalynet-ml/model",
+      "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
+      "catboost_secondary_model_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost",
       "catboost_secondary_artifacts_dir": ""
+    },
+    {
+      "id": "cascade-routed",
+      "name": "Cascade Routed — умная маршрутизация",
+      "description": "Stage1 фильтрует трафик, затем маршрутизирует атаки на специализированные модели Stage2/Stage4 в зависимости от типа протокола. Лучший баланс точности и покрытия.",
+      "icon": "cascade",
+      "active_model_id": "catboost-cascade-routed",
+      "run_mode": "linux_live",
+      "detection_mode": "simple",
+      "catboost_model_dir": "/opt/anomalynet-ml/model",
+      "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
+      "catboost_secondary_model_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost",
+      "catboost_secondary_artifacts_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost"
     },
     {
       "id": "advanced-cascade",
@@ -47,10 +47,10 @@
       "active_model_id": "catboost-cascade-advanced",
       "run_mode": "linux_live",
       "detection_mode": "advanced",
-      "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
-      "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
-      "catboost_secondary_model_dir": "/opt/anomalynet/models/stage3/catboost",
-      "catboost_secondary_artifacts_dir": "/opt/anomalynet/models/stage3/artifacts"
+      "catboost_model_dir": "/opt/anomalynet-ml/model",
+      "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
+      "catboost_secondary_model_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost",
+      "catboost_secondary_artifacts_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost"
     }
   ]
 }

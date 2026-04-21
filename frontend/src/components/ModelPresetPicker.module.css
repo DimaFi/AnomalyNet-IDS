@@ -116,9 +116,9 @@
   font-size: 18px;
   flex-shrink: 0;
 }
-.icon-demo     { background: rgba(160,160,160,0.15); }
 .icon-binary   { background: rgba(92,201,122,0.15); }
 .icon-simple   { background: rgba(240,188,94,0.15); }
+.icon-cascade  { background: rgba(160,120,255,0.15); }
 .icon-advanced { background: rgba(91,155,247,0.15); }
 
 .presetBody { flex: 1; min-width: 0; }

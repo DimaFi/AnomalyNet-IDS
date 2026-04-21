@@ -21,7 +21,7 @@ export function DashboardView() {
       try {
         const data = await api.getDebugStats();
         if (!cancelled) setStats(data);
-      } catch { /* endpoint недоступен в mock */ }
+      } catch { /* ignore — stats endpoint may be temporarily unavailable */ }
     }
     void fetchStats();
     const id = setInterval(() => { void fetchStats(); }, 30_000);
@@ -45,7 +45,7 @@ export function DashboardView() {
       <div className={styles.panelHeader}>
         <div>
           <h2>{t("dashboard.title")}</h2>
-          <p>Mock-ready console with contracts, local API and stream visualization.</p>
+          <p>Мониторинг сети в реальном времени. Обнаружение атак на основе CatBoost.</p>
         </div>
       </div>
       <div className={styles.metricsGrid}>
@@ -111,7 +111,7 @@ export function DashboardView() {
               </div>
             </div>
           ))}
-          {!latest.length && <p className={styles.emptyState}>Waiting for mock flow events...</p>}
+          {!latest.length && <p className={styles.emptyState}>Нет данных. Ожидание сетевых потоков...</p>}
         </div>
       </div>
     </section>

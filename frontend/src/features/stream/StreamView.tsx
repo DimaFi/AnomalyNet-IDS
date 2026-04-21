@@ -4,6 +4,7 @@ import { useAppStore } from "../../app/store";
 import type { PipelineEvent, VerdictLabel } from "../../app/types";
 import { StatusPill } from "../../components/StatusPill";
 import { formatBytes } from "../../lib/format";
+import { api } from "../../lib/api";
 import { useBlockIp } from "../../lib/useBlockIp";
 import { refreshStreamFromSnapshot } from "../../lib/useRealtimeStream";
 import styles from "../panel.module.css";
@@ -50,13 +51,22 @@ export function StreamView() {
   const stream        = useAppStore((state) => state.stream);
   const blockedIps    = useAppStore((state) => state.blockedIps);
   const replaceStream = useAppStore((state) => state.replaceStream);
+  const markUnblocked = useAppStore((state) => state.markUnblocked);
   const blockIp       = useBlockIp();
   const [refreshing, setRefreshing] = useState(false);
 
   const [filterVerdict,  setFilterVerdict]  = useState<"all" | VerdictLabel>("all");
   const [filterClass,    setFilterClass]    = useState("all");
   const [filterProtocol, setFilterProtocol] = useState("all");
+  const [filterIp,       setFilterIp]       = useState("");
   const [page, setPage] = useState(0);
+
+  async function handleUnblock(ip: string) {
+    try {
+      await api.unblockIp(ip);
+    } catch { /* best effort */ }
+    markUnblocked(ip);
+  }
   const PAGE_SIZE = 100;
 
   async function handleRefresh() {
@@ -79,6 +89,8 @@ export function StreamView() {
     return Array.from(s).sort();
   }, [stream]);
 
+  const ipQuery = filterIp.trim().toLowerCase();
+
   const filtered = useMemo(() => stream.filter((item) => {
     if (filterVerdict !== "all" && item.inference.label !== filterVerdict) return false;
     if (filterClass !== "all") {
@@ -86,10 +98,11 @@ export function StreamView() {
       if (filterClass !== "none" && item.inference.attack_class !== filterClass) return false;
     }
     if (filterProtocol !== "all" && item.event.protocol !== filterProtocol) return false;
+    if (ipQuery && !item.event.src_ip.includes(ipQuery) && !item.event.dst_ip.includes(ipQuery)) return false;
     return true;
-  }), [stream, filterVerdict, filterClass, filterProtocol]);
+  }), [stream, filterVerdict, filterClass, filterProtocol, ipQuery]);
 
-  const hasFilters = filterVerdict !== "all" || filterClass !== "all" || filterProtocol !== "all";
+  const hasFilters = filterVerdict !== "all" || filterClass !== "all" || filterProtocol !== "all" || !!ipQuery;
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage   = Math.min(page, totalPages - 1);
@@ -146,8 +159,18 @@ export function StreamView() {
       {/* ── Filter bar ── */}
       <div className={blockStyles.filterBar}>
         <label className={blockStyles.filterItem}>
+          <span>IP</span>
+          <input
+            className={blockStyles.ipSearchInput}
+            type="text"
+            placeholder="Поиск по IP..."
+            value={filterIp}
+            onChange={(e) => { setFilterIp(e.target.value); setPage(0); }}
+          />
+        </label>
+        <label className={blockStyles.filterItem}>
           <span>Вердикт</span>
-          <select value={filterVerdict} onChange={(e) => setFilterVerdict(e.target.value as "all" | VerdictLabel)}>
+          <select value={filterVerdict} onChange={(e) => { setFilterVerdict(e.target.value as "all" | VerdictLabel); setPage(0); }}>
             <option value="all">Все</option>
             <option value="anomaly">Аномалия</option>
             <option value="warning">Предупреждение</option>
@@ -156,7 +179,7 @@ export function StreamView() {
         </label>
         <label className={blockStyles.filterItem}>
           <span>Тип атаки</span>
-          <select value={filterClass} onChange={(e) => setFilterClass(e.target.value)}>
+          <select value={filterClass} onChange={(e) => { setFilterClass(e.target.value); setPage(0); }}>
             <option value="all">Все</option>
             {allClasses.map((c) => <option key={c} value={c}>{c}</option>)}
             <option value="none">— (без класса)</option>
@@ -164,14 +187,14 @@ export function StreamView() {
         </label>
         <label className={blockStyles.filterItem}>
           <span>Протокол</span>
-          <select value={filterProtocol} onChange={(e) => setFilterProtocol(e.target.value)}>
+          <select value={filterProtocol} onChange={(e) => { setFilterProtocol(e.target.value); setPage(0); }}>
             <option value="all">Все</option>
             {allProtocols.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </label>
         {hasFilters && (
           <button className={blockStyles.clearFiltersBtn}
-            onClick={() => { setFilterVerdict("all"); setFilterClass("all"); setFilterProtocol("all"); }}>
+            onClick={() => { setFilterVerdict("all"); setFilterClass("all"); setFilterProtocol("all"); setFilterIp(""); setPage(0); }}>
             × Сбросить
           </button>
         )}
@@ -239,22 +262,24 @@ export function StreamView() {
                       <span className={blockStyles.noClass}>—</span>
                     )}
                   </td>
-                  <td>
-                    {isAttack && (
-                      isBlocked ? (
-                        <span className={blockStyles.blockedBadge}>
-                          Заблокирован
-                        </span>
-                      ) : (
-                        <button
-                          className={blockStyles.blockBtn}
-                          onClick={() => blockIp(item.event.src_ip, item.event.event_id)}
-                          title={`Заблокировать ${item.event.src_ip}`}
-                        >
-                          Блокировать
-                        </button>
-                      )
+                  <td className={blockStyles.actionsCell}>
+                    {isAttack && !isBlocked && (
+                      <button
+                        className={blockStyles.blockBtn}
+                        onClick={() => blockIp(item.event.src_ip, item.event.event_id)}
+                        title={`Заблокировать ${item.event.src_ip}`}
+                      >
+                        Блокировать
+                      </button>
                     )}
+                    <button
+                      className={[blockStyles.unblockBtn, !isBlocked ? blockStyles.unblockBtnDisabled : ""].join(" ")}
+                      disabled={!isBlocked}
+                      onClick={() => void handleUnblock(item.event.src_ip)}
+                      title={isBlocked ? `Разблокировать ${item.event.src_ip}` : "IP не заблокирован"}
+                    >
+                      Разблокировать
+                    </button>
                   </td>
                 </tr>
               );

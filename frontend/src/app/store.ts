@@ -30,6 +30,7 @@ interface AppState {
   addToast: (payload: Omit<ToastItem, "id" | "timestamp">) => void;
   dismissToast: (id: string) => void;
   markBlocked: (ip: string) => void;
+  markUnblocked: (ip: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -86,5 +87,12 @@ export const useAppStore = create<AppState>((set) => ({
   markBlocked: (ip) =>
     set((state) => ({
       blockedIps: new Set([...state.blockedIps, ip])
-    }))
+    })),
+
+  markUnblocked: (ip) =>
+    set((state) => {
+      const next = new Set(state.blockedIps);
+      next.delete(ip);
+      return { blockedIps: next };
+    })
 }));

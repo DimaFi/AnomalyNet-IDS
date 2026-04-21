@@ -117,7 +117,6 @@ export function SettingsView() {
             <select value={settings.run_mode}
               onChange={(e) => patch({ run_mode: e.target.value as AppSettings["run_mode"] })}>
               <option value="linux_live">Linux Live (scapy)</option>
-              <option value="mock">Demo (без захвата)</option>
             </select>
           </label>
           <label className={styles.field}>

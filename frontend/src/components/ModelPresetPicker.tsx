@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useAppStore } from "../app/store";
 import type { ModelPreset } from "../app/types";
 import { api } from "../lib/api";
 import styles from "./ModelPresetPicker.module.css";
 
 const ICONS: Record<string, string> = {
-  demo:     "🎭",
   binary:   "⚡",
   simple:   "🔍",
+  cascade:  "🔀",
   advanced: "🧠",
 };
 
@@ -19,13 +20,12 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
   const [presets, setPresets] = useState<ModelPreset[]>([]);
   const [applying, setApplying] = useState<string | null>(null);
 
+  // Pre-fetch presets on mount so dialog opens instantly
   useEffect(() => {
-    if (open && presets.length === 0) {
-      api.getModelPresets()
-        .then((r) => setPresets(r.presets))
-        .catch(() => setPresets([]));
-    }
-  }, [open]);
+    api.getModelPresets()
+      .then((r) => setPresets(r.presets))
+      .catch(() => setPresets([]));
+  }, []);
 
   async function handleApply(preset: ModelPreset) {
     setApplying(preset.id);
@@ -66,7 +66,7 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && setOpen(false)}>
           <div className={styles.dialog}>
             <div className={styles.dialogHeader}>
@@ -118,7 +118,8 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
               })}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
