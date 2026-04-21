@@ -315,6 +315,54 @@ export function PluginsView() {
         {/* ── Плагины ─────────────────────────────────────────── */}
         {tab === "plugins" && (
           <div>
+            <div className={styles.pluginSummary}>
+              <p className={styles.pluginSummaryTitle}>Как работает система плагинов</p>
+              <div className={styles.pluginSummaryGrid}>
+                <div className={styles.pluginSummaryCard}>
+                  <div className={styles.pluginSummaryIcon}>1</div>
+                  <div>
+                    <strong>Препроцессор</strong> получает сырое событие с атрибутами
+                    <code>.raw_features</code> (71 признак), <code>.protocol</code>,
+                    <code>.src_ip</code>, <code>.byte_count</code> и т.д.
+                    Возвращает вектор признаков (<code>PluginFeatureVector</code>).
+                  </div>
+                </div>
+                <div className={styles.pluginSummaryCard}>
+                  <div className={styles.pluginSummaryIcon}>2</div>
+                  <div>
+                    <strong>Модель</strong> получает вектор признаков и возвращает
+                    вердикт: <code>normal / warning / anomaly</code>, оценку 0–1
+                    и тип атаки (<code>DoS, DDoS</code> и т.д.).
+                  </div>
+                </div>
+                <div className={styles.pluginSummaryCard}>
+                  <div className={styles.pluginSummaryIcon}>3</div>
+                  <div>
+                    <strong>Pipeline</strong> связывает препроцессор + модель.
+                    Многоступенчатые каскады: Stage1 как gate
+                    (пропускает нормальный трафик), Stage2/3 определяет тип атаки.
+                  </div>
+                </div>
+                <div className={styles.pluginSummaryCard}>
+                  <div className={styles.pluginSummaryIcon}>4</div>
+                  <div>
+                    <strong>Активация</strong>: в табе <strong>Pipeline</strong> нажми
+                    «Активировать» — сервис начнёт использовать этот pipeline
+                    для анализа трафика вместо стандартного.
+                  </div>
+                </div>
+              </div>
+              <div className={styles.pluginSummaryHint}>
+                <strong>Как написать свою модель:</strong> загрузи <code>.py</code> файл
+                в таб «Файлы». Наследуй от <code>BaseModel</code>, реализуй
+                <code>predict(features: PluginFeatureVector) → PluginVerdict</code>.
+                Если хочешь использовать 71 CICFlowMeter признак — укажи
+                <code>get_accepted_schema_ids() → ["cicflowmeter_71"]</code> и создай
+                pipeline с препроцессором <code>cicflowmeter_71</code>.
+                Примеры: <code>plugins/example_model.py</code>, <code>plugins/example_preprocessor.py</code>.
+              </div>
+            </div>
+
             <p className={styles.sectionTitle}>Препроцессоры ({preprocessors.length})</p>
             {preprocessors.length === 0 && !loading && (
               <p className={styles.emptyNote}>Нет зарегистрированных препроцессоров</p>

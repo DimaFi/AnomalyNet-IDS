@@ -44,13 +44,23 @@ class MyCustomPreprocessor(BasePreprocessor):
 
     def transform(self, raw_input) -> PluginFeatureVector:
         """
-        raw_input: NormalizedFlowEvent — сырое событие из pipeline.
+        raw_input — NormalizedFlowEvent, сырое событие из pipeline.
 
-        Поля события:
-          raw_input.src_ip, raw_input.dst_ip, raw_input.src_port, raw_input.dst_port
-          raw_input.protocol, raw_input.packet_count, raw_input.byte_count
-          raw_input.duration_ms, raw_input.raw_features (dict, 71 признак)
-          raw_input.raw_features_cic2023 (dict, 46 признаков, только advanced mode)
+        Доступные атрибуты:
+          .event_id        str  — уникальный ID события
+          .src_ip          str  — IP источника
+          .dst_ip          str  — IP назначения
+          .src_port        int
+          .dst_port        int
+          .protocol        str  — "TCP" | "UDP" | "ICMP" | "OTHER"
+          .packet_count    int  — кол-во пакетов
+          .byte_count      int  — суммарный размер в байтах
+          .duration_ms     int  — длительность потока в мс
+          .raw_features    dict[str, float] | None  — 71 CICFlowMeter признак
+          .raw_features_cic2023  dict[str, float] | None  — 46 IoT признаков (advanced mode)
+
+        Если нужны 71 CICFlowMeter признак — используй builtin препроцессор cicflowmeter_71
+        вместо написания своего. Свой препроцессор нужен, если тебе нужны другие признаки.
         """
         # Пример: извлекаем три простых признака
         feature_a = float(raw_input.byte_count) / max(float(raw_input.packet_count), 1)

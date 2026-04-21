@@ -13,28 +13,17 @@ PluginPipelineRunner — мост между plugin registry и service.py.
   if active_model_id.startswith("plugin:"):
       runner = PluginPipelineRunner(pipeline_name)
       preprocess = model = runner
+
+Примечание о входных данных препроцессора:
+  transform() получает NormalizedFlowEvent (не RawFlow) — это полный объект события
+  с атрибутами .src_ip, .dst_ip, .raw_features (dict 71 признак),
+  .raw_features_cic2023, .protocol, .packet_count, .byte_count, .duration_ms.
+  Пользовательские препроцессоры получают его в аргументе transform(raw_input).
 """
 from __future__ import annotations
 
 from app.contracts.schemas import FeatureVector, InferenceResult, NormalizedFlowEvent
-from app.plugins.contracts import PluginFeatureVector, PluginVerdict, RawFlow
-
-
-def _event_to_raw_flow(event: NormalizedFlowEvent) -> RawFlow:
-    return RawFlow(data={
-        "src_ip":               event.src_ip,
-        "dst_ip":               event.dst_ip,
-        "src_port":             event.src_port,
-        "dst_port":             event.dst_port,
-        "protocol":             event.protocol,
-        "packets_fwd":          event.packet_count,
-        "packets_bwd":          0,
-        "bytes_fwd":            event.byte_count,
-        "bytes_bwd":            0,
-        "duration_ms":          float(event.duration_ms),
-        "raw_features":         event.raw_features or {},
-        "raw_features_cic2023": event.raw_features_cic2023 or {},
-    })
+from app.plugins.contracts import PluginFeatureVector, PluginVerdict
 
 
 def _plugin_fv_to_fv(pfv: PluginFeatureVector, event_id: str) -> FeatureVector:
@@ -82,7 +71,8 @@ class PluginPipelineRunner:
         if config is None:
             raise ValueError(f"Plugin pipeline '{self._pipeline_name}' не найден в реестре")
 
-        raw = _event_to_raw_flow(event)
+        # Передаём event напрямую: и builtin-, и пользовательские препроцессоры
+        # ожидают NormalizedFlowEvent с атрибутами .raw_features, .protocol и т.д.
         current_stage_name: str | None = config.entry_stage
         last_fv: PluginFeatureVector | None = None
         last_verdict: PluginVerdict | None = None
@@ -103,7 +93,7 @@ class PluginPipelineRunner:
                     "Проверьте настройки путей к модели."
                 )
 
-            fv = preprocessor.transform(raw)
+            fv = preprocessor.transform(event)
             verdict = model.predict(fv)
 
             last_fv = fv
