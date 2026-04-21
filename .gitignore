@@ -14,9 +14,9 @@ venv/
 
 # Node
 frontend/node_modules/
-frontend/dist/
 frontend/.vite/
 frontend/coverage/
+# frontend/dist — tracked in git so VPS can update without npm
 
 # Logs
 logs/

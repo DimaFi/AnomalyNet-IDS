@@ -25,9 +25,9 @@ def _run(cmd: list[str], cwd: Path, timeout: int = 60) -> subprocess.CompletedPr
     return subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout)
 
 
-def _npm_path() -> str:
-    p = shutil.which("npm")
-    return p if p else "/usr/bin/npm"
+def _npm_path() -> str | None:
+    """Returns path to npm, or None if not installed."""
+    return shutil.which("npm")
 
 
 def _git_info(repo_dir: Path) -> dict:
@@ -68,6 +68,9 @@ def _git_pull_hard(repo_dir: Path) -> tuple[bool, str]:
 
 def _rebuild_dist() -> tuple[bool, str]:
     npm = _npm_path()
+    if npm is None:
+        # npm not available — skip rebuild, use pre-built dist from git
+        return True, "npm not found — skipped frontend rebuild (using pre-built dist)"
     frontend_dir = GUI_DIR / "frontend"
     r = subprocess.run(
         [npm, "run", "build"],
