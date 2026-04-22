@@ -98,15 +98,16 @@ export const api = {
   },
   deletePluginFile: (filename: string) =>
     request<{ deleted: string }>(`/api/plugins/files/${encodeURIComponent(filename)}`, { method: "DELETE" }),
-  testPluginPipeline: (pipelineName: string) =>
+  testPluginPipeline: (pipelineName: string, ignoreGates = false) =>
     request<{
-      pipeline: string; ok: boolean; stages_run: number;
+      pipeline: string; ok: boolean; stages_run: number; ignore_gates: boolean;
       trace: { stage: string; preprocessor: string; model: string; is_gate: boolean;
-               ok: boolean; feature_count?: number; schema_id?: string;
+               ok: boolean; gate_blocked?: boolean;
+               feature_count?: number; schema_id?: string;
                verdict?: string; score?: number; attack_class?: string | null;
                reason?: string; error?: string }[];
       final_verdict: string | null; final_score: number | null; note: string;
-    }>(`/api/plugins/pipelines/${encodeURIComponent(pipelineName)}/test`, { method: "POST" }),
+    }>(`/api/plugins/pipelines/${encodeURIComponent(pipelineName)}/test?ignore_gates=${ignoreGates}`, { method: "POST" }),
   activatePluginPipeline: (pipelineName: string, currentSettings: AppSettings) =>
     request<AppSettings>("/api/settings", {
       method: "PUT",

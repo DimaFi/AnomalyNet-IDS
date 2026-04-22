@@ -126,6 +126,7 @@ export function PluginsView() {
   // Test tab state
   type TestResult = Awaited<ReturnType<typeof api.testPluginPipeline>>;
   const [testPipeline,    setTestPipeline]    = useState<string>("");
+  const [ignoreGates,     setIgnoreGates]     = useState(false);
   const [testRunning,     setTestRunning]     = useState<"validate" | "synthetic" | null>(null);
   const [validateResult,  setValidateResult]  = useState<ValidateResponse | null>(null);
   const [syntheticResult, setSyntheticResult] = useState<TestResult | null>(null);
@@ -149,11 +150,11 @@ export function PluginsView() {
     setTestRunning("synthetic");
     setSyntheticResult(null);
     try {
-      const r = await api.testPluginPipeline(testPipeline);
+      const r = await api.testPluginPipeline(testPipeline, ignoreGates);
       setSyntheticResult(r);
     } catch (e) {
       setSyntheticResult({
-        pipeline: testPipeline, ok: false, stages_run: 0,
+        pipeline: testPipeline, ok: false, stages_run: 0, ignore_gates: ignoreGates,
         trace: [{ stage: "—", preprocessor: "—", model: "—", is_gate: false,
                   ok: false, error: String(e) }],
         final_verdict: null, final_score: null, note: "",
@@ -508,7 +509,7 @@ export function PluginsView() {
               <select
                 className={styles.testSelect}
                 value={testPipeline}
-                onChange={(e) => { setTestPipeline(e.target.value); setValidateResult(null); setSyntheticResult(null); }}
+                onChange={(e) => { setTestPipeline(e.target.value); setValidateResult(null); setSyntheticResult(null); setIgnoreGates(false); }}
               >
                 <option value="">— выберите pipeline —</option>
                 {pipelines.map((p) => (
@@ -561,9 +562,20 @@ export function PluginsView() {
                     <strong>Синтетический прогон (нулевые признаки)</strong>
                     <p>
                       Создаёт тестовое событие с нулевыми значениями всех признаков и прогоняет через все стадии pipeline.
-                      Показывает пошаговую трассировку: какой препроцессор, сколько признаков, какой вердикт.
+                      Показывает пошаговую трассировку: препроцессор, кол-во признаков, вердикт, score.
                       Не отражает реальную детекцию — проверяет что плагин подключён и данные проходят.
                     </p>
+                    <label className={styles.testGateToggle}>
+                      <input
+                        type="checkbox"
+                        checked={ignoreGates}
+                        onChange={(e) => { setIgnoreGates(e.target.checked); setSyntheticResult(null); }}
+                      />
+                      <span>
+                        <strong>Игнорировать gate</strong> — принудительно запустить все стадии каскада.
+                        Нужно для каскадных pipeline: без этого Stage1 вернёт&nbsp;"normal" и Stage2/3 не запустятся.
+                      </span>
+                    </label>
                   </div>
                 </div>
                 <button
@@ -608,11 +620,11 @@ export function PluginsView() {
                       </thead>
                       <tbody>
                         {syntheticResult.trace.map((row, i) => (
-                          <tr key={i} className={row.ok ? styles.traceRowOk : styles.traceRowErr}>
+                          <tr key={i} className={row.gate_blocked ? styles.traceRowGate : row.ok ? styles.traceRowOk : styles.traceRowErr}>
                             <td><code>{row.stage}</code></td>
                             <td><code>{row.preprocessor}</code></td>
                             <td><code>{row.model}</code></td>
-                            <td>{row.is_gate ? "да" : "—"}</td>
+                            <td>{row.is_gate ? (row.gate_blocked ? <span className={styles.gateStopped}>⛔ остановил</span> : "gate") : "—"}</td>
                             <td>{row.feature_count ?? "—"}</td>
                             <td>{row.schema_id ? <code>{row.schema_id}</code> : "—"}</td>
                             <td>

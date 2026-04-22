@@ -142,15 +142,15 @@ def validate_pipeline(name: str) -> ValidateResponse:
 
 
 @plugins_router.post("/pipelines/{name}/test")
-def test_pipeline(name: str) -> dict:
+def test_pipeline(name: str, ignore_gates: bool = False) -> dict:
     """
     Запускает pipeline с синтетическим тестовым событием.
 
     Создаёт NormalizedFlowEvent с нулевыми значениями признаков (raw_features = {feat: 0.0}),
-    прогоняет через все стадии pipeline и возвращает пошаговую трассировку:
-    какой препроцессор и модель отработали, сколько признаков, какой вердикт.
+    прогоняет через все стадии pipeline и возвращает пошаговую трассировку.
 
-    Полезно для проверки что плагин корректно зарегистрирован и данные проходят.
+    ignore_gates=true — пропускает gate-условия и принудительно запускает все стадии каскада.
+    Полезно для каскадных pipeline где Stage1-gate обычно возвращает "normal" на нулевых данных.
     """
     import uuid
     from datetime import datetime, timezone
@@ -238,19 +238,27 @@ def test_pipeline(name: str) -> dict:
 
         trace.append(stage_result)
 
-        if stage.is_gate and verdict.verdict == "normal":
+        gate_blocked = stage.is_gate and verdict.verdict == "normal" and not ignore_gates
+        if gate_blocked:
+            stage_result["gate_blocked"] = True
+            trace.append(stage_result)
             break
         current_stage_name = stage.next_stage
 
     all_ok = bool(trace) and all(s.get("ok", False) for s in trace)
+    gate_was_skipped = ignore_gates and any(s.get("is_gate") for s in trace)
     return {
-        "pipeline":      name,
-        "ok":            all_ok,
-        "stages_run":    len(trace),
-        "trace":         trace,
-        "final_verdict": final_verdict,
-        "final_score":   final_score,
+        "pipeline":         name,
+        "ok":               all_ok,
+        "stages_run":       len(trace),
+        "trace":            trace,
+        "final_verdict":    final_verdict,
+        "final_score":      final_score,
+        "ignore_gates":     ignore_gates,
         "note": (
+            "Все gate-условия пропущены — проверяется только что каждая стадия может выполниться. "
+            "Вердикт не отражает реальную детекцию."
+            if gate_was_skipped else
             "Тест использует нулевые значения признаков — вердикт не отражает реальную детекцию, "
             "но подтверждает что pipeline корректно зарегистрирован и данные проходят через все стадии."
         ),

@@ -595,8 +595,29 @@
   border-radius: 3px;
   padding: 1px 5px;
 }
-.traceRowOk td  { background: rgba(82,183,136,0.04); }
-.traceRowErr td { background: rgba(231,111,81,0.05); }
+.traceRowOk   td { background: rgba(82,183,136,0.04); }
+.traceRowErr  td { background: rgba(231,111,81,0.05); }
+.traceRowGate td { background: rgba(244,162,97,0.07); }
+
+.gateStopped {
+  font-size: 11px;
+  color: var(--warn, #f4a261);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.testGateToggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-top: 4px;
+}
+.testGateToggle input { margin-top: 3px; flex-shrink: 0; cursor: pointer; }
+.testGateToggle strong { color: var(--text-primary); }
 
 .verdictBadge {
   font-size: 11px;
