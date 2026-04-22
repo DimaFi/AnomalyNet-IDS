@@ -16,8 +16,10 @@ from fastapi import APIRouter
 
 update_router = APIRouter(prefix="/api/update")
 
-GUI_DIR  = Path("/opt/anomalynet")
-ML_DIR   = Path("/opt/anomalynet-ml")
+import os as _os
+# ANOMALYNET_APP_ROOT is set by systemd (install.sh writes it into the service file)
+GUI_DIR  = Path(_os.environ.get("ANOMALYNET_APP_ROOT", "/opt/anomalynet/AnomalyNet-gui"))
+ML_DIR   = GUI_DIR.parent / "AnomalyNet-ml"
 DIST_DIR = GUI_DIR / "frontend" / "dist"
 
 
