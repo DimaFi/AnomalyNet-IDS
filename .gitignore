@@ -27,10 +27,12 @@ data/
 *.parquet
 *.csv
 
-# Build artifacts
+# Build artifacts (frontend/dist is tracked — VPS uses pre-built assets)
 build/
-dist/
 installer/
+dist/
+!frontend/dist/
+!frontend/dist/**
 
 # IDE
 .vscode/
