@@ -39,19 +39,25 @@ class JsonFileStore:
         stage3_art   = str(self._models_root / "stage3_artifacts")
 
         for preset in raw.get("presets", []):
-            if preset.get("id") in ("binary-v1", "simple-cascade", "advanced-cascade"):
+            pid = preset.get("id")
+            if pid in ("binary-v1", "simple-cascade", "advanced-cascade", "cascade-routed"):
                 if not preset.get("catboost_model_dir"):
                     preset["catboost_model_dir"] = stage1_dir
                 if not preset.get("preprocessing_artifacts_dir"):
                     preset["preprocessing_artifacts_dir"] = stage1_art
-            if preset.get("id") == "simple-cascade":
+            if pid == "simple-cascade":
                 if not preset.get("catboost_secondary_model_dir"):
                     preset["catboost_secondary_model_dir"] = stage2_dir
-            if preset.get("id") == "advanced-cascade":
+            if pid in ("advanced-cascade", "cascade-routed"):
                 if not preset.get("catboost_secondary_model_dir"):
                     preset["catboost_secondary_model_dir"] = stage3_dir
                 if not preset.get("catboost_secondary_artifacts_dir"):
                     preset["catboost_secondary_artifacts_dir"] = stage3_art
+            if pid == "cascade-routed":
+                if not preset.get("catboost_stage3_model_dir"):
+                    preset["catboost_stage3_model_dir"] = stage3_dir
+                if not preset.get("catboost_stage3_artifacts_dir"):
+                    preset["catboost_stage3_artifacts_dir"] = stage3_art
 
         return ModelPresetsRegistry.model_validate(raw)
 

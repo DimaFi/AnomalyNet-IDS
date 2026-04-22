@@ -315,7 +315,10 @@ cat > "$GUI_DIR/config/settings.json" <<SETTINGS_EOF
   "whitelist_ips": [],
   "detection_mode": "${DETECTION_MODE}",
   "catboost_secondary_model_dir": "${SEC_MODEL_DIR}",
-  "catboost_secondary_artifacts_dir": "${SEC_ARTIFACTS}"
+  "catboost_secondary_artifacts_dir": "${SEC_ARTIFACTS}",
+  "catboost_stage3_model_dir": "${MODELS_DIR}/stage3/catboost",
+  "catboost_stage3_artifacts_dir": "${MODELS_DIR}/stage3/artifacts",
+  "interface_names": ["${INTERFACE}"]
 }
 SETTINGS_EOF
 ok "settings.json записан (режим: $DETECTION_MODE, интерфейс: $INTERFACE)"
@@ -378,6 +381,21 @@ cat > "$GUI_DIR/config/model_presets.json" <<PRESETS_EOF
       "catboost_secondary_artifacts_dir": ""
     },
     {
+      "id": "cascade-routed",
+      "name": "Cascade Routed — умная маршрутизация",
+      "description": "Stage1 фильтрует трафик, затем маршрутизирует атаки на Stage2 (TCP/BruteForce/Web) или Stage3 (ICMP/UDP/IoT/VPS) в зависимости от протокола. Лучший баланс точности и покрытия.",
+      "icon": "cascade",
+      "active_model_id": "catboost-cascade-routed",
+      "run_mode": "linux_live",
+      "detection_mode": "advanced",
+      "catboost_model_dir": "${MODELS_DIR}/stage1/catboost",
+      "preprocessing_artifacts_dir": "${MODELS_DIR}/stage1/artifacts",
+      "catboost_secondary_model_dir": "${MODELS_DIR}/stage2/catboost",
+      "catboost_secondary_artifacts_dir": "",
+      "catboost_stage3_model_dir": "${MODELS_DIR}/stage3/catboost",
+      "catboost_stage3_artifacts_dir": "${MODELS_DIR}/stage3/artifacts"
+    },
+    {
       "id": "advanced-cascade",
       "name": "Advanced — улучшенная классификация IoT",
       "description": "Расширенный набор признаков для IoT-трафика. Значительно точнее на Recon, Bot и Spoofing. Macro F1=0.82 vs 0.31 у Simple.",
@@ -388,7 +406,9 @@ cat > "$GUI_DIR/config/model_presets.json" <<PRESETS_EOF
       "catboost_model_dir": "${MODELS_DIR}/stage1/catboost",
       "preprocessing_artifacts_dir": "${MODELS_DIR}/stage1/artifacts",
       "catboost_secondary_model_dir": "${MODELS_DIR}/stage3/catboost",
-      "catboost_secondary_artifacts_dir": "${MODELS_DIR}/stage3/artifacts"
+      "catboost_secondary_artifacts_dir": "${MODELS_DIR}/stage3/artifacts",
+      "catboost_stage3_model_dir": "",
+      "catboost_stage3_artifacts_dir": ""
     }
   ]
 }

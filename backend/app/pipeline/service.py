@@ -319,6 +319,8 @@ class PipelineService:
             "preprocessing_artifacts_dir":       preset.preprocessing_artifacts_dir,
             "catboost_secondary_model_dir":      preset.catboost_secondary_model_dir,
             "catboost_secondary_artifacts_dir":  preset.catboost_secondary_artifacts_dir,
+            "catboost_stage3_model_dir":         preset.catboost_stage3_model_dir,
+            "catboost_stage3_artifacts_dir":     preset.catboost_stage3_artifacts_dir,
         })
         self._settings = self._store.save_settings(updated)
         self._cache_key = None  # Force pipeline/model rebuild on next event
