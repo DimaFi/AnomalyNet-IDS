@@ -398,6 +398,13 @@
   background: rgba(255,255,255,0.06);
   color: var(--text-muted);
 }
+.modelFileBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(160,120,255,0.15);
+  color: #a078ff;
+}
 .fileDeleteBtn {
   font-size: 11px;
   width: 22px;

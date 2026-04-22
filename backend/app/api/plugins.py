@@ -285,40 +285,54 @@ def reload_plugins() -> ReloadResponse:
 
 _PLUGINS_FOLDER = Path(__file__).parent.parent.parent.parent / "plugins"
 
+# Разрешённые расширения файлов в папке plugins/
+_ALLOWED_EXTENSIONS = {".py", ".pkl", ".cbm", ".h5", ".onnx", ".pt", ".bin", ".json", ".joblib"}
+_MODEL_EXTENSIONS   = {".pkl", ".cbm", ".h5", ".onnx", ".pt", ".bin", ".joblib"}
+
 
 @plugins_router.get("/files")
 def list_plugin_files() -> list[dict]:
-    """Возвращает список .py файлов в папке plugins/ (пользовательские плагины)."""
+    """Возвращает список файлов в папке plugins/ (плагины и файлы моделей)."""
     if not _PLUGINS_FOLDER.exists():
         return []
     files = []
-    for f in sorted(_PLUGINS_FOLDER.glob("*.py")):
-        if f.name.startswith("_"):
-            continue
-        files.append({
-            "filename": f.name,
-            "size_bytes": f.stat().st_size,
-            "is_example": f.name.startswith("example_"),
-        })
+    for ext in sorted(_ALLOWED_EXTENSIONS):
+        for f in sorted(_PLUGINS_FOLDER.glob(f"*{ext}")):
+            if f.name.startswith("_"):
+                continue
+            files.append({
+                "filename":   f.name,
+                "size_bytes": f.stat().st_size,
+                "is_example": f.name.startswith("example_"),
+                "is_model":   f.suffix in _MODEL_EXTENSIONS,
+            })
+    # Сортируем: сначала .py, потом остальные
+    files.sort(key=lambda x: (0 if x["filename"].endswith(".py") else 1, x["filename"]))
     return files
 
 
 @plugins_router.post("/upload", status_code=201)
 async def upload_plugin_file(file: UploadFile = File(...)) -> dict:
     """
-    Загружает .py файл в папку plugins/ и автоматически перезагружает плагины.
+    Загружает файл в папку plugins/.
 
-    Принимает multipart/form-data с полем 'file'.
-    Имя файла сохраняется как есть (без пути). Разрешены только .py файлы.
-    После загрузки автоматически вызывает discover_plugins().
+    Разрешены: .py (плагины), .pkl/.cbm/.h5/.onnx/.pt/.bin/.joblib (файлы моделей), .json.
+    .py файлы автоматически запускают discover_plugins().
+    Файлы моделей сохраняются как есть — плагин грузит их через Path(__file__).parent.
     """
-    if not file.filename or not file.filename.endswith(".py"):
-        raise HTTPException(status_code=422, detail="Разрешены только .py файлы")
+    if not file.filename:
+        raise HTTPException(status_code=422, detail="Имя файла не указано")
 
-    # Безопасное имя файла — только basename, без пути
     safe_name = Path(file.filename).name
-    if safe_name.startswith("_"):
-        raise HTTPException(status_code=422, detail="Имя файла не должно начинаться с '_'")
+    suffix = Path(safe_name).suffix.lower()
+
+    if suffix not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Недопустимое расширение '{suffix}'. Разрешены: {', '.join(sorted(_ALLOWED_EXTENSIONS))}",
+        )
+    if suffix == ".py" and safe_name.startswith("_"):
+        raise HTTPException(status_code=422, detail="Имя .py файла не должно начинаться с '_'")
 
     _PLUGINS_FOLDER.mkdir(parents=True, exist_ok=True)
     dest = _PLUGINS_FOLDER / safe_name
@@ -326,24 +340,29 @@ async def upload_plugin_file(file: UploadFile = File(...)) -> dict:
     content = await file.read()
     dest.write_bytes(content)
 
-    # Автоматически перезагрузить плагины после загрузки
-    registry = get_registry()
-    discovered = registry.discover_plugins()
+    discovered = 0
+    if suffix == ".py":
+        registry = get_registry()
+        discovered = registry.discover_plugins()
 
     return {
-        "filename": safe_name,
+        "filename":   safe_name,
         "size_bytes": len(content),
         "discovered": discovered,
-        "message": f"Файл '{safe_name}' загружен, обнаружено плагинов: {discovered}",
+        "message": (
+            f"Файл модели '{safe_name}' сохранён в plugins/"
+            if suffix in _MODEL_EXTENSIONS
+            else f"Файл '{safe_name}' загружен, обнаружено плагинов: {discovered}"
+        ),
     }
 
 
 @plugins_router.delete("/files/{filename}", status_code=200)
 def delete_plugin_file(filename: str) -> dict:
-    """Удаляет .py файл из папки plugins/."""
+    """Удаляет файл из папки plugins/."""
     safe_name = Path(filename).name
-    if not safe_name.endswith(".py"):
-        raise HTTPException(status_code=422, detail="Разрешены только .py файлы")
+    if Path(safe_name).suffix.lower() not in _ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=422, detail="Недопустимое расширение файла")
 
     target = _PLUGINS_FOLDER / safe_name
     if not target.exists():

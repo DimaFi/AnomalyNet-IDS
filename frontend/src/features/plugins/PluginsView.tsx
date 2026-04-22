@@ -8,7 +8,7 @@ import styles from "./PluginsView.module.css";
 
 type Tab = "presets" | "pipelines" | "plugins" | "files" | "test";
 
-type PluginFile = { filename: string; size_bytes: number; is_example: boolean };
+type PluginFile = { filename: string; size_bytes: number; is_example: boolean; is_model: boolean };
 
 const ICONS: Record<string, string> = {
   binary:   "⚡",
@@ -454,12 +454,16 @@ export function PluginsView() {
               onClick={() => fileInputRef.current?.click()}
             >
               <div className={styles.dropIcon}>📦</div>
-              <p className={styles.dropText}>Перетащи <code>.py</code> файл сюда или нажми для выбора</p>
-              <p className={styles.dropSub}>Файл сохранится в <code>plugins/</code> и загрузится автоматически</p>
+              <p className={styles.dropText}>Перетащи файл сюда или нажми для выбора</p>
+              <p className={styles.dropSub}>
+                <strong>.py</strong> — плагин (авто-загрузка) &nbsp;·&nbsp;
+                <strong>.pkl .cbm .h5 .onnx .pt .bin .joblib</strong> — файл модели &nbsp;·&nbsp;
+                <strong>.json</strong> — конфиг/маппинг
+              </p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".py"
+                accept=".py,.pkl,.cbm,.h5,.onnx,.pt,.bin,.joblib,.json"
                 style={{ display: "none" }}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }}
               />
@@ -475,10 +479,11 @@ export function PluginsView() {
               )}
               {pluginFiles.map((f) => (
                 <div key={f.filename} className={styles.fileRow}>
-                  <span className={styles.fileIcon}>🐍</span>
+                  <span className={styles.fileIcon}>{f.is_model ? "🧠" : "🐍"}</span>
                   <span className={styles.fileName}>{f.filename}</span>
                   <span className={styles.fileSize}>{(f.size_bytes / 1024).toFixed(1)} KB</span>
                   {f.is_example && <span className={styles.exampleBadge}>example</span>}
+                  {f.is_model  && <span className={styles.modelFileBadge}>model file</span>}
                   <button
                     className={styles.fileDeleteBtn}
                     onClick={() => handleDeleteFile(f.filename)}
@@ -490,11 +495,10 @@ export function PluginsView() {
             </div>
 
             <p className={styles.fileHint}>
-              Можно загружать как <strong>модели</strong>, так и <strong>препроцессоры признаков</strong> — любой класс,
-              унаследованный от <code>BaseModel</code> или <code>BasePreprocessor</code>, регистрируется автоматически.<br/>
-              После загрузки перейди в таб <strong>Плагины</strong> — новый плагин появится в списке.<br/>
-              Затем в табе <strong>Pipeline</strong> создай pipeline (препроцессор + модель) и нажми <strong>Активировать</strong>.<br/>
-              Если что-то пошло не так — нажми <strong>Reload plugins</strong> в табе Pipeline.
+              <strong>.py файлы</strong> — плагины (<code>BaseModel</code> / <code>BasePreprocessor</code>), регистрируются автоматически.<br/>
+              <strong>Файлы моделей</strong> (.pkl, .cbm, .h5, .onnx, .pt, .bin, .joblib) — сохраняются в <code>plugins/</code> рядом с <code>.py</code>.<br/>
+              В плагине грузи через: <code>Path(__file__).parent / "my_model.pkl"</code><br/>
+              Шаблон с примером загрузки обученной модели — в табе <strong>🧪 Тест</strong>.
             </p>
           </div>
         )}
@@ -666,53 +670,68 @@ export function PluginsView() {
 
 class MyPreprocessor(BasePreprocessor):
     def get_name(self) -> str:
-        return "my_preprocessor"   # уникальное имя
+        return "my_preprocessor"
 
     def get_output_schema_id(self) -> str:
-        return "my_schema_v1"      # совпадает с accepted_schema_ids модели
+        return "my_schema_v1"   # должно совпадать с accepted_schema_ids модели
 
     def get_feature_names(self) -> list[str]:
-        # Имена признаков, которые вернёт transform()
         return ["byte_count", "packet_count", "duration_ms"]
 
     def transform(self, raw_input) -> PluginFeatureVector:
-        # raw_input — NormalizedFlowEvent
-        # Атрибуты: .raw_features (dict 71 признак),
-        #           .byte_count, .packet_count, .duration_ms,
-        #           .src_ip, .dst_ip, .protocol
+        # raw_input — NormalizedFlowEvent, атрибуты:
+        #   .raw_features (dict 71 CICFlowMeter признака)
+        #   .byte_count, .packet_count, .duration_ms
+        #   .src_ip, .dst_ip, .src_port, .dst_port, .protocol
         features = {
             "byte_count":   float(raw_input.byte_count   or 0),
             "packet_count": float(raw_input.packet_count or 0),
             "duration_ms":  float(raw_input.duration_ms  or 0),
         }
-        return PluginFeatureVector(
-            schema_id="my_schema_v1",
-            features=features,
-        )`}</pre>
+        return PluginFeatureVector(schema_id="my_schema_v1",
+                                   features=features)`}</pre>
                 </div>
                 <div className={styles.testCodeBlock}>
-                  <p className={styles.testCodeTitle}>Модель (my_model.py)</p>
-                  <pre className={styles.testCode}>{`from app.plugins import BaseModel, PluginFeatureVector, PluginVerdict
+                  <p className={styles.testCodeTitle}>Модель с обученным sklearn (my_model.py)</p>
+                  <pre className={styles.testCode}>{`# Шаг 1: обучи и сохрани модель локально:
+#   import joblib
+#   joblib.dump(clf, "my_model.joblib")
+#
+# Шаг 2: загрузи my_model.joblib в таб "Файлы"
+# Шаг 3: загрузи этот .py файл туда же
+
+from pathlib import Path
+import joblib
+from app.plugins import BaseModel, PluginFeatureVector, PluginVerdict
 
 class MyModel(BaseModel):
+    def __init__(self):
+        # Path(__file__) → plugins/my_model.py
+        # рядом должен лежать plugins/my_model.joblib
+        model_path = Path(__file__).parent / "my_model.joblib"
+        self._clf = joblib.load(model_path)
+        self._threshold = 0.70
+
     def get_name(self) -> str:
-        return "my_model"          # уникальное имя
+        return "my_model"
 
     def get_accepted_schema_ids(self) -> list[str]:
-        return ["my_schema_v1"]    # совпадает с output_schema_id препроцессора
+        return ["my_schema_v1"]
 
     def get_output_classes(self) -> list[str]:
         return ["normal", "anomaly"]
 
     def predict(self, features: PluginFeatureVector) -> PluginVerdict:
-        f = features.features
-        score = min(f.get("byte_count", 0) / 100_000, 1.0)
-        if score >= 0.85:
-            return PluginVerdict(verdict="anomaly", score=score,
-                                 attack_class="DoS", reason="высокий объём трафика")
-        elif score >= 0.5:
-            return PluginVerdict(verdict="warning", score=score)
-        return PluginVerdict(verdict="normal", score=score)`}</pre>
+        import numpy as np
+        X = np.array([[features.features[k]
+                       for k in self.get_feature_names()]])
+        proba = self._clf.predict_proba(X)[0, 1]
+        if proba >= self._threshold:
+            return PluginVerdict(verdict="anomaly", score=float(proba))
+        return PluginVerdict(verdict="normal", score=float(proba))
+
+    def get_feature_names(self):
+        return ["byte_count", "packet_count", "duration_ms"]`}</pre>
                 </div>
               </div>
               <div className={styles.testGuideSteps}>

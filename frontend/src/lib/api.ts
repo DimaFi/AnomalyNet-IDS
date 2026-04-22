@@ -88,7 +88,7 @@ export const api = {
   reloadPlugins: () =>
     request<{ discovered: number; message: string }>("/api/plugins/reload", { method: "POST" }),
   getPluginFiles: () =>
-    request<{ filename: string; size_bytes: number; is_example: boolean }[]>("/api/plugins/files"),
+    request<{ filename: string; size_bytes: number; is_example: boolean; is_model: boolean }[]>("/api/plugins/files"),
   uploadPluginFile: (file: File) => {
     const form = new FormData();
     form.append("file", file);
