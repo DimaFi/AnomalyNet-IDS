@@ -4,6 +4,7 @@ import type {
   AppView,
   HealthResponse,
   LanguageCode,
+  ModelPreset,
   ModelsRegistry,
   PipelineEvent,
   ThemeMode,
@@ -15,6 +16,7 @@ interface AppState {
   health: HealthResponse | null;
   settings: AppSettings | null;
   models: ModelsRegistry | null;
+  presets: ModelPreset[];
   stream: PipelineEvent[];
   toasts: ToastItem[];
   blockedIps: Set<string>;
@@ -23,6 +25,7 @@ interface AppState {
   setHealth: (health: HealthResponse) => void;
   setSettings: (settings: AppSettings) => void;
   setModels: (models: ModelsRegistry) => void;
+  setPresets: (presets: ModelPreset[]) => void;
   pushStreamItem: (item: PipelineEvent) => void;
   replaceStream: (items: PipelineEvent[]) => void;
   setTheme: (theme: ThemeMode) => void;
@@ -38,12 +41,14 @@ export const useAppStore = create<AppState>((set) => ({
   health: null,
   settings: null,
   models: null,
+  presets: [],
   stream: [],
   toasts: [],
   blockedIps: new Set(),
 
   setView: (view) => set({ view }),
   setHealth: (health) => set({ health }),
+  setPresets: (presets) => set({ presets }),
   setSettings: (settings) => set((state) => {
     const prevMode = state.settings?.run_mode;
     const switchingFromMock = prevMode === "mock" && settings.run_mode !== "mock";

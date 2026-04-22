@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ============================================================
 #  AnomalyNet IDS — Linux Install Script
-#  Tested on: Ubuntu 22.04 / 24.04, Debian 12
+#  Tested on: Ubuntu 22.04/24.04, Debian 12, Alt Linux p10,
+#             CentOS/RHEL 8+, Rocky Linux, Arch Linux
 #
 #  Usage:
 #    sudo bash install.sh
@@ -52,6 +53,21 @@ echo ""
 
 [ $EUID -eq 0 ] || err "Запустите с правами root: sudo bash install.sh"
 
+# ── Определение дистрибутива ─────────────────────────────────
+detect_distro() {
+    if [ -f /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        echo "${ID:-unknown}"
+    elif [ -f /etc/redhat-release ]; then
+        echo "rhel"
+    else
+        echo "unknown"
+    fi
+}
+DISTRO=$(detect_distro)
+log "Дистрибутив: $DISTRO"
+
 # ── 0. Swap (для VPS с 2GB RAM — npm build требует ~1.5GB) ───
 SWAP_FILE="/swapfile"
 TOTAL_RAM_MB=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
@@ -68,28 +84,102 @@ else
 fi
 
 # ── 1. Системные пакеты ──────────────────────────────────────
-log "Установка системных пакетов..."
-if command -v apt-get &>/dev/null; then
-    apt-get update -qq
-    apt-get install -y -qq \
-        python3 python3-pip python3-venv python3-dev \
-        libpcap-dev libpcap0.8 \
-        git curl wget net-tools iproute2 ufw 2>/dev/null || true
+log "Установка системных пакетов (дистро: $DISTRO)..."
 
-    # Node.js 20 (Ubuntu обычно имеет слишком старую версию)
-    NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
-    if [ "$NODE_VER" -lt 18 ]; then
-        log "Устанавливаем Node.js 20..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null
-        apt-get install -y -qq nodejs
-    fi
-elif command -v dnf &>/dev/null; then
-    dnf install -y python3 python3-pip python3-devel libpcap libpcap-devel git curl
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
-    dnf install -y nodejs
-else
-    err "Неподдерживаемый пакетный менеджер. Установите вручную: python3, nodejs 20+, libpcap-dev, git"
-fi
+_install_nodejs_nvm() {
+    # Универсальный fallback через NVM (работает на любом дистро)
+    log "Устанавливаем Node.js через NVM..."
+    export NVM_DIR="/opt/nvm"
+    mkdir -p "$NVM_DIR"
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | NVM_DIR="$NVM_DIR" bash 2>/dev/null
+    # shellcheck disable=SC1090
+    . "$NVM_DIR/nvm.sh"
+    nvm install 20 --silent
+    nvm alias default 20
+    # Делаем node/npm глобально доступными
+    NODE_BIN=$(nvm which 20)
+    ln -sf "$NODE_BIN" /usr/local/bin/node
+    ln -sf "$(dirname "$NODE_BIN")/npm" /usr/local/bin/npm
+}
+
+case "$DISTRO" in
+    ubuntu|debian|linuxmint|raspbian|pop)
+        apt-get update -qq
+        apt-get install -y -qq \
+            python3 python3-pip python3-venv python3-dev \
+            libpcap-dev libpcap0.8 \
+            git curl wget net-tools iproute2 ufw 2>/dev/null || true
+
+        NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
+        if [ "$NODE_VER" -lt 18 ]; then
+            log "Устанавливаем Node.js 20 (nodesource)..."
+            curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 2>/dev/null
+            apt-get install -y -qq nodejs
+        fi
+        ;;
+
+    altlinux|alt)
+        # Alt Linux — RPM-based apt, имена пакетов отличаются
+        apt-get update -q
+        apt-get install -y \
+            python3 python3-module-pip \
+            libpcap-devel \
+            git curl wget net-tools iproute2 2>/dev/null || true
+        # python3-venv — устанавливается через pip если нет пакета
+        python3 -m ensurepip --upgrade 2>/dev/null || true
+        pip3 install --quiet virtualenv 2>/dev/null || true
+
+        NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
+        if [ "$NODE_VER" -lt 18 ]; then
+            # NodeSource не поддерживает Alt нативно — используем NVM
+            _install_nodejs_nvm
+        fi
+        ;;
+
+    fedora)
+        dnf install -y python3 python3-pip python3-devel libpcap libpcap-devel git curl
+        NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
+        if [ "$NODE_VER" -lt 18 ]; then
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - 2>/dev/null
+            dnf install -y nodejs
+        fi
+        ;;
+
+    rhel|centos|rocky|almalinux|ol)
+        PKG_MGR=$(command -v dnf 2>/dev/null || command -v yum)
+        "$PKG_MGR" install -y python3 python3-pip python3-devel libpcap libpcap-devel git curl
+        NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
+        if [ "$NODE_VER" -lt 18 ]; then
+            curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - 2>/dev/null
+            "$PKG_MGR" install -y nodejs
+        fi
+        ;;
+
+    arch|manjaro|endeavouros|garuda)
+        pacman -Sy --noconfirm python python-pip git curl libpcap nodejs npm
+        ;;
+
+    opensuse*|sles)
+        zypper install -y python3 python3-pip python3-devel libpcap-devel git curl
+        _install_nodejs_nvm
+        ;;
+
+    *)
+        warn "Дистрибутив '$DISTRO' не распознан — пробуем apt-get..."
+        if command -v apt-get &>/dev/null; then
+            apt-get update -qq
+            apt-get install -y -qq python3 python3-pip python3-venv libpcap-dev git curl 2>/dev/null || true
+            NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
+            [ "$NODE_VER" -lt 18 ] && _install_nodejs_nvm
+        elif command -v dnf &>/dev/null; then
+            dnf install -y python3 python3-pip python3-devel libpcap-devel git curl
+            _install_nodejs_nvm
+        else
+            err "Не найден пакетный менеджер. Установите вручную: python3 pip nodejs>=18 libpcap git"
+        fi
+        ;;
+esac
+
 ok "Системные пакеты: Python $(python3 --version) | Node $(node --version)"
 
 # ── 2. Открываем порт в UFW ──────────────────────────────────
@@ -190,7 +280,8 @@ VENV="$GUI_DIR/backend/.venv"
 log "Настройка Python-окружения..."
 PYTHON_BIN=$(command -v python3.11 2>/dev/null || command -v python3.10 2>/dev/null || command -v python3)
 log "Python: $($PYTHON_BIN --version)"
-"$PYTHON_BIN" -m venv "$VENV"
+"$PYTHON_BIN" -m venv "$VENV" 2>/dev/null || \
+    { pip3 install --quiet virtualenv 2>/dev/null; virtualenv -p "$PYTHON_BIN" "$VENV"; }
 "$VENV/bin/pip" install --quiet --upgrade pip setuptools wheel
 "$VENV/bin/pip" install --quiet -r "$GUI_DIR/backend/requirements.txt"
 ok "Python-зависимости установлены"

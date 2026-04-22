@@ -10,6 +10,7 @@ import { StreamView } from "../features/stream/StreamView";
 import { api } from "../lib/api";
 import { useRealtimeStream } from "../lib/useRealtimeStream";
 import { useAppStore } from "./store";
+import type { AppSettings, ModelPreset } from "./types";
 import styles from "./App.module.css";
 
 type ViewKey = "dashboard" | "stream" | "plugins" | "settings" | "about";
@@ -88,6 +89,50 @@ const PAGE_TITLES: Record<ViewKey, string> = {
   about:     "О программе",
 };
 
+const KNOWN_MODEL_LABELS: Record<string, string> = {
+  "mock-default":             "Demo",
+  "catboost-iot-v1":          "Быстрый",
+  "catboost-cascade-simple":  "Simple",
+  "catboost-cascade-advanced":"Advanced",
+  "catboost-cascade-routed":  "Cascade",
+};
+
+function getActiveModelLabel(settings: AppSettings, presets: ModelPreset[]): { label: string; full: string } {
+  const id = settings.active_model_id ?? "";
+
+  if (id.startsWith("plugin:")) {
+    const name = id.slice("plugin:".length);
+    return { label: name, full: `Plugin pipeline: ${name}` };
+  }
+
+  const preset = presets.find(
+    (p) => p.active_model_id === id &&
+           (p.detection_mode ?? "simple") === (settings.detection_mode ?? "simple")
+  );
+  if (preset) {
+    const short = preset.name.split(/[\s—–-]/)[0];
+    return { label: short, full: preset.name };
+  }
+
+  const known = KNOWN_MODEL_LABELS[id];
+  if (known) return { label: known, full: id };
+
+  return { label: id, full: id };
+}
+
+function ActiveModelBadge({ settings, presets }: { settings: AppSettings; presets: ModelPreset[] }) {
+  if (settings.run_mode === "mock") return null;
+  const { label, full } = getActiveModelLabel(settings, presets);
+  const isAdvanced = settings.detection_mode === "advanced" || label.toLowerCase() === "advanced";
+  const isPlugin = settings.active_model_id?.startsWith("plugin:");
+  const cls = [
+    styles.modeBadge,
+    isAdvanced ? styles.modeBadgeAdvanced : "",
+    isPlugin   ? styles.modeBadgePlugin   : "",
+  ].filter(Boolean).join(" ");
+  return <span className={cls} title={full}>{label}</span>;
+}
+
 export function App() {
   const { i18n } = useTranslation();
   const view       = useAppStore((state) => state.view);
@@ -96,7 +141,9 @@ export function App() {
   const settings   = useAppStore((state) => state.settings);
   const setHealth  = useAppStore((state) => state.setHealth);
   const setSettings = useAppStore((state) => state.setSettings);
-  const setModels  = useAppStore((state) => state.setModels);
+  const setModels   = useAppStore((state) => state.setModels);
+  const presets     = useAppStore((state) => state.presets);
+  const setPresets  = useAppStore((state) => state.setPresets);
 
   useRealtimeStream();
 
@@ -105,14 +152,16 @@ export function App() {
   const bootstrap = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [healthRes, settingsRes, modelsRes] = await Promise.all([
+      const [healthRes, settingsRes, modelsRes, presetsRes] = await Promise.all([
         api.getHealth(),
         api.getSettings(),
         api.getModels(),
+        api.getModelPresets(),
       ]);
       setHealth(healthRes);
       setSettings(settingsRes);
       setModels(modelsRes);
+      setPresets(presetsRes.presets);
       document.documentElement.dataset.theme = settingsRes.theme;
       await i18n.changeLanguage(settingsRes.language);
     } catch {
@@ -120,7 +169,7 @@ export function App() {
     } finally {
       setRefreshing(false);
     }
-  }, [i18n, setHealth, setModels, setSettings]);
+  }, [i18n, setHealth, setModels, setPresets, setSettings]);
 
   useEffect(() => { void bootstrap(); }, [bootstrap]);
 
@@ -211,10 +260,8 @@ export function App() {
                 {settings.run_mode === "mock" ? "Demo" : settings.run_mode === "linux_live" ? "Live" : settings.run_mode}
               </span>
             )}
-            {settings?.run_mode !== "mock" && settings?.detection_mode && (
-              <span className={[styles.modeBadge, settings.detection_mode === "advanced" ? styles.modeBadgeAdvanced : ""].filter(Boolean).join(" ")}>
-                {settings.detection_mode === "advanced" ? "Advanced" : "Simple"}
-              </span>
+            {settings && (
+              <ActiveModelBadge settings={settings} presets={presets} />
             )}
             {/* Warning: linux_live + mock model */}
             {settings?.run_mode === "linux_live" && settings?.active_model_id === "mock-default" && (
