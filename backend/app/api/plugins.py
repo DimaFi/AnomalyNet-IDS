@@ -141,6 +141,122 @@ def validate_pipeline(name: str) -> ValidateResponse:
     return ValidateResponse(valid=len(errors) == 0, errors=errors)
 
 
+@plugins_router.post("/pipelines/{name}/test")
+def test_pipeline(name: str) -> dict:
+    """
+    Запускает pipeline с синтетическим тестовым событием.
+
+    Создаёт NormalizedFlowEvent с нулевыми значениями признаков (raw_features = {feat: 0.0}),
+    прогоняет через все стадии pipeline и возвращает пошаговую трассировку:
+    какой препроцессор и модель отработали, сколько признаков, какой вердикт.
+
+    Полезно для проверки что плагин корректно зарегистрирован и данные проходят.
+    """
+    import uuid
+    from datetime import datetime, timezone
+    from app.contracts.schemas import NormalizedFlowEvent
+
+    registry = get_registry()
+    cfg = registry.pipelines.get(name)
+    if cfg is None:
+        raise HTTPException(status_code=404, detail=f"Pipeline '{name}' не найден")
+
+    # Собираем имена признаков из первого препроцессора для заполнения raw_features
+    entry_stage_cfg = cfg.stages.get(cfg.entry_stage)
+    raw_features: dict[str, float] = {}
+    if entry_stage_cfg:
+        prep = registry.preprocessors.get(entry_stage_cfg.preprocessor_name)
+        if prep:
+            names = prep.get_feature_names()
+            raw_features = {n: 0.0 for n in names} if names else {"_dummy": 0.0}
+
+    # Создаём синтетическое событие
+    event = NormalizedFlowEvent(
+        event_id=str(uuid.uuid4()),
+        timestamp=datetime.now(timezone.utc),
+        source="plugin_test",
+        direction="inbound",
+        protocol="TCP",
+        src_ip="192.168.1.100",
+        dst_ip="10.0.0.1",
+        src_port=12345,
+        dst_port=80,
+        packet_count=10,
+        byte_count=1500,
+        duration_ms=100,
+        risk_hint=0.0,
+        raw_features=raw_features if raw_features else None,
+        raw_features_cic2023={},
+    )
+
+    trace = []
+    current_stage_name: str | None = cfg.entry_stage
+    final_verdict = None
+    final_score = None
+
+    while current_stage_name:
+        stage = cfg.stages[current_stage_name]
+        stage_result: dict = {
+            "stage":        current_stage_name,
+            "preprocessor": stage.preprocessor_name,
+            "model":        stage.model_name,
+            "is_gate":      stage.is_gate,
+        }
+
+        preprocessor = registry.preprocessors.get(stage.preprocessor_name)
+        model        = registry.models.get(stage.model_name)
+
+        if preprocessor is None:
+            stage_result["ok"]    = False
+            stage_result["error"] = f"Препроцессор '{stage.preprocessor_name}' не зарегистрирован. Проверьте пути к артефактам в Настройках."
+            trace.append(stage_result)
+            break
+        if model is None:
+            stage_result["ok"]    = False
+            stage_result["error"] = f"Модель '{stage.model_name}' не зарегистрирована. Проверьте пути к моделям в Настройках."
+            trace.append(stage_result)
+            break
+
+        try:
+            fv      = preprocessor.transform(event)
+            verdict = model.predict(fv)
+
+            stage_result["ok"]           = True
+            stage_result["feature_count"] = len(fv.features)
+            stage_result["schema_id"]    = fv.schema_id
+            stage_result["verdict"]      = verdict.verdict
+            stage_result["score"]        = round(verdict.score, 4)
+            stage_result["attack_class"] = verdict.attack_class
+            stage_result["reason"]       = verdict.reason
+            final_verdict = verdict.verdict
+            final_score   = round(verdict.score, 4)
+        except Exception as exc:
+            stage_result["ok"]    = False
+            stage_result["error"] = str(exc)
+            trace.append(stage_result)
+            break
+
+        trace.append(stage_result)
+
+        if stage.is_gate and verdict.verdict == "normal":
+            break
+        current_stage_name = stage.next_stage
+
+    all_ok = bool(trace) and all(s.get("ok", False) for s in trace)
+    return {
+        "pipeline":      name,
+        "ok":            all_ok,
+        "stages_run":    len(trace),
+        "trace":         trace,
+        "final_verdict": final_verdict,
+        "final_score":   final_score,
+        "note": (
+            "Тест использует нулевые значения признаков — вердикт не отражает реальную детекцию, "
+            "но подтверждает что pipeline корректно зарегистрирован и данные проходят через все стадии."
+        ),
+    }
+
+
 # ── Перезагрузка ──────────────────────────────────────────────────────────────
 
 @plugins_router.post("/reload")

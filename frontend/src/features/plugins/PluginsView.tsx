@@ -3,10 +3,10 @@ import { useAppStore } from "../../app/store";
 import type { ModelPreset } from "../../app/types";
 import { api } from "../../lib/api";
 import { usePluginsStore } from "../../store/pluginsStore";
-import type { CreatePipelinePayload, StageConfig } from "../../types/plugins";
+import type { CreatePipelinePayload, StageConfig, ValidateResponse } from "../../types/plugins";
 import styles from "./PluginsView.module.css";
 
-type Tab = "presets" | "pipelines" | "plugins" | "files";
+type Tab = "presets" | "pipelines" | "plugins" | "files" | "test";
 
 type PluginFile = { filename: string; size_bytes: number; is_example: boolean };
 
@@ -123,6 +123,46 @@ export function PluginsView() {
 
   const [activating, setActivating] = useState<string | null>(null);
 
+  // Test tab state
+  type TestResult = Awaited<ReturnType<typeof api.testPluginPipeline>>;
+  const [testPipeline,    setTestPipeline]    = useState<string>("");
+  const [testRunning,     setTestRunning]     = useState<"validate" | "synthetic" | null>(null);
+  const [validateResult,  setValidateResult]  = useState<ValidateResponse | null>(null);
+  const [syntheticResult, setSyntheticResult] = useState<TestResult | null>(null);
+
+  async function runValidate() {
+    if (!testPipeline) return;
+    setTestRunning("validate");
+    setValidateResult(null);
+    try {
+      const r = await api.validatePluginPipeline(testPipeline);
+      setValidateResult(r);
+    } catch (e) {
+      setValidateResult({ valid: false, errors: [String(e)] });
+    } finally {
+      setTestRunning(null);
+    }
+  }
+
+  async function runSynthetic() {
+    if (!testPipeline) return;
+    setTestRunning("synthetic");
+    setSyntheticResult(null);
+    try {
+      const r = await api.testPluginPipeline(testPipeline);
+      setSyntheticResult(r);
+    } catch (e) {
+      setSyntheticResult({
+        pipeline: testPipeline, ok: false, stages_run: 0,
+        trace: [{ stage: "—", preprocessor: "—", model: "—", is_gate: false,
+                  ok: false, error: String(e) }],
+        final_verdict: null, final_score: null, note: "",
+      });
+    } finally {
+      setTestRunning(null);
+    }
+  }
+
   async function handleActivatePipeline(name: string) {
     if (!settings) return;
     setActivating(name);
@@ -161,6 +201,7 @@ export function PluginsView() {
         <button className={`${styles.tabBtn} ${tab === "pipelines" ? styles.tabActive : ""}`} onClick={() => setTab("pipelines")}>Pipeline</button>
         <button className={`${styles.tabBtn} ${tab === "plugins"   ? styles.tabActive : ""}`} onClick={() => setTab("plugins")}>Плагины</button>
         <button className={`${styles.tabBtn} ${tab === "files"     ? styles.tabActive : ""}`} onClick={() => setTab("files")}>Файлы</button>
+        <button className={`${styles.tabBtn} ${tab === "test"      ? styles.tabActive : ""}`} onClick={() => setTab("test")}>🧪 Тест</button>
       </div>
 
       <div className={styles.tabContent}>
@@ -454,6 +495,227 @@ export function PluginsView() {
               Затем в табе <strong>Pipeline</strong> создай pipeline (препроцессор + модель) и нажми <strong>Активировать</strong>.<br/>
               Если что-то пошло не так — нажми <strong>Reload plugins</strong> в табе Pipeline.
             </p>
+          </div>
+        )}
+
+        {/* ── Тест ─────────────────────────────────────────── */}
+        {tab === "test" && (
+          <div className={styles.testTab}>
+
+            {/* Pipeline selector */}
+            <div className={styles.testSelector}>
+              <label className={styles.testSelectorLabel}>Pipeline для тестирования:</label>
+              <select
+                className={styles.testSelect}
+                value={testPipeline}
+                onChange={(e) => { setTestPipeline(e.target.value); setValidateResult(null); setSyntheticResult(null); }}
+              >
+                <option value="">— выберите pipeline —</option>
+                {pipelines.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name}{p.is_builtin ? " (builtin)" : ""}
+                  </option>
+                ))}
+              </select>
+              {!testPipeline && pipelines.length === 0 && (
+                <p className={styles.testHintSmall}>Нет доступных pipeline. Проверьте пути к моделям в Настройках.</p>
+              )}
+            </div>
+
+            {/* Test actions */}
+            <div className={styles.testActions}>
+              <div className={styles.testCheck}>
+                <div className={styles.testCheckHeader}>
+                  <span className={styles.testCheckNum}>1</span>
+                  <div>
+                    <strong>Валидация конфигурации</strong>
+                    <p>Проверяет что все препроцессоры и модели pipeline зарегистрированы корректно.</p>
+                  </div>
+                </div>
+                <button
+                  className={styles.testRunBtn}
+                  disabled={!testPipeline || testRunning !== null}
+                  onClick={() => void runValidate()}
+                >
+                  {testRunning === "validate" ? <><span className={styles.testSpinner} /> Проверяем...</> : "Запустить"}
+                </button>
+                {validateResult && (
+                  <div className={`${styles.testResult} ${validateResult.valid ? styles.testResultOk : styles.testResultErr}`}>
+                    <span className={styles.testResultIcon}>{validateResult.valid ? "✓" : "✗"}</span>
+                    <div>
+                      <strong>{validateResult.valid ? "Конфигурация корректна" : "Обнаружены ошибки"}</strong>
+                      {validateResult.errors.length > 0 && (
+                        <ul className={styles.testErrorList}>
+                          {validateResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.testCheck}>
+                <div className={styles.testCheckHeader}>
+                  <span className={styles.testCheckNum}>2</span>
+                  <div>
+                    <strong>Синтетический прогон (нулевые признаки)</strong>
+                    <p>
+                      Создаёт тестовое событие с нулевыми значениями всех признаков и прогоняет через все стадии pipeline.
+                      Показывает пошаговую трассировку: какой препроцессор, сколько признаков, какой вердикт.
+                      Не отражает реальную детекцию — проверяет что плагин подключён и данные проходят.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  className={styles.testRunBtn}
+                  disabled={!testPipeline || testRunning !== null}
+                  onClick={() => void runSynthetic()}
+                >
+                  {testRunning === "synthetic" ? <><span className={styles.testSpinner} /> Тестируем...</> : "Запустить"}
+                </button>
+                {syntheticResult && (
+                  <div className={styles.testTraceWrap}>
+                    <div className={`${styles.testResult} ${syntheticResult.ok ? styles.testResultOk : styles.testResultErr}`}>
+                      <span className={styles.testResultIcon}>{syntheticResult.ok ? "✓" : "✗"}</span>
+                      <div>
+                        <strong>
+                          {syntheticResult.ok ? "Все стадии пройдены" : "Ошибка в одной из стадий"}
+                        </strong>
+                        {" — "}стадий выполнено: {syntheticResult.stages_run}
+                        {syntheticResult.final_verdict && (
+                          <span className={styles.testFinalVerdict} data-verdict={syntheticResult.final_verdict}>
+                            Итог: {syntheticResult.final_verdict}
+                            {syntheticResult.final_score !== null && ` (${(syntheticResult.final_score * 100).toFixed(1)}%)`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <table className={styles.traceTable}>
+                      <thead>
+                        <tr>
+                          <th>Стадия</th>
+                          <th>Препроцессор</th>
+                          <th>Модель</th>
+                          <th>Gate</th>
+                          <th>Признаков</th>
+                          <th>Schema</th>
+                          <th>Вердикт</th>
+                          <th>Score</th>
+                          <th>Тип атаки</th>
+                          <th>Ошибка / причина</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {syntheticResult.trace.map((row, i) => (
+                          <tr key={i} className={row.ok ? styles.traceRowOk : styles.traceRowErr}>
+                            <td><code>{row.stage}</code></td>
+                            <td><code>{row.preprocessor}</code></td>
+                            <td><code>{row.model}</code></td>
+                            <td>{row.is_gate ? "да" : "—"}</td>
+                            <td>{row.feature_count ?? "—"}</td>
+                            <td>{row.schema_id ? <code>{row.schema_id}</code> : "—"}</td>
+                            <td>
+                              {row.verdict ? (
+                                <span className={styles.verdictBadge} data-verdict={row.verdict}>{row.verdict}</span>
+                              ) : "—"}
+                            </td>
+                            <td>{row.score !== undefined ? `${(row.score * 100).toFixed(1)}%` : "—"}</td>
+                            <td>{row.attack_class ?? "—"}</td>
+                            <td className={styles.traceReason}>
+                              {row.error
+                                ? <span className={styles.traceError}>{row.error}</span>
+                                : (row.reason ?? "—")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {syntheticResult.note && (
+                      <p className={styles.testNote}>{syntheticResult.note}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* How to write test files */}
+            <div className={styles.testGuide}>
+              <p className={styles.testGuideTitle}>📄 Как написать свой плагин для тестирования</p>
+              <p className={styles.testGuideIntro}>
+                Загрузи <code>.py</code> файл в таб <strong>Файлы</strong>, затем нажми <strong>Reload plugins</strong> в табе Pipeline.
+                Ниже — минимальные шаблоны препроцессора и модели:
+              </p>
+              <div className={styles.testCodeGrid}>
+                <div className={styles.testCodeBlock}>
+                  <p className={styles.testCodeTitle}>Препроцессор (my_preprocessor.py)</p>
+                  <pre className={styles.testCode}>{`from app.plugins import BasePreprocessor, PluginFeatureVector
+
+class MyPreprocessor(BasePreprocessor):
+    def get_name(self) -> str:
+        return "my_preprocessor"   # уникальное имя
+
+    def get_output_schema_id(self) -> str:
+        return "my_schema_v1"      # совпадает с accepted_schema_ids модели
+
+    def get_feature_names(self) -> list[str]:
+        # Имена признаков, которые вернёт transform()
+        return ["byte_count", "packet_count", "duration_ms"]
+
+    def transform(self, raw_input) -> PluginFeatureVector:
+        # raw_input — NormalizedFlowEvent
+        # Атрибуты: .raw_features (dict 71 признак),
+        #           .byte_count, .packet_count, .duration_ms,
+        #           .src_ip, .dst_ip, .protocol
+        features = {
+            "byte_count":   float(raw_input.byte_count   or 0),
+            "packet_count": float(raw_input.packet_count or 0),
+            "duration_ms":  float(raw_input.duration_ms  or 0),
+        }
+        return PluginFeatureVector(
+            schema_id="my_schema_v1",
+            features=features,
+        )`}</pre>
+                </div>
+                <div className={styles.testCodeBlock}>
+                  <p className={styles.testCodeTitle}>Модель (my_model.py)</p>
+                  <pre className={styles.testCode}>{`from app.plugins import BaseModel, PluginFeatureVector, PluginVerdict
+
+class MyModel(BaseModel):
+    def get_name(self) -> str:
+        return "my_model"          # уникальное имя
+
+    def get_accepted_schema_ids(self) -> list[str]:
+        return ["my_schema_v1"]    # совпадает с output_schema_id препроцессора
+
+    def get_output_classes(self) -> list[str]:
+        return ["normal", "anomaly"]
+
+    def predict(self, features: PluginFeatureVector) -> PluginVerdict:
+        f = features.features
+        score = min(f.get("byte_count", 0) / 100_000, 1.0)
+        if score >= 0.85:
+            return PluginVerdict(verdict="anomaly", score=score,
+                                 attack_class="DoS", reason="высокий объём трафика")
+        elif score >= 0.5:
+            return PluginVerdict(verdict="warning", score=score)
+        return PluginVerdict(verdict="normal", score=score)`}</pre>
+                </div>
+              </div>
+              <div className={styles.testGuideSteps}>
+                <p><strong>Шаги после написания плагина:</strong></p>
+                <ol>
+                  <li>Загрузи оба файла в таб <strong>Файлы</strong></li>
+                  <li>Перейди в таб <strong>Pipeline</strong> → нажми <strong>⟳ Reload plugins</strong></li>
+                  <li>Убедись что препроцессор и модель появились в табе <strong>Плагины</strong></li>
+                  <li>В табе <strong>Pipeline</strong> нажми <strong>+ Создать pipeline</strong>, выбери свой препроцессор и модель</li>
+                  <li>Вернись в таб <strong>🧪 Тест</strong>, выбери созданный pipeline и запусти оба теста</li>
+                  <li>Если всё зелёное — нажми <strong>Активировать</strong> в табе Pipeline</li>
+                </ol>
+              </div>
+            </div>
+
           </div>
         )}
 
