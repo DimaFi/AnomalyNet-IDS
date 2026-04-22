@@ -190,6 +190,14 @@ export interface UpdateApplyResult {
   errors: string[];
 }
 
+export interface ReinstallResult {
+  steps: { name: string; ok: boolean; detail: string }[];
+  errors: string[];
+  wipe_settings: boolean;
+  restart_scheduled: boolean;
+  message: string;
+}
+
 // Toast notification
 export interface ToastItem {
   id: string;

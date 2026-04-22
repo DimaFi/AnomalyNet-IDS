@@ -169,3 +169,80 @@ def restart_service() -> dict:
     """Перезапускает сервис anomalynet через systemctl (только Linux)."""
     _schedule_restart()
     return {"message": "Сервис перезапускается...", "restart_scheduled": True}
+
+
+@update_router.post("/reinstall")
+def reinstall(wipe_settings: bool = False) -> dict:
+    """
+    Переустановка: git pull → pip install → [опционально сброс данных] → npm build → restart.
+
+    wipe_settings=false — обновляет код и зависимости, сохраняет все настройки.
+    wipe_settings=true  — то же + удаляет config/settings.json и data/ (история, блокировки).
+    """
+    import os
+    import sys
+
+    result: dict = {
+        "steps": [],
+        "errors": [],
+        "wipe_settings": wipe_settings,
+        "restart_scheduled": False,
+        "message": "",
+    }
+
+    def step(name: str, ok: bool, detail: str = "") -> None:
+        result["steps"].append({"name": name, "ok": ok, "detail": detail})
+        if not ok:
+            result["errors"].append(f"{name}: {detail}")
+
+    # 1. git pull GUI repo
+    try:
+        ok, out = _git_pull_hard(GUI_DIR)
+        step("git pull GUI", ok, out)
+    except Exception as e:
+        step("git pull GUI", False, str(e))
+
+    # 2. git pull / clone ML repo
+    try:
+        ok, out = _git_pull_hard(ML_DIR, clone_url=ML_REPO_URL)
+        step("git pull ML", ok, out)
+    except Exception as e:
+        step("git pull ML", False, str(e))
+
+    # 3. pip install dependencies
+    try:
+        req = GUI_DIR / "backend" / "requirements.txt"
+        pip = shutil.which("pip3") or shutil.which("pip") or sys.executable + " -m pip"
+        pip_cmd = pip.split() + ["install", "-q", "-r", str(req)]
+        r = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=120)
+        step("pip install", r.returncode == 0, (r.stdout + r.stderr)[-300:] if r.returncode != 0 else "ok")
+    except Exception as e:
+        step("pip install", False, str(e))
+
+    # 4. Wipe settings and data (optional)
+    if wipe_settings:
+        wiped: list[str] = []
+        cfg = GUI_DIR / "config" / "settings.json"
+        if cfg.exists():
+            cfg.unlink()
+            wiped.append("config/settings.json")
+        data_dir = GUI_DIR / "data"
+        if data_dir.exists():
+            shutil.rmtree(data_dir, ignore_errors=True)
+            wiped.append("data/")
+        step("wipe settings+data", True, "Удалено: " + (", ".join(wiped) if wiped else "нечего удалять"))
+
+    # 5. Rebuild frontend
+    ok, log = _rebuild_dist()
+    step("npm build", ok, log[-300:] if not ok else "ok")
+
+    # 6. Schedule restart
+    _schedule_restart()
+    result["restart_scheduled"] = True
+
+    has_errors = bool(result["errors"])
+    result["message"] = (
+        ("Переустановка завершена с ошибками — сервис перезапускается" if has_errors else
+         "Переустановка завершена — сервис перезапускается через ~2 сек")
+    )
+    return result

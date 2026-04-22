@@ -76,6 +76,8 @@ export const api = {
     }),
   checkUpdates: () => request<UpdateCheckResult>("/api/update/check"),
   applyUpdates: () => request<UpdateApplyResult>("/api/update/apply", { method: "POST" }),
+  reinstall: (wipeSettings: boolean) =>
+    request<import("../app/types").ReinstallResult>(`/api/update/reinstall?wipe_settings=${wipeSettings}`, { method: "POST" }),
 
   // ── Plugin API ─────────────────────────────────────────────────────────────
   getPluginPreprocessors: () => request<PreprocessorMeta[]>("/api/plugins/preprocessors"),

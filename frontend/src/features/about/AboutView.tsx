@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { UpdateApplyResult, UpdateCheckResult } from "../../app/types";
+import type { ReinstallResult, UpdateApplyResult, UpdateCheckResult } from "../../app/types";
 import { api } from "../../lib/api";
 import styles from "./AboutView.module.css";
 
@@ -105,6 +105,7 @@ export function AboutView() {
             </button>
           )}
           <RestartButton />
+          <ReinstallButton />
         </div>
 
         {checkError && <p className={styles.errorMsg}>{checkError}</p>}
@@ -193,6 +194,88 @@ function RestartButton() {
        : state === "error" ? "Ошибка — только Linux"
        : "↺ Перезапустить сервис"}
     </button>
+  );
+}
+
+function ReinstallButton() {
+  const [phase, setPhase] = useState<"idle" | "confirm" | "running" | "done">("idle");
+  const [wipe, setWipe]   = useState(false);
+  const [result, setResult] = useState<ReinstallResult | null>(null);
+
+  async function run() {
+    setPhase("running");
+    try {
+      const r = await api.reinstall(wipe);
+      setResult(r);
+      setPhase("done");
+    } catch {
+      setResult({ steps: [], errors: ["Нет ответа от сервера"], wipe_settings: wipe, restart_scheduled: false, message: "Ошибка запроса" });
+      setPhase("done");
+    }
+  }
+
+  if (phase === "idle") {
+    return (
+      <button className={styles.btnReinstall} onClick={() => setPhase("confirm")}>
+        ⟳ Переустановить
+      </button>
+    );
+  }
+
+  if (phase === "confirm") {
+    return (
+      <div className={styles.reinstallConfirm}>
+        <p className={styles.reinstallConfirmTitle}>Выберите тип переустановки:</p>
+        <label className={styles.reinstallOption}>
+          <input type="radio" name="wipe" checked={!wipe} onChange={() => setWipe(false)} />
+          <span>
+            <strong>Обновить код</strong>
+            <span className={styles.reinstallOptionSub}>git pull + pip install + перезапуск. Настройки сохраняются.</span>
+          </span>
+        </label>
+        <label className={styles.reinstallOption}>
+          <input type="radio" name="wipe" checked={wipe} onChange={() => setWipe(true)} />
+          <span>
+            <strong>Полная переустановка</strong>
+            <span className={[styles.reinstallOptionSub, styles.reinstallOptionWarn].join(" ")}>
+              То же + удаляет config/settings.json и data/ (история, блокировки). Настройки сбросятся на дефолт.
+            </span>
+          </span>
+        </label>
+        <div className={styles.reinstallActions}>
+          <button className={styles.btnSecondary} onClick={() => setPhase("idle")}>Отмена</button>
+          <button className={[styles.btnApply, wipe ? styles.btnDanger : ""].filter(Boolean).join(" ")} onClick={() => void run()}>
+            {wipe ? "⚠ Переустановить со сбросом" : "Переустановить"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "running") {
+    return (
+      <div className={styles.reinstallRunning}>
+        <span className={styles.spinner} /> Выполняется переустановка... (может занять до 2 минут)
+      </div>
+    );
+  }
+
+  // done
+  const ok = result && result.errors.length === 0;
+  return (
+    <div className={styles.reinstallResult}>
+      <p className={[styles.applyMsg, ok ? styles.applyOk : styles.applyWarn].join(" ")}>
+        {result?.message}
+      </p>
+      {result?.steps.map((s, i) => (
+        <div key={i} className={[styles.reinstallStep, s.ok ? styles.reinstallStepOk : styles.reinstallStepErr].join(" ")}>
+          <span>{s.ok ? "✓" : "✗"}</span>
+          <span>{s.name}</span>
+          {!s.ok && <span className={styles.reinstallStepDetail}>{s.detail}</span>}
+        </div>
+      ))}
+      {result?.restart_scheduled && <AutoReload delayMs={4000} />}
+    </div>
   );
 }
 
