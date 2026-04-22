@@ -57,8 +57,19 @@ def _changed_files_after_pull(repo_dir: Path) -> list[str]:
     return [f.strip() for f in r.stdout.splitlines() if f.strip()]
 
 
-def _git_pull_hard(repo_dir: Path) -> tuple[bool, str]:
-    """Fetch + reset to origin/main, handles modified/untracked files."""
+ML_REPO_URL = "https://github.com/DimaFi/AnomalyNet-ml.git"
+
+
+def _git_pull_hard(repo_dir: Path, clone_url: str | None = None) -> tuple[bool, str]:
+    """Fetch + reset to origin/main. If repo missing and clone_url given — clones first."""
+    if not repo_dir.exists() and clone_url:
+        r = subprocess.run(
+            ["git", "clone", "--depth=1", clone_url, str(repo_dir)],
+            capture_output=True, text=True, timeout=120,
+        )
+        if r.returncode != 0:
+            return False, f"clone failed: {r.stderr[:300]}"
+        return True, f"cloned {clone_url}"
     r1 = _run(["git", "fetch", "--quiet"], repo_dir)
     if r1.returncode != 0:
         return False, r1.stderr[:200]
@@ -125,9 +136,9 @@ def apply_updates() -> dict:
     backend_changed  = any(f.startswith("backend/")  for f in gui_changed)
     frontend_changed = any(f.startswith("frontend/src") or f.startswith("frontend/public") for f in gui_changed)
 
-    # Pull ML repo
+    # Pull ML repo (clone if missing)
     try:
-        ok, out = _git_pull_hard(ML_DIR)
+        ok, out = _git_pull_hard(ML_DIR, clone_url=ML_REPO_URL)
         result["ml"]["ok"]     = ok
         result["ml"]["output"] = out or "Already up to date"
     except Exception as e:

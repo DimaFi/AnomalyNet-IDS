@@ -8,16 +8,16 @@
   "stream_autostart": true,
   "interface_name": "eth0",
   "catboost_threshold": 0.7,
-  "catboost_model_dir": "/opt/anomalynet/models/stage1/catboost",
-  "preprocessing_artifacts_dir": "/opt/anomalynet/models/stage1/artifacts",
+  "catboost_model_dir": "/opt/anomalynet-ml/model",
+  "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
   "auto_block": false,
   "auto_block_level": "anomaly",
   "auto_unblock": false,
   "auto_unblock_cooldown_min": 10,
   "whitelist_ips": [],
   "detection_mode": "simple",
-  "catboost_secondary_model_dir": "/opt/anomalynet/models/stage2/catboost",
-  "catboost_secondary_artifacts_dir": "",
-  "catboost_stage3_model_dir": "/opt/anomalynet/models/stage4/catboost",
-  "catboost_stage3_artifacts_dir": ""
+  "catboost_secondary_model_dir": "/opt/anomalynet-ml/stage2_multiclass/models/catboost",
+  "catboost_secondary_artifacts_dir": "/opt/anomalynet-ml/artifacts",
+  "catboost_stage3_model_dir": "/opt/anomalynet-ml/stage3_cic2023/models/catboost",
+  "catboost_stage3_artifacts_dir": "/opt/anomalynet-ml/stage3_cic2023/artifacts"
 }
