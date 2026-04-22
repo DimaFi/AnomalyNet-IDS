@@ -2,6 +2,23 @@
   margin-bottom: 28px;
 }
 
+/* ── Sub-block inside group ── */
+.subBlock {
+  margin-top: 16px;
+  padding: 14px 16px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.subBlockTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
 /* ── Model dir viewer ── */
 .dirViewer {
   margin: 10px 0 4px;

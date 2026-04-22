@@ -52,7 +52,7 @@ const resources = {
         subtitle: "Локальные предпочтения, политика хранения и режим захвата",
         groupGeneral: "Общие",
         groupCapture: "Захват трафика",
-        groupCatboost: "Модель CatBoost",
+        groupCatboost: "Настройки модели",
         language: "Язык",
         theme: "Тема",
         runMode: "Режим запуска",

@@ -187,7 +187,7 @@ export function SettingsView() {
         )}
       </div>
 
-      {/* ── CatBoost model ── */}
+      {/* ── Model settings ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>{t("settings.groupCatboost")}</div>
         <div className={styles.formGrid}>
@@ -216,17 +216,29 @@ export function SettingsView() {
               </button>
             </div>
           </label>
-          <label className={styles.field}>
-            <span>{t("settings.catboostModelDir")}</span>
-            <input type="text" value={settings.catboost_model_dir}
-              onChange={(e) => patch({ catboost_model_dir: e.target.value })} />
-          </label>
-          <label className={styles.field}>
-            <span>{t("settings.preprocessingDir")}</span>
-            <input type="text" value={settings.preprocessing_artifacts_dir}
-              onChange={(e) => patch({ preprocessing_artifacts_dir: e.target.value })} />
-          </label>
-          <ModelDirsViewer settings={settings} />
+        </div>
+
+        {/* Paths sub-block */}
+        <div className={selfStyles.subBlock}>
+          <div className={selfStyles.subBlockTitle}>Пути к файлам моделей</div>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              <span>{t("settings.catboostModelDir")}</span>
+              <input type="text" value={settings.catboost_model_dir}
+                onChange={(e) => patch({ catboost_model_dir: e.target.value })} />
+            </label>
+            <label className={styles.field}>
+              <span>{t("settings.preprocessingDir")}</span>
+              <input type="text" value={settings.preprocessing_artifacts_dir}
+                onChange={(e) => patch({ preprocessing_artifacts_dir: e.target.value })} />
+            </label>
+          </div>
+        </div>
+
+        {/* Dir viewer sub-block */}
+        <ModelDirsViewer settings={settings} />
+
+        <div className={styles.formGrid}>
           <label className={styles.toggleField}>
             <input
               type="checkbox"
@@ -273,8 +285,8 @@ export function SettingsView() {
               onChange={(e) => patch({ auto_unblock_cooldown_min: Math.min(120, Math.max(1, Number(e.target.value))) })}
             />
           </label>
-        </div>
-      </div>
+        </div>{/* end formGrid */}
+      </div>{/* end group */}
 
       {/* ── Active pipeline / Detection mode ── */}
       <div className={selfStyles.group}>
