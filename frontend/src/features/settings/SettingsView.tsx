@@ -275,17 +275,35 @@ export function SettingsView() {
         </div>
       </div>
 
-      {/* ── Detection mode (read-only info) ── */}
+      {/* ── Active pipeline / Detection mode ── */}
       <div className={selfStyles.group}>
-        <div className={selfStyles.groupTitle}>Текущий режим детекции</div>
-        <div style={{ fontSize: "12.5px", color: "var(--text-secondary)", lineHeight: 1.6, padding: "4px 0" }}>
-          {s.detection_mode === "advanced"
-            ? <><strong>Advanced</strong> — Stage1 (бинарный, F1=99.4%) → Stage3 IoT2023 (8 классов, Macro F1=0.82). Двойной extractor: 71 + 46 признаков.</>
-            : s.detection_mode === "simple"
-            ? <><strong>Simple</strong> — Stage1 (бинарный, F1=99.4%) → Stage2 (8 классов, Macro F1=0.31). CICFlowMeter, 71 признак.</>
-            : <><strong>Binary</strong> — только Stage1, бинарная детекция (атака/норма).</>
-          }
-          <span style={{ marginLeft: 8, opacity: 0.5 }}>— сменить через «Выбрать модель»</span>
+        <div className={selfStyles.groupTitle}>Активный pipeline</div>
+        <div style={{ fontSize: "12.5px", color: "var(--text-secondary)", lineHeight: 1.7, padding: "4px 0" }}>
+          {s.active_model_id?.startsWith("plugin:") ? (
+            <>
+              <strong style={{ color: "var(--accent)" }}>Plugin pipeline:</strong>{" "}
+              <code style={{ background: "var(--surface-3)", borderRadius: 4, padding: "1px 6px", fontFamily: "monospace", fontSize: 11 }}>
+                {s.active_model_id.slice("plugin:".length)}
+              </code>
+              {s.active_model_id === "plugin:advanced" && " — Stage1 → Stage3 IoT2023 (46 признаков, Macro F1=0.82)"}
+              {s.active_model_id === "plugin:simple"   && " — Stage1 → Stage2 (71 признак, 8 классов)"}
+              {s.active_model_id === "plugin:fast"     && " — Stage1 бинарный (71 признак, минимальная задержка)"}
+            </>
+          ) : (
+            <>
+              <strong>Стандартная модель:</strong>{" "}
+              <code style={{ background: "var(--surface-3)", borderRadius: 4, padding: "1px 6px", fontFamily: "monospace", fontSize: 11 }}>
+                {s.active_model_id}
+              </code>
+              {" — "}
+              {s.detection_mode === "advanced"
+                ? "Advanced: Stage1 → Stage3 IoT2023 (71+46 признаков)"
+                : s.detection_mode === "simple"
+                ? "Simple: Stage1 → Stage2 (71 признак, 8 классов)"
+                : "Binary: только Stage1 (71 признак)"}
+            </>
+          )}
+          <span style={{ marginLeft: 8, opacity: 0.45, fontSize: 11 }}>— сменить через «Выбрать модель»</span>
         </div>
       </div>
 

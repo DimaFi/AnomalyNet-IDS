@@ -485,6 +485,7 @@
 /* ── Threshold presets ── */
 .thresholdPresets {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 6px;
 }

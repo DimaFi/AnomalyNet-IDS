@@ -151,3 +151,10 @@ def apply_updates() -> dict:
         result["message"] = "Обновление применено без перезапуска сервиса"
 
     return result
+
+
+@update_router.post("/restart")
+def restart_service() -> dict:
+    """Перезапускает сервис anomalynet через systemctl (только Linux)."""
+    _schedule_restart()
+    return {"message": "Сервис перезапускается...", "restart_scheduled": True}

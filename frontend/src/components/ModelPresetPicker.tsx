@@ -84,6 +84,24 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
     }
   }
 
+  const [activating, setActivating] = useState<string | null>(null);
+
+  async function handleActivatePipeline(name: string) {
+    if (!settings) return;
+    setActivating(name);
+    try {
+      const saved = await api.activatePluginPipeline(name, settings);
+      setSettings(saved);
+      setOpen(false);
+    } finally {
+      setActivating(null);
+    }
+  }
+
+  const activePipelineName = settings?.active_model_id?.startsWith("plugin:")
+    ? settings.active_model_id.slice("plugin:".length)
+    : null;
+
   async function handleCreatePipeline() {
     try {
       await usePluginsStore.getState().createPipeline(newPipeline);
@@ -233,14 +251,17 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
 
                 {/* Pipeline list */}
                 {pluginsLoading && <p style={{ opacity: 0.5, padding: "16px 0" }}>Загрузка...</p>}
-                {pipelines.map((cfg) => (
-                  <div key={cfg.name} className={styles.pipelineCard}>
+                {pipelines.map((cfg) => {
+                  const isActive = activePipelineName === cfg.name;
+                  return (
+                  <div key={cfg.name} className={`${styles.pipelineCard} ${isActive ? styles.pipelineCardActive : ""}`}>
                     <div className={styles.pipelineHeader}>
                       <span className={styles.pipelineName}>{cfg.name}</span>
-                      {cfg.is_builtin
-                        ? <span className={styles.builtinBadge}>builtin</span>
-                        : <button className={styles.deleteBtn} onClick={() => handleDeletePipeline(cfg.name)}>Удалить</button>
-                      }
+                      {isActive && <span className={styles.activeBadge}>Активен</span>}
+                      {cfg.is_builtin && !isActive && <span className={styles.builtinBadge}>builtin</span>}
+                      {!cfg.is_builtin && (
+                        <button className={styles.deleteBtn} onClick={() => handleDeletePipeline(cfg.name)}>Удалить</button>
+                      )}
                     </div>
                     <p className={styles.pipelineDesc}>{cfg.description}</p>
                     <div className={styles.stageList}>
@@ -251,8 +272,18 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
                         </span>
                       ))}
                     </div>
+                    {!isActive && (
+                      <button
+                        className={styles.applyBtn}
+                        style={{ marginTop: 8 }}
+                        disabled={activating === cfg.name}
+                        onClick={() => handleActivatePipeline(cfg.name)}
+                      >
+                        {activating === cfg.name ? "Активируется..." : "Активировать"}
+                      </button>
+                    )}
                   </div>
-                ))}
+                );})}
                 {!pluginsLoading && pipelines.length === 0 && (
                   <p style={{ opacity: 0.5, textAlign: "center", padding: "20px 0", fontSize: 12 }}>
                     Нет зарегистрированных pipeline.<br/>

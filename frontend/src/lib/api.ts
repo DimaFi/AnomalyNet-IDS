@@ -104,4 +104,6 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ ...currentSettings, active_model_id: `plugin:${pipelineName}` }),
     }),
+  restartService: () =>
+    request<{ message: string; restart_scheduled: boolean }>("/api/update/restart", { method: "POST" }),
 };

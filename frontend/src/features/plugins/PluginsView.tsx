@@ -448,8 +448,11 @@ export function PluginsView() {
             </div>
 
             <p className={styles.fileHint}>
-              После загрузки плагины регистрируются автоматически.<br/>
-              Если что-то пошло не так — перейди на таб <strong>Pipeline</strong> и нажми <strong>Reload plugins</strong>.
+              Можно загружать как <strong>модели</strong>, так и <strong>препроцессоры признаков</strong> — любой класс,
+              унаследованный от <code>BaseModel</code> или <code>BasePreprocessor</code>, регистрируется автоматически.<br/>
+              После загрузки перейди в таб <strong>Плагины</strong> — новый плагин появится в списке.<br/>
+              Затем в табе <strong>Pipeline</strong> создай pipeline (препроцессор + модель) и нажми <strong>Активировать</strong>.<br/>
+              Если что-то пошло не так — нажми <strong>Reload plugins</strong> в табе Pipeline.
             </p>
           </div>
         )}

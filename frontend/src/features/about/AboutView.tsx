@@ -57,9 +57,12 @@ export function AboutView() {
       {/* ── Description ── */}
       <div className={styles.card}>
         <p className={styles.desc}>
-          AnomalyNet — IDS с каскадной архитектурой детекции: Stage 1 (бинарный фильтр, F1=99.4%) → Stage 2/Stage 4 (многоклассовая классификация, 8 типов атак).
-          Обучена на датасете CIC-IoT-2024 с дополнением из CIC-IDS-2018 и CIC-IDS-2017.
-          Захват трафика через Scapy, авто-блокировка через iptables.
+          AnomalyNet — IDS, детекция по умолчанию работает на каскадной системе из нескольких моделей
+          машинного обучения: бинарный Stage 1 (CatBoost, F1=99.4%) фильтрует трафик, а при
+          обнаружении атаки подключается Stage 2 или Stage 3/4 (8 типов: DoS, DDoS, BruteForce и др.).
+          Подробнее об архитектуре и обучении — на GitHub.
+          В разделе <strong>Plugins</strong> можно подключить любую собственную модель и препроцессор
+          признаков, соблюдая описанный контракт ввода/вывода.
         </p>
       </div>
 
@@ -92,7 +95,7 @@ export function AboutView() {
 
       {/* ── Updates ── */}
       <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Обновления</h2>
+        <h2 className={styles.cardTitle}>Обновления и управление</h2>
 
         <div className={styles.updateActions}>
           <button className={styles.btnPrimary} onClick={() => void handleCheck()} disabled={checking || applying}>
@@ -103,6 +106,7 @@ export function AboutView() {
               {applying ? <><span className={styles.spinner} /> Обновляем...</> : "Применить обновления"}
             </button>
           )}
+          <RestartButton />
         </div>
 
         {checkError && <p className={styles.errorMsg}>{checkError}</p>}
@@ -160,6 +164,37 @@ function RepoStatus({ label, info }: { label: string; info: { has_update?: boole
         </span>
       )}
     </div>
+  );
+}
+
+function RestartButton() {
+  const [state, setState] = useState<"idle" | "pending" | "done" | "error">("idle");
+
+  async function handleRestart() {
+    if (!confirm("Перезапустить сервис AnomalyNet? Подключение прервётся на ~3 секунды.")) return;
+    setState("pending");
+    try {
+      await api.restartService();
+      setState("done");
+      setTimeout(() => window.location.reload(), 3500);
+    } catch {
+      setState("error");
+      setTimeout(() => setState("idle"), 4000);
+    }
+  }
+
+  return (
+    <button
+      className={styles.btnRestart}
+      onClick={() => void handleRestart()}
+      disabled={state === "pending" || state === "done"}
+      title="Перезапустить сервис (systemctl restart anomalynet)"
+    >
+      {state === "pending" ? <><span className={styles.spinner} /> Перезапускаем...</>
+       : state === "done"  ? "Перезапускается..."
+       : state === "error" ? "Ошибка — только Linux"
+       : "↺ Перезапустить сервис"}
+    </button>
   );
 }
 

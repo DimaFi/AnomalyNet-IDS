@@ -131,6 +131,23 @@
 .btnApply:hover:not(:disabled) { opacity: 0.85; }
 .btnApply:disabled { opacity: 0.5; cursor: default; }
 
+.btnRestart {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.13s;
+}
+.btnRestart:hover:not(:disabled) { background: rgba(var(--danger-rgb), 0.18); }
+.btnRestart:disabled { opacity: 0.5; cursor: default; }
+
 /* ── Spinner ── */
 .spinner {
   display: inline-block;
