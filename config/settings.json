@@ -1,9 +1,9 @@
 {
   "language": "ru",
   "theme": "light",
-  "run_mode": "mock",
-  "retention_days": 14,
-  "active_model_id": "mock-default",
+  "run_mode": "linux_live",
+  "retention_days": 7,
+  "active_model_id": "catboost-cascade-simple",
   "capture_enabled": true,
   "stream_autostart": true,
   "interface_name": "eth0",

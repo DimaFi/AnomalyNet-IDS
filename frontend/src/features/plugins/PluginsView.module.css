@@ -342,8 +342,9 @@
   max-width: 600px;
   user-select: none;
 }
-.dropZone:hover { border-color: var(--accent); background: rgba(91,155,247,0.04); }
-.dropZoneOver   { border-color: var(--accent); background: rgba(91,155,247,0.10); }
+.dropZone:hover     { border-color: var(--accent); background: rgba(91,155,247,0.04); }
+.dropZoneOver       { border-color: var(--accent); background: rgba(91,155,247,0.10); }
+.dropZoneUploading  { opacity: 0.6; cursor: wait; pointer-events: none; }
 .dropIcon { font-size: 28px; margin-bottom: 8px; }
 .dropText {
   font-size: 13px;

@@ -33,6 +33,7 @@ export function PluginsView() {
   const [filesLoading, setFilesLoading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newPipeline, setNewPipeline] = useState<CreatePipelinePayload>({
@@ -64,7 +65,7 @@ export function PluginsView() {
   }
 
   async function handleUpload(file: File) {
-    setUploadMsg(""); setUploadError("");
+    setUploadMsg(""); setUploadError(""); setUploading(true);
     try {
       const r = await api.uploadPluginFile(file);
       setUploadMsg(r.message);
@@ -72,7 +73,9 @@ export function PluginsView() {
       await fetchAll();
       setTimeout(() => setUploadMsg(""), 5000);
     } catch (e) {
-      setUploadError(String(e));
+      setUploadError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -447,25 +450,34 @@ export function PluginsView() {
         {tab === "files" && (
           <div>
             <div
-              className={`${styles.dropZone} ${dragOver ? styles.dropZoneOver : ""}`}
-              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              className={`${styles.dropZone} ${dragOver ? styles.dropZoneOver : ""} ${uploading ? styles.dropZoneUploading : ""}`}
+              onDragOver={(e) => { if (!uploading) { e.preventDefault(); setDragOver(true); } }}
               onDragLeave={() => setDragOver(false)}
-              onDrop={onDrop}
-              onClick={() => fileInputRef.current?.click()}
+              onDrop={(e) => { if (!uploading) onDrop(e); }}
+              onClick={() => { if (!uploading) fileInputRef.current?.click(); }}
             >
-              <div className={styles.dropIcon}>📦</div>
-              <p className={styles.dropText}>Перетащи файл сюда или нажми для выбора</p>
-              <p className={styles.dropSub}>
-                <strong>.py</strong> — плагин (авто-загрузка) &nbsp;·&nbsp;
-                <strong>.pkl .cbm .h5 .onnx .pt .bin .joblib</strong> — файл модели &nbsp;·&nbsp;
-                <strong>.json</strong> — конфиг/маппинг
-              </p>
+              {uploading ? (
+                <>
+                  <div className={styles.dropIcon}>⏳</div>
+                  <p className={styles.dropText}>Загрузка файла...</p>
+                </>
+              ) : (
+                <>
+                  <div className={styles.dropIcon}>📦</div>
+                  <p className={styles.dropText}>Перетащи файл сюда или нажми для выбора</p>
+                  <p className={styles.dropSub}>
+                    <strong>.py</strong> — плагин (авто-загрузка) &nbsp;·&nbsp;
+                    <strong>.pkl .cbm .h5 .onnx .pt .bin .joblib</strong> — файл модели &nbsp;·&nbsp;
+                    <strong>.json</strong> — конфиг/маппинг
+                  </p>
+                </>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
                 accept=".py,.pkl,.cbm,.h5,.onnx,.pt,.bin,.joblib,.json"
                 style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUpload(f); e.target.value = ""; }}
               />
             </div>
 

@@ -149,14 +149,15 @@ export function App() {
     const list = settings.whitelist_ips ?? [];
     const nextList = addIp && ip && !list.includes(ip) ? [...list, ip] : list;
     const next = { ...settings, auto_block: true, whitelist_ips: nextList };
+    // Close dialog immediately — don't wait for slow server
+    setShowShieldConfirm(false);
+    setShieldIp("");
     try {
       const saved = await api.updateSettings(next);
       setSettings(saved);
     } catch {
       setSettings(next);
     }
-    setShowShieldConfirm(false);
-    setShieldIp("");
   }, [settings, setSettings, shieldIp]);
 
   const CurrentView = viewMap[view];

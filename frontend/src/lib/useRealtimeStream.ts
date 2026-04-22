@@ -3,10 +3,13 @@ import { useAppStore } from "../app/store";
 import type { PipelineEvent } from "../app/types";
 import { api } from "./api";
 
+const POLL_INTERVAL_MS = 5000; // fallback snapshot poll every 5s
+
 /**
  * Subscribes to the backend WebSocket (/ws/events) and keeps the stream store in sync.
  * No mock fallback — all events come from the backend (which handles mock mode itself).
  * On disconnect → exponential backoff reconnect (1s → 2s → 4s → ... → 30s max).
+ * Also polls /api/snapshot every 5s as a fallback to catch any missed events.
  */
 export function useRealtimeStream(): void {
   const pushStreamItem = useAppStore((state) => state.pushStreamItem);
@@ -16,6 +19,7 @@ export function useRealtimeStream(): void {
   const socketRef  = useRef<WebSocket | null>(null);
   const retryDelay = useRef(1000);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
   const destroyed  = useRef(false);
 
   useEffect(() => {
@@ -71,14 +75,20 @@ export function useRealtimeStream(): void {
 
     connect();
 
+    // Periodic fallback: refresh snapshot every 5s to catch missed events on slow/unreliable server
+    pollTimer.current = setInterval(() => {
+      if (destroyed.current) return;
+      api.getSnapshot().then((snap) => {
+        if (!destroyed.current) replaceStream(snap.items);
+      }).catch(() => { /* server unreachable — skip */ });
+    }, POLL_INTERVAL_MS);
+
     return () => {
       destroyed.current = true;
       socketRef.current?.close();
       socketRef.current = null;
-      if (retryTimer.current !== null) {
-        clearTimeout(retryTimer.current);
-        retryTimer.current = null;
-      }
+      if (retryTimer.current !== null) { clearTimeout(retryTimer.current); retryTimer.current = null; }
+      if (pollTimer.current !== null)  { clearInterval(pollTimer.current);  pollTimer.current = null; }
     };
   }, [pushStreamItem, replaceStream, addToast]);
 }

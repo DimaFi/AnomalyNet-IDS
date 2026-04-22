@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections import deque
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
@@ -24,7 +25,7 @@ class PipelineService:
         self._settings = store.load_settings()
         self._models = store.load_models()
         self._status: StatusLevel = "idle"
-        self._recent_items: deque[PipelineEvent] = deque(maxlen=10000)
+        self._recent_items: deque[PipelineEvent] = deque(maxlen=500)
         self._subscribers: set[asyncio.Queue[PipelineEvent]] = set()
         self._loop_task: asyncio.Task[None] | None = None
         self._unblock_task: asyncio.Task[None] | None = None
@@ -45,6 +46,7 @@ class PipelineService:
         self._src_ip_counts: dict[str, int] = {}
         self._dst_port_counts: dict[str, int] = {}
         self._scores: list[float] = []  # last 500 scores
+        self._last_retention_check: float = 0.0  # monotonic time of last retention run
 
     @property
     def settings(self) -> AppSettings:
@@ -212,7 +214,11 @@ class PipelineService:
                     self._store.append_history(pipeline_event)
                     await self._fan_out(pipeline_event)
 
-                self._store.apply_retention(self._settings.retention_days)
+                # Apply retention at most once per hour to avoid frequent filesystem ops
+                now = time.monotonic()
+                if now - self._last_retention_check > 3600:
+                    self._store.apply_retention(self._settings.retention_days)
+                    self._last_retention_check = now
                 self._status = "active"
 
             except asyncio.CancelledError:

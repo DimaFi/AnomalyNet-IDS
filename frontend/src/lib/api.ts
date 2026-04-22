@@ -27,7 +27,13 @@ const jsonHeaders = {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    let detail = `HTTP ${response.status}`;
+    try {
+      const err = await response.json() as { detail?: string | { message?: string } };
+      if (typeof err.detail === "string") detail = err.detail;
+      else if (err.detail && typeof err.detail === "object" && err.detail.message) detail = err.detail.message;
+    } catch { /* ignore parse error */ }
+    throw new Error(detail);
   }
   return (await response.json()) as T;
 }

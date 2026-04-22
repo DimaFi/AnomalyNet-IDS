@@ -77,7 +77,11 @@ async def events_ws(websocket: WebSocket) -> None:
     service: PipelineService = websocket.app.state.pipeline_service
     queue = service.subscribe()
     try:
-        await websocket.send_text(json.dumps(service.snapshot().model_dump(mode="json"), ensure_ascii=False))
+        # Send initial snapshot capped to 200 items — avoid sending large payloads on slow servers
+        snap = service.snapshot()
+        snap_dict = snap.model_dump(mode="json")
+        snap_dict["items"] = snap_dict["items"][:200]
+        await websocket.send_text(json.dumps(snap_dict, ensure_ascii=False))
         while True:
             try:
                 # Wait up to 20s for a new event; send a keepalive ping if idle
