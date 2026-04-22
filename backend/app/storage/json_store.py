@@ -63,6 +63,7 @@ class JsonFileStore:
         return registry
 
     def append_history(self, item: PipelineEvent) -> None:
+        self._history_dir.mkdir(parents=True, exist_ok=True)
         day_path = self._history_dir / f"{datetime.now(timezone.utc).date().isoformat()}.ndjson"
         serialized = json.dumps(item.model_dump(mode="json"), ensure_ascii=False)
         with day_path.open("a", encoding="utf-8") as handle:
