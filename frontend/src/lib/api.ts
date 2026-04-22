@@ -116,4 +116,10 @@ export const api = {
     }),
   restartService: () =>
     request<{ message: string; restart_scheduled: boolean }>("/api/update/restart", { method: "POST" }),
+  lsDir: (path: string) =>
+    request<{
+      path: string; exists: boolean; error?: string;
+      is_file?: boolean; size_bytes?: number;
+      entries: { name: string; is_dir: boolean; size_bytes: number | null }[];
+    }>(`/api/fs/ls?path=${encodeURIComponent(path)}`),
 };

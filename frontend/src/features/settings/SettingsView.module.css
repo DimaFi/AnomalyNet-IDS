@@ -2,6 +2,78 @@
   margin-bottom: 28px;
 }
 
+/* ── Model dir viewer ── */
+.dirViewer {
+  margin: 10px 0 4px;
+}
+.dirViewerToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 0;
+}
+.dirViewerToggle:hover { color: var(--text-primary); }
+.dirViewerHint {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.dirViewerContent {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dirLoading { font-size: 12px; color: var(--text-muted); margin: 0; }
+.dirBlock {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.dirBlockHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.dirLabel { font-size: 12px; font-weight: 600; }
+.dirExists { font-size: 11px; color: var(--ok, #52b788); font-weight: 600; }
+.dirMissing { font-size: 11px; color: var(--danger, #e76f51); font-weight: 600; }
+.dirPath {
+  display: block;
+  font-size: 11px;
+  font-family: 'Cascadia Code', monospace;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+.dirError { font-size: 11.5px; color: var(--danger); margin: 4px 0 0; }
+.dirEmpty { font-size: 11.5px; color: var(--text-muted); margin: 4px 0 0; opacity: 0.6; }
+.dirEntries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.dirEntry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+}
+.dirEntryFile { background: var(--surface-2); color: var(--text-primary); }
+.dirEntryDir  { background: rgba(91,155,247,0.08); color: var(--accent); }
+.dirEntrySize { font-size: 10px; color: var(--text-muted); margin-left: 4px; }
+
 .groupTitle {
   font-size: 10.5px;
   font-weight: 700;

@@ -165,6 +165,35 @@ def debug_infer(
     return {"count": len(results), "results": results}
 
 
+@router.get("/fs/ls")
+def fs_ls(path: str) -> dict:
+    """Returns directory listing for a given absolute path (read-only, for UI inspection)."""
+    import os
+    from pathlib import Path as _P
+    p = _P(path)
+    if not p.exists():
+        return {"path": str(p), "exists": False, "entries": []}
+    if not p.is_dir():
+        stat = p.stat()
+        return {"path": str(p), "exists": True, "is_file": True,
+                "size_bytes": stat.st_size, "entries": []}
+    entries = []
+    try:
+        for item in sorted(p.iterdir()):
+            try:
+                st = item.stat()
+                entries.append({
+                    "name": item.name,
+                    "is_dir": item.is_dir(),
+                    "size_bytes": st.st_size if item.is_file() else None,
+                })
+            except OSError:
+                pass
+    except PermissionError as e:
+        return {"path": str(p), "exists": True, "error": str(e), "entries": []}
+    return {"path": str(p), "exists": True, "entries": entries}
+
+
 @router.post("/model-presets/apply/{preset_id}", response_model=AppSettings)
 def apply_model_preset(
     preset_id: str,

@@ -1,6 +1,6 @@
 {
   "language": "ru",
-  "theme": "dark",
+  "theme": "light",
   "run_mode": "mock",
   "retention_days": 14,
   "active_model_id": "mock-default",

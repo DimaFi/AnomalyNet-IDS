@@ -29,6 +29,8 @@ export interface AppSettings {
   detection_mode: "simple" | "advanced";
   catboost_secondary_model_dir: string;
   catboost_secondary_artifacts_dir: string;
+  catboost_stage3_model_dir: string;
+  catboost_stage3_artifacts_dir: string;
 }
 
 export interface ModelDescriptor {
@@ -144,6 +146,8 @@ export interface ModelPreset {
   preprocessing_artifacts_dir: string;
   catboost_secondary_model_dir: string;
   catboost_secondary_artifacts_dir: string;
+  catboost_stage3_model_dir: string;
+  catboost_stage3_artifacts_dir: string;
 }
 
 export interface ModelPresetsRegistry {

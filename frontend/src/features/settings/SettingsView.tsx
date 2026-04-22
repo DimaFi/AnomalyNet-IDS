@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import type { AppSettings, NetworkInterface } from "../../app/types";
@@ -226,6 +226,7 @@ export function SettingsView() {
             <input type="text" value={settings.preprocessing_artifacts_dir}
               onChange={(e) => patch({ preprocessing_artifacts_dir: e.target.value })} />
           </label>
+          <ModelDirsViewer settings={settings} />
           <label className={styles.toggleField}>
             <input
               type="checkbox"
@@ -433,4 +434,101 @@ export function SettingsView() {
       )}
     </section>
   );
+}
+
+// ── Model directory browser ──────────────────────────────────────────────────
+
+type DirEntry = { name: string; is_dir: boolean; size_bytes: number | null };
+type DirResult = { path: string; exists: boolean; error?: string; entries: DirEntry[] };
+
+function ModelDirsViewer({ settings }: { settings: AppSettings }) {
+  const [open, setOpen] = useState(false);
+  const [results, setResults] = useState<Record<string, DirResult>>({});
+  const [loading, setLoading] = useState(false);
+  const loadedRef = useRef(false);
+
+  const dirs = [
+    { label: "Stage1 модель",        path: settings.catboost_model_dir },
+    { label: "Stage1 артефакты",     path: settings.preprocessing_artifacts_dir },
+    { label: "Stage2 модель",        path: settings.catboost_secondary_model_dir },
+    { label: "Stage3 модель",        path: settings.catboost_stage3_model_dir },
+    { label: "Stage3 артефакты",     path: settings.catboost_stage3_artifacts_dir },
+  ].filter((d) => d.path);
+
+  async function loadDirs() {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    setLoading(true);
+    const res: Record<string, DirResult> = {};
+    await Promise.all(dirs.map(async (d) => {
+      try { res[d.path] = await api.lsDir(d.path); }
+      catch { res[d.path] = { path: d.path, exists: false, entries: [], error: "network error" }; }
+    }));
+    setResults(res);
+    setLoading(false);
+  }
+
+  function handleToggle() {
+    setOpen((v) => !v);
+    if (!open) loadDirs();
+  }
+
+  return (
+    <div className={selfStyles.dirViewer}>
+      <button className={selfStyles.dirViewerToggle} onClick={handleToggle}>
+        {open ? "▾" : "▸"} Просмотр папок моделей
+        {!open && <span className={selfStyles.dirViewerHint}>проверить что файлы на месте</span>}
+      </button>
+      {open && (
+        <div className={selfStyles.dirViewerContent}>
+          {loading && <p className={selfStyles.dirLoading}>Загрузка...</p>}
+          {dirs.map((d) => {
+            const r = results[d.path];
+            return (
+              <div key={d.path} className={selfStyles.dirBlock}>
+                <div className={selfStyles.dirBlockHeader}>
+                  <span className={selfStyles.dirLabel}>{d.label}</span>
+                  {r && (
+                    <span className={r.exists ? selfStyles.dirExists : selfStyles.dirMissing}>
+                      {r.exists ? "✓ найдена" : "✗ не найдена"}
+                    </span>
+                  )}
+                </div>
+                <code className={selfStyles.dirPath}>{d.path}</code>
+                {r?.error && <p className={selfStyles.dirError}>{r.error}</p>}
+                {r?.exists && r.entries.length > 0 && (
+                  <div className={selfStyles.dirEntries}>
+                    {r.entries.map((e) => (
+                      <span key={e.name} className={`${selfStyles.dirEntry} ${e.is_dir ? selfStyles.dirEntryDir : selfStyles.dirEntryFile}`}>
+                        {e.is_dir ? "📁" : fileIcon(e.name)}{" "}{e.name}
+                        {e.size_bytes !== null && !e.is_dir && (
+                          <span className={selfStyles.dirEntrySize}>{fmtSize(e.size_bytes)}</span>
+                        )}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {r?.exists && r.entries.length === 0 && (
+                  <p className={selfStyles.dirEmpty}>Папка пуста</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fileIcon(name: string): string {
+  if (name.endsWith(".cbm") || name.endsWith(".pkl") || name.endsWith(".joblib")) return "🧠";
+  if (name.endsWith(".json")) return "📋";
+  if (name.endsWith(".png"))  return "🖼";
+  return "📄";
+}
+
+function fmtSize(b: number): string {
+  if (b >= 1_000_000) return `${(b / 1_000_000).toFixed(1)} MB`;
+  if (b >= 1_000)     return `${(b / 1_000).toFixed(0)} KB`;
+  return `${b} B`;
 }
