@@ -53,15 +53,16 @@ class PluginPipelineRunner:
     """
     Единый объект-адаптер, совместимый с интерфейсом service.py.
 
-    transform(event) → FeatureVector   — запускает все стадии pipeline, кэширует результат
-    infer(features)  → InferenceResult — возвращает кэш и очищает его
+    transform(event) → FeatureVector   — запускает все стадии pipeline
+    infer(features)  → InferenceResult — возвращает результат из transform
 
-    Оба метода должны вызываться поочерёдно (так и делает service.py).
+    Thread-safe: результат хранится в FeatureVector.secondary_values
+    через поле _plugin_result, не в instance state, чтобы избежать гонки
+    при параллельных запросах.
     """
 
     def __init__(self, pipeline_name: str) -> None:
         self._pipeline_name = pipeline_name
-        self._cached_inference: InferenceResult | None = None
 
     def transform(self, event: NormalizedFlowEvent) -> FeatureVector:
         from app.plugins.registry import get_registry
@@ -71,14 +72,14 @@ class PluginPipelineRunner:
         if config is None:
             raise ValueError(f"Plugin pipeline '{self._pipeline_name}' не найден в реестре")
 
-        # Передаём event напрямую: и builtin-, и пользовательские препроцессоры
-        # ожидают NormalizedFlowEvent с атрибутами .raw_features, .protocol и т.д.
         current_stage_name: str | None = config.entry_stage
         last_fv: PluginFeatureVector | None = None
         last_verdict: PluginVerdict | None = None
 
         while current_stage_name:
-            stage = config.stages[current_stage_name]
+            stage = config.stages.get(current_stage_name)
+            if stage is None:
+                raise ValueError(f"Стадия '{current_stage_name}' не найдена в pipeline")
 
             preprocessor = registry.preprocessors.get(stage.preprocessor_name)
             if preprocessor is None:
@@ -99,7 +100,6 @@ class PluginPipelineRunner:
             last_fv = fv
             last_verdict = verdict
 
-            # Gate: если нормальный трафик — не запускаем следующие стадии
             if stage.is_gate and verdict.verdict == "normal":
                 break
 
@@ -108,12 +108,16 @@ class PluginPipelineRunner:
         if last_fv is None or last_verdict is None:
             raise ValueError(f"Pipeline '{self._pipeline_name}' не произвёл результата")
 
-        self._cached_inference = _verdict_to_inference(last_verdict, event.event_id)
-        return _plugin_fv_to_fv(last_fv, event.event_id)
+        # Храним inference в самом FeatureVector (через secondary_values dict)
+        # чтобы не было гонки при конкурентных вызовах на одном экземпляре runner.
+        fv_out = _plugin_fv_to_fv(last_fv, event.event_id)
+        fv_out.secondary_values = {"__inference": _verdict_to_inference(last_verdict, event.event_id)}  # type: ignore[attr-defined]
+        return fv_out
 
     def infer(self, features: FeatureVector) -> InferenceResult:
-        if self._cached_inference is None:
-            raise ValueError("infer() вызван до transform() — нарушение порядка вызовов")
-        result = self._cached_inference
-        self._cached_inference = None
+        # Достаём inference, который transform() положил в secondary_values
+        sv = getattr(features, "secondary_values", None) or {}
+        result = sv.get("__inference") if isinstance(sv, dict) else None
+        if result is None:
+            raise ValueError("infer() вызван без предшествующего transform()")
         return result

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections import deque
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from app.capture.factory import build_capture_adapter
 from app.contracts.schemas import (
@@ -60,6 +63,8 @@ class PipelineService:
         for item in self._models.items:
             if item.model_id == active_id:
                 return item
+        if not self._models.items:
+            raise RuntimeError("Реестр моделей пуст — проверьте config/models_registry.json")
         return self._models.items[0]
 
     async def start(self) -> None:
@@ -98,12 +103,12 @@ class PipelineService:
         current_mode = f"{self._settings.run_mode}:{self._settings.detection_mode}"
         if self._capture_mode != current_mode:
             await self._stop_adapter()
-            self._capture_adapter = build_capture_adapter(
-                self._settings.run_mode, self._settings
-            )
-            start = getattr(self._capture_adapter, "start", None)
+            adapter = build_capture_adapter(self._settings.run_mode, self._settings)
+            start = getattr(adapter, "start", None)
             if start:
                 await start()
+            # Only update state after successful start
+            self._capture_adapter = adapter
             self._capture_mode = current_mode
         return self._capture_adapter
 
@@ -165,7 +170,8 @@ class PipelineService:
                     try:
                         features = preprocess.transform(event)
                         inference = model.infer(features)
-                    except Exception:
+                    except Exception as exc:
+                        logger.warning("Pipeline failed for event %s: %s", event.event_id, exc)
                         continue
 
                     alert = None
@@ -178,8 +184,9 @@ class PipelineService:
                             details=inference.reason,
                             event_id=event.event_id,
                         )
-                        if self._settings.auto_block and event.src_ip not in self._settings.whitelist_ips:
-                            level = self._settings.auto_block_level
+                        whitelist = self._settings.whitelist_ips or []
+                        if self._settings.auto_block and event.src_ip not in whitelist:
+                            level = self._settings.auto_block_level or "anomaly"
                             should_block = (
                                 inference.label == "anomaly" or
                                 (level == "warning" and inference.label == "warning")
@@ -210,7 +217,8 @@ class PipelineService:
 
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as exc:
+                logger.error("Pipeline loop error: %s", exc, exc_info=True)
                 self._status = "warning"
                 await asyncio.sleep(2.0)
 
