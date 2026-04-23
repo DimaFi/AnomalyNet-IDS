@@ -197,12 +197,25 @@ def reinstall(wipe_settings: bool = False) -> dict:
         if not ok:
             result["errors"].append(f"{name}: {detail}")
 
+    # Preserve user config before git reset (git reset --hard would wipe them)
+    _cfg_dir = GUI_DIR / "config"
+    _saved: dict[str, str | None] = {}
+    for _fname in ("settings.json", "models_registry.json", "model_presets.json"):
+        _p = _cfg_dir / _fname
+        _saved[_fname] = _p.read_text(encoding="utf-8") if _p.exists() else None
+
     # 1. git pull GUI repo
     try:
         ok, out = _git_pull_hard(GUI_DIR)
         step("git pull GUI", ok, out)
     except Exception as e:
         step("git pull GUI", False, str(e))
+
+    # Restore user config (always — git reset --hard would have overwritten them)
+    _cfg_dir.mkdir(parents=True, exist_ok=True)
+    for _fname, _content in _saved.items():
+        if _content is not None:
+            (_cfg_dir / _fname).write_text(_content, encoding="utf-8")
 
     # 2. git pull / clone ML repo
     try:

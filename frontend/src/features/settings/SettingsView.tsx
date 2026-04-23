@@ -107,9 +107,10 @@ export function SettingsView() {
           <label className={styles.field}>
             <span>{t("settings.theme")}</span>
             <select value={settings.theme}
-              onChange={(e) => patch({ theme: e.target.value as "dark" | "light" })}>
+              onChange={(e) => patch({ theme: e.target.value as "dark" | "light" | "gray" })}>
               <option value="dark">Dark</option>
               <option value="light">Light</option>
+              <option value="gray">Gray (VS Code)</option>
             </select>
           </label>
           <label className={styles.field}>

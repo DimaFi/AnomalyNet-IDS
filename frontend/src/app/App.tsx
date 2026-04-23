@@ -289,7 +289,6 @@ export function App() {
                 ⚠ Demo-модель
               </span>
             )}
-            <ModelPresetPicker compact />
             {settings && (
               <button
                 className={[styles.shieldBtn, settings.auto_block ? styles.shieldActive : ""].filter(Boolean).join(" ")}
@@ -302,6 +301,7 @@ export function App() {
                 {settings.auto_block ? "Защита ВКЛ" : "Защита ВЫКЛ"}
               </button>
             )}
+            <ModelPresetPicker compact />
             {settings && (
               <button
                 className={styles.themeBtn}

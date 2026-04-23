@@ -36,11 +36,11 @@ class JsonFileStore:
         """Load model presets, filling empty paths from ANOMALYNET_MODELS_ROOT."""
         raw = self._read_json(self._presets_path)
         # Fill model paths from environment if not set in preset
-        stage1_dir   = str(self._models_root / "stage1")
-        stage1_art   = str(self._models_root / "stage1_artifacts")
-        stage2_dir   = str(self._models_root / "stage2")
-        stage3_dir   = str(self._models_root / "stage3")
-        stage3_art   = str(self._models_root / "stage3_artifacts")
+        stage1_dir   = str(self._models_root / "stage1" / "catboost")
+        stage1_art   = str(self._models_root / "stage1" / "artifacts")
+        stage2_dir   = str(self._models_root / "stage2" / "catboost")
+        stage3_dir   = str(self._models_root / "stage3" / "catboost")
+        stage3_art   = str(self._models_root / "stage3" / "artifacts")
 
         for preset in raw.get("presets", []):
             pid = preset.get("id")
