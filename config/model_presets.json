@@ -8,10 +8,12 @@
       "active_model_id": "catboost-iot-v1",
       "run_mode": "linux_live",
       "detection_mode": "simple",
-      "catboost_model_dir": "/opt/anomalynet-ml/model",
-      "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
       "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": ""
+      "catboost_secondary_artifacts_dir": "",
+      "catboost_stage3_model_dir": "",
+      "catboost_stage3_artifacts_dir": ""
     },
     {
       "id": "simple-cascade",
@@ -21,10 +23,12 @@
       "active_model_id": "catboost-cascade-simple",
       "run_mode": "linux_live",
       "detection_mode": "simple",
-      "catboost_model_dir": "/opt/anomalynet-ml/model",
-      "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
-      "catboost_secondary_model_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost",
-      "catboost_secondary_artifacts_dir": ""
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": "",
+      "catboost_stage3_model_dir": "",
+      "catboost_stage3_artifacts_dir": ""
     },
     {
       "id": "cascade-routed",
@@ -49,10 +53,12 @@
       "active_model_id": "catboost-cascade-advanced",
       "run_mode": "linux_live",
       "detection_mode": "advanced",
-      "catboost_model_dir": "/opt/anomalynet-ml/model",
-      "preprocessing_artifacts_dir": "/opt/anomalynet-ml/artifacts",
-      "catboost_secondary_model_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost",
-      "catboost_secondary_artifacts_dir": "/opt/anomalynet-ml/stage4_extended/models/catboost"
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": "",
+      "catboost_stage3_model_dir": "",
+      "catboost_stage3_artifacts_dir": ""
     }
   ]
 }

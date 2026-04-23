@@ -433,6 +433,7 @@ RestartSec=3
 TimeoutStopSec=8
 KillMode=mixed
 Environment=ANOMALYNET_APP_ROOT=${GUI_DIR}
+Environment=ANOMALYNET_MODELS_ROOT=${MODELS_DIR}
 
 [Install]
 WantedBy=multi-user.target
