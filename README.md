@@ -10,6 +10,8 @@
 ![CatBoost](https://img.shields.io/badge/CatBoost-ML-yellow)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
+🇷🇺 [Русская версия](README_RU.md)
+
 ---
 
 ## Overview
@@ -34,6 +36,8 @@ The ML models live in a separate repository: [AnomalyNet-ml](https://github.com/
 | **History** | Per-day NDJSON log with configurable retention (1–30 days) |
 | **Export** | Download full report (summary + event list) as JSON |
 | **Theme & i18n** | Dark / light theme · Russian / English UI |
+| **Custom model plugins** | Drop any compatible model into `plugins/` — it appears in the UI without code changes |
+| **Remote management** | Full REST API — manage settings, switch models, block IPs and export reports from any device on the network |
 
 ---
 
@@ -219,6 +223,42 @@ p <  0.70  →  normal    (no alert)
 ```
 
 In cascade mode, Stage 1 acts as a binary gate. Flows classified as attacks are forwarded to Stage 2/3 for attack class labelling (DoS, DDoS, Recon, BruteForce, WebAttack, Bot, Spoofing).
+
+---
+
+## Custom Model Plugins
+
+AnomalyNet supports drop-in model plugins without any code changes:
+
+1. Place your model adapter in the `plugins/` directory following the standard interface
+2. Restart the service — the model appears automatically in the **Models** registry and Settings UI
+3. Select it from the UI or via `POST /api/models/select`
+
+This allows connecting third-party or self-trained models (scikit-learn, PyTorch, ONNX, etc.) alongside the built-in CatBoost pipeline.
+
+---
+
+## Remote Management
+
+The backend exposes a full REST API, so you can manage the system from any device on the same network — no SSH required:
+
+```bash
+# Check status
+curl http://<server-ip>:8000/api/health
+
+# Switch to a different detection preset
+curl -X POST http://<server-ip>:8000/api/model-presets/apply/cascade-routed
+
+# Block a suspicious IP
+curl -X POST http://<server-ip>:8000/api/block \
+     -H "Content-Type: application/json" \
+     -d '{"ip_address": "10.0.0.5"}'
+
+# Download full report
+curl http://<server-ip>:8000/api/export -o report.json
+```
+
+The web UI itself is also fully remote — open `http://<server-ip>:8000` in any browser.
 
 ---
 
