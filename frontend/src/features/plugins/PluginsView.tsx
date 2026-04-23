@@ -199,6 +199,7 @@ export function PluginsView() {
 
   return (
     <div className={styles.root}>
+    <div className={styles.inner}>
       {/* Tabs */}
       <div className={styles.tabs}>
         <button className={`${styles.tabBtn} ${tab === "presets"   ? styles.tabActive : ""}`} onClick={() => setTab("presets")}>Пресеты</button>
@@ -763,6 +764,7 @@ class MyModel(BaseModel):
         )}
 
       </div>
+    </div>
     </div>
   );
 }

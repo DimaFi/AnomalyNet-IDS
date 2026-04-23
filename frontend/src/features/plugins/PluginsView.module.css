@@ -5,6 +5,18 @@
   gap: 0;
 }
 
+/* Centered inner wrapper — mirrors AboutView .wrap */
+.inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
 /* ── Tabs ── */
 .tabs {
   display: flex;
