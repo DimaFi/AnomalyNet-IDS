@@ -242,12 +242,24 @@ export function App() {
     <div className={styles.shell}>
       {/* ── Narrow icon sidebar ── */}
       <aside className={styles.sidebar}>
-        {/* Logo mark */}
-        <div className={styles.logo}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-        </div>
+        {/* Logo — power toggle button */}
+        <button
+          className={[styles.logo, styles.logoPowerBtn, settings && !settings.capture_enabled ? styles.logoPowerOff : ""].filter(Boolean).join(" ")}
+          onClick={async () => {
+            if (!settings) return;
+            const next = { ...settings, capture_enabled: !settings.capture_enabled };
+            try { setSettings(await api.updateSettings(next)); }
+            catch { setSettings(next); }
+          }}
+          title={settings?.capture_enabled ? "Захват активен — нажми чтобы остановить" : "Захват остановлен — нажми чтобы запустить"}
+          aria-label="Переключить захват трафика"
+        >
+          <img
+            src={settings && !settings.capture_enabled ? "/AnomalyNet-logo_turn_off.png" : "/logo.png"}
+            alt="AnomalyNet"
+            className={styles.logoImg}
+          />
+        </button>
 
         {/* Nav buttons */}
         <nav className={styles.nav}>

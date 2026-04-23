@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from app.api.autostart import autostart_router
 from app.api.block import block_router
 from app.api.plugins import plugins_router
 from app.api.routes import router
@@ -49,6 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(router)
+app.include_router(autostart_router)
 app.include_router(block_router)
 app.include_router(update_router)
 app.include_router(plugins_router)

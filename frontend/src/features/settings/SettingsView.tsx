@@ -13,6 +13,8 @@ export function SettingsView() {
   const setSettings = useAppStore((state) => state.setSettings);
   const [interfaces, setInterfaces] = useState<NetworkInterface[]>([]);
   const [blockedIps, setBlockedIps] = useState<{ ip: string; blocked_at: string }[]>([]);
+  const [autostartState, setAutostartState] = useState<{ available: boolean; enabled: boolean } | null>(null);
+  const [autostartLoading, setAutostartLoading] = useState(false);
 
   // Whitelist add input (local only — save on Add/Enter)
   const [whitelistInput, setWhitelistInput] = useState("");
@@ -22,9 +24,8 @@ export function SettingsView() {
   const [confirmIp, setConfirmIp] = useState("");
 
   useEffect(() => {
-    api.getInterfaces()
-      .then(setInterfaces)
-      .catch(() => setInterfaces([]));
+    api.getInterfaces().then(setInterfaces).catch(() => setInterfaces([]));
+    api.getAutostart().then(setAutostartState).catch(() => null);
   }, []);
 
   const refreshBlocked = useCallback(() => {
@@ -136,6 +137,24 @@ export function SettingsView() {
               onChange={(e) => patch({ stream_autostart: e.target.checked })} />
             <span>{t("settings.autostart")}</span>
           </label>
+          {autostartState?.available && (
+            <label className={styles.toggleField}>
+              <input
+                type="checkbox"
+                checked={autostartState.enabled}
+                disabled={autostartLoading}
+                onChange={async (e) => {
+                  setAutostartLoading(true);
+                  try {
+                    const res = await api.setAutostart(e.target.checked);
+                    setAutostartState(res);
+                  } catch { /* ignore */ }
+                  finally { setAutostartLoading(false); }
+                }}
+              />
+              <span>Запускать при старте системы (systemctl)</span>
+            </label>
+          )}
         </div>
       </div>
 

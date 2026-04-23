@@ -124,6 +124,14 @@ export const api = {
     }),
   restartService: () =>
     request<{ message: string; restart_scheduled: boolean }>("/api/update/restart", { method: "POST" }),
+  getAutostart: () =>
+    request<{ available: boolean; enabled: boolean; message: string }>("/api/autostart"),
+  setAutostart: (enabled: boolean) =>
+    request<{ available: boolean; enabled: boolean; message: string }>("/api/autostart", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ enabled }),
+    }),
   lsDir: (path: string) =>
     request<{
       path: string; exists: boolean; error?: string;
