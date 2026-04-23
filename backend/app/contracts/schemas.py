@@ -6,7 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
-ThemeMode = Literal["dark", "light"]
+ThemeMode = Literal["dark", "light", "gray"]
 LanguageCode = Literal["ru", "en"]
 RunMode = Literal["mock", "windows_stub", "linux_stub", "linux_live"]
 StatusLevel = Literal["idle", "active", "warning", "error"]
