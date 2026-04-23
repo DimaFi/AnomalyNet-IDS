@@ -89,6 +89,17 @@ const PAGE_TITLES: Record<ViewKey, string> = {
   about:     "О программе",
 };
 
+type ThemeName = "dark" | "light" | "gray";
+
+const THEME_CYCLE: ThemeName[] = ["dark", "light", "gray"];
+const THEME_ICON: Record<ThemeName, string> = { dark: "🌙", light: "☀️", gray: "◑" };
+const THEME_LABEL: Record<ThemeName, string> = { dark: "Тёмная", light: "Светлая", gray: "Серая" };
+
+function nextTheme(current: string | undefined): ThemeName {
+  const idx = THEME_CYCLE.indexOf((current ?? "dark") as ThemeName);
+  return THEME_CYCLE[(idx + 1) % THEME_CYCLE.length];
+}
+
 const KNOWN_MODEL_LABELS: Record<string, string> = {
   "mock-default":             "Demo",
   "catboost-iot-v1":          "Быстрый",
@@ -192,6 +203,15 @@ export function App() {
     }
   }, [settings, setSettings]);
 
+  const handleThemeToggle = useCallback(async () => {
+    if (!settings) return;
+    const theme = nextTheme(settings.theme);
+    document.documentElement.dataset.theme = theme;
+    const next = { ...settings, theme };
+    try { setSettings(await api.updateSettings(next)); }
+    catch { setSettings(next); }
+  }, [settings, setSettings]);
+
   const confirmShield = useCallback(async (addIp: boolean) => {
     if (!settings) return;
     const ip = shieldIp.trim();
@@ -282,6 +302,15 @@ export function App() {
                 {settings.auto_block ? "Защита ВКЛ" : "Защита ВЫКЛ"}
               </button>
             )}
+            {settings && (
+              <button
+                className={styles.themeBtn}
+                onClick={() => void handleThemeToggle()}
+                title={`Тема: ${THEME_LABEL[settings.theme as ThemeName ?? "dark"]} → ${THEME_LABEL[nextTheme(settings.theme)]}`}
+              >
+                {THEME_ICON[(settings.theme as ThemeName) ?? "dark"]}
+              </button>
+            )}
             <button
               className={styles.refreshBtn}
               onClick={() => void bootstrap()}
@@ -297,7 +326,7 @@ export function App() {
           </div>
         </div>
 
-        <main className={styles.mainPanel}>
+        <main className={`${styles.mainPanel} mainPanelZoom`}>
           <CurrentView />
         </main>
       </div>

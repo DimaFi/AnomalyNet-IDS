@@ -1,30 +1,32 @@
 .root {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  gap: 0;
+  /* no height: 100% — lets mainPanel scroll */
 }
 
-/* Centered inner wrapper — mirrors AboutView .wrap */
+/* Centered inner wrapper */
 .inner {
-  flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   max-width: 780px;
   width: 100%;
   margin: 0 auto;
-  overflow: hidden;
 }
 
 /* ── Tabs ── */
 .tabs {
   display: flex;
   gap: 4px;
-  padding: 0 0 12px;
+  padding: 4px 0 12px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 20px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--background);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .tabBtn {
   padding: 6px 18px;
@@ -44,11 +46,9 @@
   color: var(--accent);
 }
 
-/* ── Content area ── */
+/* ── Content area — no inner scroll, mainPanel scrolls ── */
 .tabContent {
   flex: 1;
-  overflow-y: auto;
-  min-height: 0;
 }
 
 /* ── Presets tab ── */
@@ -283,7 +283,6 @@
   border-radius: 12px;
   padding: 18px 20px;
   margin-bottom: 24px;
-  max-width: 720px;
 }
 .pluginSummaryTitle {
   font-size: 13px;
@@ -350,8 +349,9 @@
   text-align: center;
   cursor: pointer;
   transition: border-color var(--duration-fast), background var(--duration-fast);
-  margin-bottom: 16px;
+  margin: 0 auto 16px;
   max-width: 600px;
+  width: 100%;
   user-select: none;
 }
 .dropZone:hover     { border-color: var(--accent); background: rgba(91,155,247,0.04); }
@@ -381,7 +381,8 @@
   flex-direction: column;
   gap: 6px;
   max-width: 600px;
-  margin-bottom: 16px;
+  width: 100%;
+  margin: 0 auto 16px;
 }
 .fileRow {
   display: flex;
@@ -440,6 +441,8 @@
   color: var(--text-muted);
   line-height: 1.7;
   max-width: 600px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 /* ── Test tab ── */

@@ -123,6 +123,58 @@
   --shadow-glow:  0 0 20px rgba(0, 120, 212, 0.12);
 }
 
+/* ── Gray theme (VS Code-inspired neutral) ─────────────────── */
+:root[data-theme="gray"] {
+  color-scheme: dark;
+  --background:  #1e1e1e;
+  --surface-1:   rgba(30, 30, 30, 0.96);
+  --surface-2:   rgba(37, 37, 38, 0.90);
+  --surface-3:   rgba(50, 50, 51, 0.95);
+  --surface-hover: rgba(62, 62, 64, 0.85);
+
+  --border:        rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-accent: rgba(0, 122, 204, 0.40);
+
+  --text-primary:   #d4d4d4;
+  --text-secondary: #9d9d9d;
+  --text-muted:     #5c5c5c;
+  --muted-text:     #9d9d9d;
+
+  --accent:        #007acc;
+  --accent-strong: #005a9e;
+  --accent-mid:    #00838f;
+  --accent-glow:   rgba(0, 122, 204, 0.14);
+
+  --ok:     #4ec9b0;
+  --warn:   #dcdcaa;
+  --danger: #f44747;
+  --info:   #569cd6;
+
+  --ok-rgb:     78, 201, 176;
+  --warn-rgb:   220, 220, 170;
+  --danger-rgb: 244, 71, 71;
+  --info-rgb:   86, 156, 214;
+
+  --success-soft:   rgba(78, 201, 176, 0.10);
+  --success-border: rgba(78, 201, 176, 0.25);
+  --success-strong: #6acfc0;
+  --warning-soft:   rgba(220, 220, 170, 0.10);
+  --warning-border: rgba(220, 220, 170, 0.25);
+  --warning-strong: #e0e095;
+  --danger-soft:    rgba(244, 71, 71, 0.08);
+  --danger-border:  rgba(244, 71, 71, 0.24);
+  --danger-strong:  #f47474;
+  --info-soft:      rgba(86, 156, 214, 0.08);
+  --info-border:    rgba(86, 156, 214, 0.22);
+  --info-strong:    #85b8e0;
+
+  --shadow-soft:  0 2px 12px rgba(0, 0, 0, 0.45);
+  --shadow-card:  0 4px 24px rgba(0, 0, 0, 0.50), 0 1px 0 rgba(255,255,255,0.03) inset;
+  --shadow-large: 0 12px 48px rgba(0, 0, 0, 0.60);
+  --shadow-glow:  0 0 24px rgba(0, 122, 204, 0.12);
+}
+
 /* ── Reset ─────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -173,3 +225,12 @@ button:active {
 }
 
 /* breakpoints: mobile < 640px | tablet 640–1024px | desktop > 1024px */
+
+/* ── Fluid scaling for large/HiDPI screens ──────────────────── */
+/* Makes UI feel ~110% at 1920p and ~120% at 1440p (2560×1440)   */
+@media (min-width: 1920px) {
+  .mainPanelZoom { zoom: 1.1; }
+}
+@media (min-width: 2560px) {
+  .mainPanelZoom { zoom: 1.2; }
+}
