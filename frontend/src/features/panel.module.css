@@ -372,11 +372,4 @@
     gap: 1rem;
   }
 
-  /* Stream table: hide Source (col 2) and Volume (col 5) */
-  .table th:nth-child(2),
-  .table td:nth-child(2),
-  .table th:nth-child(5),
-  .table td:nth-child(5) {
-    display: none;
-  }
 }
