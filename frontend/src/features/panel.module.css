@@ -20,7 +20,8 @@
   color: var(--text-primary);
 }
 
-.panelHeader p {
+.panelHeader p,
+.panelSubtitle {
   margin: 0.4rem 0 0;
   font-size: 13px;
   color: var(--text-muted);
@@ -369,5 +370,13 @@
 
   .panel {
     gap: 1rem;
+  }
+
+  /* Stream table: hide Source (col 2) and Volume (col 5) */
+  .table th:nth-child(2),
+  .table td:nth-child(2),
+  .table th:nth-child(5),
+  .table td:nth-child(5) {
+    display: none;
   }
 }

@@ -270,7 +270,12 @@
 }
 
 @media (max-width: 600px) {
-  .topbarMeta { display: none; }
+  /* hide text badges, keep action buttons */
+  .modeBadge,
+  .modeBadgeAdvanced,
+  .modeBadgePlugin {
+    display: none;
+  }
 }
 
 /* ── MOBILE: sidebar → bottom nav bar ──────────────────────── */
@@ -339,8 +344,13 @@
   }
 
   .shieldBtn {
-    font-size: 11px;
-    padding: 3px 8px;
+    font-size: 0; /* hide text, keep SVG icon */
+    padding: 4px;
+    width: 30px;
+    height: 30px;
+    gap: 0;
+    justify-content: center;
+    border-radius: var(--radius-sm);
   }
 
   .mainPanel {
