@@ -161,3 +161,15 @@ button, a, select, input[type="range"] {
     box-shadow var(--duration-fast) var(--ease-fluent),
     opacity var(--duration-fast) var(--ease-fluent);
 }
+
+/* ── MOBILE RESPONSIVE ──────────────────────────────────────── */
+html, body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* breakpoints: mobile < 640px | tablet 640–1024px | desktop > 1024px */

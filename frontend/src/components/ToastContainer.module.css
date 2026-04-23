@@ -13,3 +13,12 @@
 .container > * {
   pointer-events: all;
 }
+
+@media (max-width: 640px) {
+  .container {
+    bottom: 68px; /* above bottom nav bar (56px) + gap */
+    right: 16px;
+    left: 16px;
+    align-items: stretch;
+  }
+}

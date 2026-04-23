@@ -56,6 +56,21 @@
   overflow-y: auto;
   animation: slideUp 0.15s var(--ease-fluent);
 }
+
+@media (max-width: 640px) {
+  .dialog {
+    padding: 20px 16px;
+    max-height: 85vh;
+    border-radius: 20px 20px 0 0;
+    align-self: flex-end;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .overlay {
+    align-items: flex-end;
+  }
+}
 @keyframes slideUp { from { transform: translateY(16px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
 
 .dialogHeader {

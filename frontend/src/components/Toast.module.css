@@ -185,3 +185,10 @@
   color: var(--ok);
   font-style: italic;
 }
+
+@media (max-width: 640px) {
+  .toast {
+    width: calc(100vw - 32px);
+    max-width: 360px;
+  }
+}

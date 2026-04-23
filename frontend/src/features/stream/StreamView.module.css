@@ -298,3 +298,35 @@
   box-shadow: none !important;
   padding: 3px 4px;
 }
+
+@media (max-width: 640px) {
+  .filterBar {
+    gap: 8px;
+    padding: 6px 0 4px;
+  }
+
+  .filterItem {
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .ipSearchInput {
+    width: 100px;
+  }
+
+  .headerRight {
+    gap: 5px;
+  }
+
+  .counter {
+    display: none;
+  }
+
+  .timeCell {
+    font-size: 10.5px;
+  }
+
+  .actionsCell {
+    flex-wrap: wrap;
+  }
+}

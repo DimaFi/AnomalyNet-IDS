@@ -273,6 +273,88 @@
   .topbarMeta { display: none; }
 }
 
+/* ── MOBILE: sidebar → bottom nav bar ──────────────────────── */
+@media (max-width: 640px) {
+  .shell {
+    flex-direction: column-reverse;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: unset;
+    height: 56px;
+    min-height: 56px;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 8px;
+    border-right: none;
+    border-top: 1px solid var(--border);
+    gap: 0;
+    overflow: visible;
+  }
+
+  .logo {
+    display: none;
+  }
+
+  .nav {
+    flex-direction: row;
+    justify-content: space-around;
+    width: 100%;
+    gap: 0;
+  }
+
+  .navSpacer {
+    display: none;
+  }
+
+  .statusDot {
+    display: none;
+  }
+
+  /* tooltip вверх вместо вправо */
+  .navBtn::after {
+    left: 50%;
+    top: auto;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+  }
+
+  .content {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .topbar {
+    height: 44px;
+    min-height: 44px;
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .topbarTitle {
+    font-size: 12px;
+  }
+
+  .shieldBtn {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .mainPanel {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  /* очень маленькие экраны — только иконки в топбаре */
+  .mockWarningBadge {
+    display: none;
+  }
+}
+
 /* ── Shield confirm dialog ── */
 .confirmOverlay {
   position: fixed;

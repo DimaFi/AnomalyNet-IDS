@@ -196,6 +196,36 @@
   .ipTableGrid { grid-template-columns: 1fr; }
 }
 
+@media (max-width: 640px) {
+  .formRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .formRow label {
+    width: auto;
+  }
+
+  .formInput {
+    width: 100%;
+  }
+
+  .thresholdPresets {
+    gap: 5px;
+  }
+
+  .confirmButtons {
+    flex-direction: column-reverse;
+  }
+
+  .confirmBtnPrimary,
+  .confirmBtnSecondary {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 .ipColumn {
   display: flex;
   flex-direction: column;

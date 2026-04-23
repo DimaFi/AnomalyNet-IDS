@@ -341,3 +341,33 @@
 @media (max-width: 900px) {
   .tableWrap { overflow-x: auto; }
 }
+
+/* ── MOBILE: Dashboard ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  .metricsGrid {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 0.6rem;
+  }
+
+  .cardList {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .metricCard {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .verdictCell {
+    min-width: unset;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .panel {
+    gap: 1rem;
+  }
+}

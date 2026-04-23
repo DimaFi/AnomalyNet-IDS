@@ -728,6 +728,39 @@
 }
 .testGuideSteps li strong { font-weight: 600; }
 
+@media (max-width: 640px) {
+  .pluginGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pluginSummaryGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .testCodeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .testSelector {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .testSelect {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .tabs {
+    gap: 2px;
+  }
+
+  .tabBtn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}
+
 /* ── Guide section ── */
 .guideSection {
   margin-top: 24px;
