@@ -22,6 +22,10 @@ class JsonFileStore:
         )
 
     def load_settings(self) -> AppSettings:
+        if not self._settings_path.exists():
+            default = AppSettings()
+            self.save_settings(default)
+            return default
         return AppSettings.model_validate(self._read_json(self._settings_path))
 
     def save_settings(self, settings: AppSettings) -> AppSettings:
