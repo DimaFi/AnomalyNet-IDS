@@ -113,9 +113,10 @@ npm run dev
 Установщик одной командой с автоматическим определением дистрибутива:
 
 ```bash
-git clone https://github.com/DimaFi/AnomalyNet-gui /opt/anomalynet/AnomalyNet-gui
-sudo bash /opt/anomalynet/AnomalyNet-gui/AppCode/install.sh
+curl -fsSL https://raw.githubusercontent.com/DimaFi/AnomalyNet-gui/main/install.sh | sudo bash
 ```
+
+Репозитории клонируются автоматически. Для обновления существующей установки запустите ту же команду ещё раз.
 
 **Поддерживаемые дистрибутивы:** Ubuntu/Debian · Alt Linux (Sisyphus/p10) · Fedora · RHEL/CentOS/Rocky/AlmaLinux · Arch/Manjaro · openSUSE
 

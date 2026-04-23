@@ -113,9 +113,10 @@ Open **http://localhost:5173** — starts in `mock` mode, no root or models requ
 One-command installer with automatic distro detection:
 
 ```bash
-git clone https://github.com/DimaFi/AnomalyNet-gui /opt/anomalynet/AnomalyNet-gui
-sudo bash /opt/anomalynet/AnomalyNet-gui/AppCode/install.sh
+curl -fsSL https://raw.githubusercontent.com/DimaFi/AnomalyNet-gui/main/install.sh | sudo bash
 ```
+
+The installer clones both repos automatically. To update an existing installation, just run the same command again.
 
 **Supported distributions:** Ubuntu/Debian · Alt Linux (Sisyphus/p10) · Fedora · RHEL/CentOS/Rocky/AlmaLinux · Arch/Manjaro · openSUSE
 
