@@ -63,18 +63,6 @@ def detect_local_networks(interface: str | None = None) -> list[str]:
 
     return candidates
 
-MOCK_DEVICES: list[tuple[str, str, str, str, str, bool, bool]] = [
-    # (mac,                  ip,             vendor,      device_type,   hostname,      is_suspicious, is_online)
-    ("00:11:22:33:44:01", "192.168.1.1",   "TP-Link",   "router",      "router",      False, True),
-    ("00:11:22:33:44:02", "192.168.1.10",  "Hikvision", "iot_camera",  "cam-front",   True,  True),
-    ("00:11:22:33:44:03", "192.168.1.11",  "Reolink",   "iot_camera",  "cam-back",    False, True),
-    ("00:11:22:33:44:04", "192.168.1.20",  "Espressif", "iot_sensor",  "sensor-01",   False, True),
-    ("00:11:22:33:44:05", "192.168.1.30",  "Microsoft", "pc_windows",  "DESKTOP-ABC", False, True),
-    ("00:11:22:33:44:06", "192.168.1.50",  "Apple",     "phone",       "iPhone-X",    False, False),
-    ("00:11:22:33:44:07", "192.168.1.60",  "Philips",   "iot_bulb",    "hue-lamp",    False, True),
-]
-
-
 def probe_host(ip: str, ports: list[int] | None = None) -> dict:
     """Ping + port scan a host. Returns reachable, latency_ms, open_ports."""
     t0 = time.monotonic()
@@ -162,8 +150,7 @@ def _scan_arp(network: str) -> list[DeviceInfo]:
 
 
 class NetworkScanner:
-    def __init__(self, is_mock: bool = False, interface: str | None = None) -> None:
-        self._is_mock = is_mock
+    def __init__(self, interface: str | None = None) -> None:
         self._interface = interface  # None = auto-detect
 
     def _get_networks(self) -> list[str]:
@@ -175,9 +162,6 @@ class NetworkScanner:
         return networks
 
     def scan_once(self) -> list[DeviceInfo]:
-        if self._is_mock:
-            # In mock mode ARP is not available — return empty, user adds manually
-            return []
         networks = self._get_networks()
         if not networks:
             return []
