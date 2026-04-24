@@ -173,6 +173,76 @@ def restart_service() -> dict:
     return {"message": "Сервис перезапускается...", "restart_scheduled": True}
 
 
+@update_router.post("/uninstall")
+def uninstall(keep_settings: bool = True) -> dict:
+    """
+    Удаление приложения.
+
+    keep_settings=true  — удаляет код и сервис, но сохраняет config/ и data/.
+    keep_settings=false — полное удаление: код + config + data + сервис.
+    """
+    import os
+
+    result: dict = {
+        "steps": [],
+        "errors": [],
+        "keep_settings": keep_settings,
+        "message": "",
+    }
+
+    def step(name: str, ok: bool, detail: str = "") -> None:
+        result["steps"].append({"name": name, "ok": ok, "detail": detail})
+        if not ok:
+            result["errors"].append(f"{name}: {detail}")
+
+    # 1. Stop and disable service
+    try:
+        r = subprocess.run(["systemctl", "stop", "anomalynet"], capture_output=True, text=True, timeout=15)
+        step("systemctl stop", r.returncode == 0, (r.stdout + r.stderr).strip())
+        r2 = subprocess.run(["systemctl", "disable", "anomalynet"], capture_output=True, text=True, timeout=15)
+        step("systemctl disable", r2.returncode == 0, (r2.stdout + r2.stderr).strip())
+    except Exception as e:
+        step("systemctl stop/disable", False, str(e))
+
+    # 2. Remove systemd service file
+    service_file = Path("/etc/systemd/system/anomalynet.service")
+    try:
+        if service_file.exists():
+            service_file.unlink()
+            subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=10)
+        step("remove service file", True, str(service_file))
+    except Exception as e:
+        step("remove service file", False, str(e))
+
+    # 3. If full wipe — remove config and data
+    if not keep_settings:
+        for subdir in ("config", "data"):
+            target = GUI_DIR / subdir
+            try:
+                if target.exists():
+                    shutil.rmtree(target, ignore_errors=True)
+                    step(f"remove {subdir}/", True, str(target))
+            except Exception as e:
+                step(f"remove {subdir}/", False, str(e))
+
+    # 4. Remove app directories (but keep parent /opt/anomalynet if it has other things)
+    for repo_dir in [GUI_DIR, ML_DIR]:
+        try:
+            if repo_dir.exists():
+                shutil.rmtree(repo_dir, ignore_errors=True)
+                step(f"remove {repo_dir.name}", True, str(repo_dir))
+            else:
+                step(f"remove {repo_dir.name}", True, "not found — skipped")
+        except Exception as e:
+            step(f"remove {repo_dir.name}", False, str(e))
+
+    result["message"] = (
+        "Приложение удалено. Пользовательские данные сохранены в " + str(GUI_DIR) if keep_settings
+        else "Приложение полностью удалено вместе со всеми данными"
+    )
+    return result
+
+
 @update_router.post("/reinstall")
 def reinstall(wipe_settings: bool = False) -> dict:
     """

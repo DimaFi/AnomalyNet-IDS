@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ReinstallResult, UpdateApplyResult, UpdateCheckResult } from "../../app/types";
+import type { ReinstallResult, UninstallResult, UpdateApplyResult, UpdateCheckResult } from "../../app/types";
 import { api } from "../../lib/api";
 import styles from "./AboutView.module.css";
 
@@ -106,6 +106,7 @@ export function AboutView() {
           )}
           <RestartButton />
           <ReinstallButton />
+          <UninstallButton />
         </div>
 
         {checkError && <p className={styles.errorMsg}>{checkError}</p>}
@@ -275,6 +276,87 @@ function ReinstallButton() {
         </div>
       ))}
       {result?.restart_scheduled && <AutoReload delayMs={4000} />}
+    </div>
+  );
+}
+
+function UninstallButton() {
+  const [phase, setPhase] = useState<"idle" | "confirm" | "running" | "done">("idle");
+  const [keepSettings, setKeepSettings] = useState(true);
+  const [result, setResult] = useState<UninstallResult | null>(null);
+
+  async function run() {
+    setPhase("running");
+    try {
+      const r = await api.uninstall(keepSettings);
+      setResult(r);
+      setPhase("done");
+    } catch {
+      setResult({ steps: [], errors: ["Нет ответа от сервера"], keep_settings: keepSettings, message: "Ошибка запроса" });
+      setPhase("done");
+    }
+  }
+
+  if (phase === "idle") {
+    return (
+      <button className={[styles.btnReinstall, styles.btnUninstall].join(" ")} onClick={() => setPhase("confirm")}>
+        🗑 Удалить приложение
+      </button>
+    );
+  }
+
+  if (phase === "confirm") {
+    return (
+      <div className={[styles.reinstallConfirm, styles.uninstallConfirm].join(" ")}>
+        <p className={styles.reinstallConfirmTitle}>Выберите тип удаления:</p>
+        <label className={styles.reinstallOption}>
+          <input type="radio" name="uninstall_mode" checked={keepSettings} onChange={() => setKeepSettings(true)} />
+          <span>
+            <strong>Удалить приложение</strong>
+            <span className={styles.reinstallOptionSub}>Останавливает сервис и удаляет код. Ваши настройки и данные сохраняются.</span>
+          </span>
+        </label>
+        <label className={styles.reinstallOption}>
+          <input type="radio" name="uninstall_mode" checked={!keepSettings} onChange={() => setKeepSettings(false)} />
+          <span>
+            <strong>Полное удаление</strong>
+            <span className={[styles.reinstallOptionSub, styles.reinstallOptionWarn].join(" ")}>
+              Удаляет сервис, код, все настройки и историю. Восстановление невозможно.
+            </span>
+          </span>
+        </label>
+        <div className={styles.reinstallActions}>
+          <button className={styles.btnSecondary} onClick={() => setPhase("idle")}>Отмена</button>
+          <button className={[styles.btnApply, styles.btnDanger].join(" ")} onClick={() => void run()}>
+            {keepSettings ? "Удалить" : "⚠ Удалить всё"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "running") {
+    return (
+      <div className={styles.reinstallRunning}>
+        <span className={styles.spinner} /> Удаление... подождите
+      </div>
+    );
+  }
+
+  // done
+  const ok = result && result.errors.length === 0;
+  return (
+    <div className={styles.reinstallResult}>
+      <p className={[styles.applyMsg, ok ? styles.applyOk : styles.applyWarn].join(" ")}>
+        {result?.message}
+      </p>
+      {result?.steps.map((s, i) => (
+        <div key={i} className={[styles.reinstallStep, s.ok ? styles.reinstallStepOk : styles.reinstallStepErr].join(" ")}>
+          <span>{s.ok ? "✓" : "✗"}</span>
+          <span>{s.name}</span>
+          {!s.ok && <span className={styles.reinstallStepDetail}>{s.detail}</span>}
+        </div>
+      ))}
     </div>
   );
 }

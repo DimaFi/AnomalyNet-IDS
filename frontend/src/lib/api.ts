@@ -79,6 +79,8 @@ export const api = {
   applyUpdates: () => request<UpdateApplyResult>("/api/update/apply", { method: "POST" }),
   reinstall: (wipeSettings: boolean) =>
     request<import("../app/types").ReinstallResult>(`/api/update/reinstall?wipe_settings=${wipeSettings}`, { method: "POST" }),
+  uninstall: (keepSettings: boolean) =>
+    request<import("../app/types").UninstallResult>(`/api/update/uninstall?keep_settings=${keepSettings}`, { method: "POST" }),
 
   // ── Plugin API ─────────────────────────────────────────────────────────────
   getPluginPreprocessors: () => request<PreprocessorMeta[]>("/api/plugins/preprocessors"),

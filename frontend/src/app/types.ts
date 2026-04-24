@@ -198,6 +198,13 @@ export interface ReinstallResult {
   message: string;
 }
 
+export interface UninstallResult {
+  steps: { name: string; ok: boolean; detail: string }[];
+  errors: string[];
+  keep_settings: boolean;
+  message: string;
+}
+
 // Toast notification
 export interface ToastItem {
   id: string;

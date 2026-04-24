@@ -310,3 +310,18 @@
 .reinstallStepOk  { color: var(--ok, #52b788); }
 .reinstallStepErr { color: var(--danger, #e76f51); }
 .reinstallStepDetail { color: var(--text-muted); font-size: 11.5px; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Uninstall ── */
+.btnUninstall {
+  color: var(--danger, #e76f51);
+  border-color: var(--danger-border, rgba(231,111,81,0.35));
+}
+.btnUninstall:hover {
+  background: var(--danger-soft, rgba(231,111,81,0.08));
+  color: var(--danger, #e76f51);
+}
+
+.uninstallConfirm {
+  border-color: var(--danger-border, rgba(231,111,81,0.35));
+  background: var(--danger-soft, rgba(231,111,81,0.05));
+}
