@@ -250,9 +250,9 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
                   </div>
                 )}
 
-                {/* Pipeline list */}
+                {/* Pipeline list — hide auto-generated dyn_* entries (they duplicate named presets) */}
                 {pluginsLoading && <p style={{ opacity: 0.5, padding: "16px 0" }}>Загрузка...</p>}
-                {pipelines.map((cfg) => {
+                {pipelines.filter((cfg) => !cfg.name.startsWith("dyn_")).map((cfg) => {
                   const isActive = activePipelineName === cfg.name;
                   return (
                   <div key={cfg.name} className={`${styles.pipelineCard} ${isActive ? styles.pipelineCardActive : ""}`}>
@@ -285,10 +285,10 @@ export function ModelPresetPicker({ compact = false }: { compact?: boolean }) {
                     )}
                   </div>
                 );})}
-                {!pluginsLoading && pipelines.length === 0 && (
+                {!pluginsLoading && pipelines.filter((cfg) => !cfg.name.startsWith("dyn_")).length === 0 && (
                   <p style={{ opacity: 0.5, textAlign: "center", padding: "20px 0", fontSize: 12 }}>
-                    Нет зарегистрированных pipeline.<br/>
-                    Задайте пути к моделям в настройках для активации builtin пресетов.
+                    Нет пользовательских pipeline.<br/>
+                    Создайте новый выше или используйте вкладку «Пресеты» для встроенных моделей.
                   </p>
                 )}
 

@@ -269,7 +269,7 @@ def register_packages(
                         next_stage=None,
                     ),
                 },
-                is_builtin=False,
+                is_builtin=True,  # auto-generated — not user-editable
             )
             registry.register_pipeline(single)
         except Exception as exc:
@@ -304,7 +304,7 @@ def register_packages(
                             next_stage=None,
                         ),
                     },
-                    is_builtin=False,
+                    is_builtin=True,  # auto-generated — not user-editable
                 )
                 registry.register_pipeline(cascade)
                 registered_cascade.add(cascade_key)
