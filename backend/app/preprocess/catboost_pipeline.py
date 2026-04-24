@@ -31,7 +31,10 @@ class CatBoostPreprocessingPipeline:
             contract_path.read_text(encoding="utf-8")
         )
         params = json.loads(params_path.read_text(encoding="utf-8"))
-        self._fill_values: dict[str, float] = params["fill_values"]
+        # Accept both "fill_values" (IoT format) and "nan_fill_values" (general format)
+        self._fill_values: dict[str, float] = (
+            params.get("fill_values") or params.get("nan_fill_values") or {}
+        )
 
     def transform(self, event: NormalizedFlowEvent) -> FeatureVector:
         if event.raw_features is None:

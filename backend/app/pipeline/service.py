@@ -182,7 +182,11 @@ class PipelineService:
                             inference = model.infer(features)
                             pipeline_name = None
                     except Exception as exc:
-                        logger.warning("Pipeline failed for event %s: %s", event.event_id, exc)
+                        logger.error(
+                            "Pipeline '%s' failed for event %s: %s",
+                            self._settings.active_model_id, event.event_id, exc,
+                            exc_info=True,
+                        )
                         continue
 
                     # Enrich with device info

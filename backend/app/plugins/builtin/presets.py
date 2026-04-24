@@ -172,9 +172,15 @@ def build_builtin_registry(settings: AppSettings) -> PluginRegistry:
             from app.models_manager.dynamic_registry import register_packages
             packages = scan_models_dir(settings.models_dir)
             register_packages(packages, registry, settings.catboost_threshold)
-            registered_ids = {p.id for p in packages}
+            # Track only packages that were ACTUALLY registered (preprocessor + model both present)
+            registered_ids = {
+                p.id for p in packages
+                if f"preproc_dyn_{p.id}" in registry.preprocessors
+                and f"model_dyn_{p.id}" in registry.models
+            }
             logger.info(
-                "Registered %d model packages from %s",
+                "Registered %d/%d model packages from %s",
+                len(registered_ids),
                 len(packages),
                 settings.models_dir,
             )

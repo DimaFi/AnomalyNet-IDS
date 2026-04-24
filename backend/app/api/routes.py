@@ -88,6 +88,28 @@ def get_debug_stats(service: PipelineService = Depends(get_pipeline_service)) ->
     return service.debug_stats()
 
 
+@router.get("/debug/registry")
+def get_registry_state(service: PipelineService = Depends(get_pipeline_service)):
+    """Returns the current state of the plugin registry — which pipelines/preprocessors/models
+    are actually registered. Used to diagnose pipeline loading issues."""
+    from app.plugins.registry import get_registry
+    registry = get_registry()
+    s = service.settings
+    return {
+        "models_dir": s.models_dir,
+        "models_dir_exists": __import__("pathlib").Path(s.models_dir).exists() if s.models_dir else False,
+        "active_model_id": s.active_model_id,
+        "pipelines": sorted(registry.pipelines.keys()),
+        "preprocessors": sorted(registry.preprocessors.keys()),
+        "models": sorted(registry.models.keys()),
+        "pipeline_errors": {
+            name: cfg.validate(registry)
+            for name, cfg in registry.pipelines.items()
+            if cfg.validate(registry)
+        },
+    }
+
+
 @router.get("/export")
 def export_data(
     limit: int = 200,
