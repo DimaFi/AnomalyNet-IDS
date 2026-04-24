@@ -2,31 +2,68 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from app.contracts.schemas import AppSettings, ModelPresetsRegistry, ModelsRegistry, PipelineEvent
+from app.core import get_user_data_dir
 
 
 class JsonFileStore:
     def __init__(self, app_root: Path) -> None:
+        # Read-only config (tracked in git) — presets, model registry, default settings
         self._config_dir = app_root / "config"
-        self._history_dir = app_root / "data" / "history"
-        self._settings_path = self._config_dir / "settings.json"
+
+        # Writable user data — settings and history survive git pull / updates
+        self._user_dir = get_user_data_dir()
+        self._user_dir.mkdir(parents=True, exist_ok=True)
+        (self._user_dir / "data" / "history").mkdir(parents=True, exist_ok=True)
+
+        self._settings_path = self._user_dir / "settings.json"
         self._models_path = self._config_dir / "models_registry.json"
         self._presets_path = self._config_dir / "model_presets.json"
+        self._history_dir = self._user_dir / "data" / "history"
+
         # Root for resolving relative model paths (env override → app_root / models)
         self._models_root = Path(
             os.environ.get("ANOMALYNET_MODELS_ROOT", str(app_root / "models"))
         )
+
+        # Migrate settings from old location if user data dir is fresh
+        self._migrate_settings_if_needed(app_root)
+
+    def _migrate_settings_if_needed(self, app_root: Path) -> None:
+        """
+        One-time migration: if user settings don't exist yet, copy from the
+        app config dir (old location). Falls back to AppSettings defaults.
+        """
+        if self._settings_path.exists():
+            return
+        old_path = app_root / "config" / "settings.json"
+        if old_path.exists():
+            try:
+                shutil.copy2(old_path, self._settings_path)
+                return
+            except Exception:
+                pass
+        # Write defaults
+        self.save_settings(AppSettings())
 
     def load_settings(self) -> AppSettings:
         if not self._settings_path.exists():
             default = AppSettings()
             self.save_settings(default)
             return default
-        return AppSettings.model_validate(self._read_json(self._settings_path))
+        try:
+            data = self._read_json(self._settings_path)
+            return AppSettings.model_validate(data)
+        except Exception:
+            # Corrupt file — reset to defaults
+            default = AppSettings()
+            self.save_settings(default)
+            return default
 
     def save_settings(self, settings: AppSettings) -> AppSettings:
         self._write_json(self._settings_path, settings.model_dump(mode="json"))
@@ -35,7 +72,6 @@ class JsonFileStore:
     def load_presets(self) -> ModelPresetsRegistry:
         """Load model presets, filling empty paths from ANOMALYNET_MODELS_ROOT."""
         raw = self._read_json(self._presets_path)
-        # Fill model paths from environment if not set in preset
         stage1_dir   = str(self._models_root / "stage1" / "catboost")
         stage1_art   = str(self._models_root / "stage1" / "artifacts")
         stage2_dir   = str(self._models_root / "stage2" / "catboost")
@@ -73,7 +109,6 @@ class JsonFileStore:
         return registry
 
     def append_history(self, item: PipelineEvent) -> None:
-        self._history_dir.mkdir(parents=True, exist_ok=True)
         day_path = self._history_dir / f"{datetime.now(timezone.utc).date().isoformat()}.ndjson"
         serialized = json.dumps(item.model_dump(mode="json"), ensure_ascii=False)
         with day_path.open("a", encoding="utf-8") as handle:
@@ -106,5 +141,6 @@ class JsonFileStore:
             return json.load(handle)
 
     def _write_json(self, path: Path, payload: dict[str, Any]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, indent=2)

@@ -109,37 +109,69 @@ async def _detect_default_interface() -> str:
     return ""
 
 
+def _detect_best_interface_by_traffic() -> str:
+    """
+    Returns the interface name with the most total traffic (bytes_recv + bytes_sent).
+    Ignores loopback. Returns "" if psutil unavailable.
+    """
+    try:
+        import psutil
+        counters = psutil.net_io_counters(pernic=True)
+        stats = psutil.net_if_stats()
+        best = ""
+        best_bytes = -1
+        for name, cnt in counters.items():
+            if name == "lo":
+                continue
+            if name in stats and not stats[name].isup:
+                continue
+            total = cnt.bytes_recv + cnt.bytes_sent
+            if total > best_bytes:
+                best_bytes = total
+                best = name
+        return best
+    except Exception:
+        return ""
+
+
 @block_router.get("/interfaces")
 async def list_interfaces() -> list[dict]:
     """
     Returns all non-loopback network interfaces with IPv4 addresses.
-    Marks the default route interface with is_default=true.
+    is_default  — interface used for the default route
+    is_recommended — interface with most traffic (best for capture)
+    bytes_total — bytes_recv + bytes_sent (traffic indicator)
     """
     default_iface = await _detect_default_interface()
+    recommended = _detect_best_interface_by_traffic()
 
     try:
         import psutil
         result = []
+        counters = psutil.net_io_counters(pernic=True)
         stats = psutil.net_if_stats()
         for name, addrs in psutil.net_if_addrs().items():
             ipv4 = [a.address for a in addrs if a.family == 2]  # AF_INET
-            # Skip pure loopback (lo) but keep real interfaces even if no IP yet
             if name == "lo" and ipv4 == ["127.0.0.1"]:
                 continue
             is_up = stats[name].isup if name in stats else False
+            cnt = counters.get(name)
+            bytes_total = (cnt.bytes_recv + cnt.bytes_sent) if cnt else 0
             result.append({
                 "name": name,
                 "addresses": ipv4,
                 "is_default": name == default_iface,
+                "is_recommended": name == recommended,
                 "is_up": is_up,
+                "bytes_total": bytes_total,
             })
-        # Sort: default first, then by name
-        result.sort(key=lambda x: (not x["is_default"], x["name"]))
+        # Sort: recommended first, then default, then by name
+        result.sort(key=lambda x: (not x["is_recommended"], not x["is_default"], x["name"]))
         return result
     except ImportError:
         pass
 
-    # Fallback
     return [
-        {"name": default_iface or "eth0", "addresses": [], "is_default": True, "is_up": True},
+        {"name": default_iface or "eth0", "addresses": [], "is_default": True,
+         "is_recommended": True, "is_up": True, "bytes_total": 0},
     ]

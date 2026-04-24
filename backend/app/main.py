@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import json
@@ -16,11 +16,26 @@ from app.api.devices import devices_router, ws_devices_endpoint
 from app.api.plugins import plugins_router
 from app.api.routes import router
 from app.api.update import update_router
+from app.api.block import _detect_best_interface_by_traffic
 from app.core import APP_ROOT
 from app.discovery.scanner import NetworkScanner
 from app.discovery.tracker import DeviceTracker
 from app.pipeline.service import PipelineService
 from app.storage.json_store import JsonFileStore
+
+
+def _auto_select_interface_if_needed(service: PipelineService) -> None:
+    """If no interface is configured, auto-detect the busiest one and save it."""
+    s = service.settings
+    if s.interface_name and s.interface_name not in ("eth0", ""):
+        return  # already user-configured
+    if s.interface_names:
+        return  # multi-interface already set
+    best = _detect_best_interface_by_traffic()
+    if best and best != s.interface_name:
+        import logging
+        logging.getLogger(__name__).info("Auto-selected interface: %s", best)
+        service.update_settings(s.model_copy(update={"interface_name": best}))
 
 
 @asynccontextmanager
@@ -37,8 +52,11 @@ async def lifespan(app: FastAPI):
         import logging
         logging.getLogger(__name__).warning("Plugin registry init failed: %s", exc)
 
+    # Auto-detect best interface if none configured
+    _auto_select_interface_if_needed(service)
+
     # Device discovery
-    iface = getattr(service.settings, "interface_name", None) or None
+    iface = service.settings.interface_name or None
     tracker = DeviceTracker()
     scanner = NetworkScanner(interface=iface)
     app.state.device_tracker = tracker

@@ -165,25 +165,40 @@ export function SettingsView() {
           <div className={selfStyles.ifaceList}>
             {interfaces.map((iface) => {
               const selected = (settings.interface_names ?? []).includes(iface.name);
+              const isSingle = settings.interface_name === iface.name && !(settings.interface_names ?? []).length;
+              const isActive = selected || isSingle;
               return (
-                <label key={iface.name} className={selfStyles.ifaceRow}>
+                <label key={iface.name} className={[
+                  selfStyles.ifaceRow,
+                  isActive ? selfStyles.ifaceRowActive : "",
+                ].filter(Boolean).join(" ")}>
                   <input
                     type="checkbox"
-                    checked={selected}
+                    checked={isActive}
                     onChange={(e) => {
-                      const prev = settings.interface_names ?? [];
+                      const prev = (settings.interface_names ?? []).length
+                        ? settings.interface_names ?? []
+                        : settings.interface_name ? [settings.interface_name] : [];
                       const next = e.target.checked
-                        ? [...prev, iface.name]
+                        ? [...prev.filter(n => n !== iface.name), iface.name]
                         : prev.filter((n) => n !== iface.name);
-                      patch({ interface_names: next });
+                      patch({ interface_names: next, interface_name: next[0] ?? "" });
                     }}
                   />
                   <span className={selfStyles.ifaceName}>{iface.name}</span>
                   {iface.addresses[0] && (
                     <span className={selfStyles.ifaceAddr}>{iface.addresses[0]}</span>
                   )}
-                  {iface.is_default && (
-                    <span className={selfStyles.ifaceDefault}>рекомендуется</span>
+                  {iface.is_recommended && (
+                    <span className={selfStyles.ifaceRecommended}>рекомендуется</span>
+                  )}
+                  {iface.is_default && !iface.is_recommended && (
+                    <span className={selfStyles.ifaceDefault}>шлюз</span>
+                  )}
+                  {iface.bytes_total > 0 && (
+                    <span className={selfStyles.ifaceTraffic} title="Всего трафика с момента загрузки">
+                      {fmtTraffic(iface.bytes_total)}
+                    </span>
                   )}
                   {!iface.is_up && (
                     <span className={selfStyles.ifaceDown}>выкл</span>
@@ -191,8 +206,8 @@ export function SettingsView() {
                 </label>
               );
             })}
-            {(settings.interface_names ?? []).length === 0 && (
-              <p className={selfStyles.ifaceHint}>Выберите хотя бы один интерфейс</p>
+            {!(settings.interface_names ?? []).length && !settings.interface_name && (
+              <p className={selfStyles.ifaceHint}>Интерфейс определится автоматически при старте</p>
             )}
           </div>
         ) : (
@@ -625,6 +640,13 @@ function ModelDirsViewer({ settings }: { settings: AppSettings }) {
       )}
     </div>
   );
+}
+
+function fmtTraffic(b: number): string {
+  if (b >= 1_000_000_000) return `${(b / 1_000_000_000).toFixed(1)} GB`;
+  if (b >= 1_000_000)     return `${(b / 1_000_000).toFixed(0)} MB`;
+  if (b >= 1_000)         return `${(b / 1_000).toFixed(0)} KB`;
+  return `${b} B`;
 }
 
 function fileIcon(name: string): string {

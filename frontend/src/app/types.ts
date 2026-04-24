@@ -128,7 +128,9 @@ export interface NetworkInterface {
   name: string;
   addresses: string[];
   is_default: boolean;
+  is_recommended: boolean;
   is_up: boolean;
+  bytes_total: number;
 }
 
 export interface BlockRequest {

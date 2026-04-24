@@ -598,6 +598,31 @@
   color: var(--text-muted);
 }
 
+.ifaceRowActive {
+  border-color: rgba(var(--accent-rgb, 76,142,247), 0.5) !important;
+  background: rgba(var(--accent-rgb, 76,142,247), 0.06) !important;
+}
+
+.ifaceRecommended {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(var(--accent-rgb, 76,142,247), 0.15);
+  border: 1px solid rgba(var(--accent-rgb, 76,142,247), 0.4);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ifaceTraffic {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  margin-left: auto;
+  opacity: 0.7;
+}
+
 .ifaceDefault {
   font-size: 10px;
   font-weight: 700;
