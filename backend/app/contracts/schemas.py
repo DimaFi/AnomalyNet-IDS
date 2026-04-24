@@ -190,6 +190,9 @@ class ModelPreset(BaseModel):
     catboost_secondary_artifacts_dir: str = ""
     catboost_stage3_model_dir: str = ""
     catboost_stage3_artifacts_dir: str = ""
+    catboost_general_model_dir: str = ""
+    catboost_general_stage2_dir: str = ""
+    catboost_general_artifacts_dir: str = ""
 
 
 class ModelPresetsRegistry(BaseModel):

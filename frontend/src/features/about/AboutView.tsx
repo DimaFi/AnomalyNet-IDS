@@ -3,7 +3,7 @@ import type { ReinstallResult, UninstallResult, UpdateApplyResult, UpdateCheckRe
 import { api } from "../../lib/api";
 import styles from "./AboutView.module.css";
 
-const APP_VERSION = "v1.0.0";
+const APP_VERSION = "v1.3.0";
 const GUI_REPO    = "https://github.com/DimaFi/AnomalyNet-gui";
 const ML_REPO     = "https://github.com/DimaFi/AnomalyNet-ml";
 

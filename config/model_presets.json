@@ -61,9 +61,24 @@
       "catboost_stage3_artifacts_dir": ""
     },
     {
+      "id": "general-network",
+      "name": "Домашняя сеть (ПК / общий трафик)",
+      "description": "Для ПК, ноутбуков и смешанного домашнего трафика. Обучен на CICIDS 2017: Stage1 F1=0.9984, FPR=0.08%. 7 классов атак: DoS, DDoS, BruteForce, WebAttack, Recon, Botnet, Infiltration. Идеален для мониторинга на самом ПК.",
+      "icon": "simple",
+      "active_model_id": "plugin:general_network",
+      "run_mode": "linux_live",
+      "detection_mode": "simple",
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": "",
+      "catboost_stage3_model_dir": "",
+      "catboost_stage3_artifacts_dir": ""
+    },
+    {
       "id": "auto-routing",
       "name": "Авто (по типу устройства)",
-      "description": "IoT камеры и датчики → Advanced IoT pipeline. ПК, телефоны, Smart TV → General Network (CICIDS 2017). Лучший выбор для смешанной домашней сети.",
+      "description": "Умная маршрутизация: IoT камеры/датчики/роутеры → Advanced IoT. ПК, телефоны, Smart TV → General Network (CICIDS 2017). Оптимален для сервера или роутера с доступом ко всему трафику сети.",
       "icon": "advanced",
       "active_model_id": "plugin:auto",
       "run_mode": "linux_live",

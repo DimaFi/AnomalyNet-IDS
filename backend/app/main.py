@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import json
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
         await service.shutdown()
 
 
-app = FastAPI(title="AnomalyNet API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="AnomalyNet API", version="1.3.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:8000", "http://localhost:8000"],
@@ -117,3 +117,4 @@ async def events_ws(websocket: WebSocket) -> None:
         service.unsubscribe(queue)
     finally:
         service.unsubscribe(queue)
+

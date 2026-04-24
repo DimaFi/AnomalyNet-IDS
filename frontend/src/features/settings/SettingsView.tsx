@@ -240,7 +240,7 @@ export function SettingsView() {
 
         {/* Paths sub-block */}
         <div className={selfStyles.subBlock}>
-          <div className={selfStyles.subBlockTitle}>Пути к файлам моделей</div>
+          <div className={selfStyles.subBlockTitle}>IoT модели (Stage1 / Stage2 / Stage3)</div>
           <div className={styles.formGrid}>
             <label className={styles.field}>
               <span>{t("settings.catboostModelDir")}</span>
@@ -251,6 +251,31 @@ export function SettingsView() {
               <span>{t("settings.preprocessingDir")}</span>
               <input type="text" value={settings.preprocessing_artifacts_dir}
                 onChange={(e) => patch({ preprocessing_artifacts_dir: e.target.value })} />
+            </label>
+          </div>
+        </div>
+
+        {/* General Network paths */}
+        <div className={selfStyles.subBlock}>
+          <div className={selfStyles.subBlockTitle}>General Network модели (CICIDS 2017 — для ПК/домашней сети)</div>
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              <span>General Stage1 модель</span>
+              <input type="text" value={settings.catboost_general_model_dir}
+                placeholder="…/general_stage1/catboost"
+                onChange={(e) => patch({ catboost_general_model_dir: e.target.value })} />
+            </label>
+            <label className={styles.field}>
+              <span>General Stage2 модель</span>
+              <input type="text" value={settings.catboost_general_stage2_dir}
+                placeholder="…/general_stage2/catboost"
+                onChange={(e) => patch({ catboost_general_stage2_dir: e.target.value })} />
+            </label>
+            <label className={styles.field}>
+              <span>General артефакты</span>
+              <input type="text" value={settings.catboost_general_artifacts_dir}
+                placeholder="…/general_network/artifacts"
+                onChange={(e) => patch({ catboost_general_artifacts_dir: e.target.value })} />
             </label>
           </div>
         </div>

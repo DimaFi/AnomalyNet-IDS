@@ -155,6 +155,9 @@ export interface ModelPreset {
   catboost_secondary_artifacts_dir: string;
   catboost_stage3_model_dir: string;
   catboost_stage3_artifacts_dir: string;
+  catboost_general_model_dir?: string;
+  catboost_general_stage2_dir?: string;
+  catboost_general_artifacts_dir?: string;
 }
 
 export interface ModelPresetsRegistry {
