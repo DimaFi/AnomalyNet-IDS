@@ -144,7 +144,7 @@ export function StreamView() {
   const paginated  = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   return (
-    <section className={styles.panel}>
+    <section className={`${styles.panel} ${s.streamPanel}`}>
       {/* ── Header ── */}
       <div className={styles.panelHeader}>
         <div>

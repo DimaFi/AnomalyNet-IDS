@@ -293,9 +293,28 @@
 .ipSearchInput:focus { border-color: var(--accent, #4c8ef7); }
 .ipSearchInput::placeholder { color: var(--text-muted); }
 
+/* ── Stream panel: internal scroll so filters stay fixed ── */
+.streamPanel {
+  height: 100%;
+  gap: 0 !important;
+}
+
 /* ── Desktop/mobile layout switch ── */
-.desktopTable { display: block; }
-.mobileCards  { display: none;  }
+.desktopTable {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  margin-top: 8px;
+}
+.mobileCards {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  margin-top: 8px;
+}
 
 /* ── Mobile event cards ── */
 @media (max-width: 640px) {
