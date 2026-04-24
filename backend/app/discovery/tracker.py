@@ -117,6 +117,13 @@ class DeviceTracker:
         with self._lock:
             return self._devices.get(mac.upper())
 
+    def get_device_by_ip(self, ip: str) -> Optional[DeviceInfo]:
+        with self._lock:
+            mac = self._ip_to_mac.get(ip)
+            if mac is None:
+                return None
+            return self._devices.get(mac.upper())
+
     def reset_suspicious(self, mac: str) -> None:
         with self._lock:
             dev = self._devices.get(mac.upper())

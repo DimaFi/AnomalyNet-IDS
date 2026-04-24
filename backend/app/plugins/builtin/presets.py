@@ -72,6 +72,52 @@ def _make_preset_simple() -> PipelineConfig:
     )
 
 
+def _make_preset_general_network() -> PipelineConfig:
+    """
+    GENERAL NETWORK: Stage1 binary gate (CICIDS 2017) → Stage2 multiclass (7 классов).
+    Обучен на PC/home network трафике — низкий FPR для роутеров, ПК, телефонов.
+    """
+    return PipelineConfig(
+        name="general_network",
+        description="General Network IDS: Stage1 бинарный + Stage2 классификатор (CICIDS 2017, 7 классов: DoS/DDoS/BruteForce/WebAttack/Recon/Botnet/Infiltration)",
+        entry_stage="stage1",
+        stages={
+            "stage1": StageConfig(
+                preprocessor_name="cicflowmeter_71_general",
+                model_name="builtin_general_stage1",
+                threshold=0.70,
+                is_gate=True,
+                next_stage="stage2",
+            ),
+            "stage2": StageConfig(
+                preprocessor_name="cicflowmeter_71_general",
+                model_name="builtin_general_stage2",
+                threshold=0.50,
+                is_gate=False,
+                next_stage=None,
+            ),
+        },
+        is_builtin=True,
+    )
+
+
+def _make_preset_auto() -> PipelineConfig:
+    """
+    AUTO: маршрутизация по типу устройства.
+    IoT-устройства (камеры, датчики, роутеры) → advanced IoT pipeline.
+    ПК, телефоны, Smart TV → general_network pipeline.
+    Неизвестные устройства → advanced (консервативный fallback).
+    Обрабатывается в service.py — pipeline остаётся пустым.
+    """
+    return PipelineConfig(
+        name="auto",
+        description="Авто: IoT устройства → Advanced IoT; ПК/телефоны → General Network. Маршрутизация по типу устройства из карты сети.",
+        entry_stage="__auto__",
+        stages={},
+        is_builtin=True,
+    )
+
+
 def _make_preset_advanced() -> PipelineConfig:
     """
     ADVANCED: Stage1 (binary gate, 71 признак) → Stage3 (46 CIC IoT 2023 признаков).
@@ -119,6 +165,9 @@ def build_builtin_registry(settings: AppSettings) -> PluginRegistry:
     secondary_arts = settings.catboost_secondary_artifacts_dir
     primary_model  = settings.catboost_model_dir
     secondary_model = settings.catboost_secondary_model_dir
+    general_arts  = settings.catboost_general_artifacts_dir
+    general_model  = settings.catboost_general_model_dir
+    general_stage2 = settings.catboost_general_stage2_dir
 
     threshold = settings.catboost_threshold
 
@@ -177,12 +226,39 @@ def build_builtin_registry(settings: AppSettings) -> PluginRegistry:
         except Exception as exc:
             logger.warning("Не удалось зарегистрировать Stage3 модель: %s", exc)
 
+    # ── General Network models + preprocessor ──────────────────────────────────
+    if general_arts:
+        try:
+            from app.plugins.builtin.preprocessor_cicflowmeter71_general import (
+                BuiltinCicFlowMeter71GeneralPreprocessor,
+            )
+            registry.register_preprocessor(
+                BuiltinCicFlowMeter71GeneralPreprocessor(general_arts)
+            )
+        except Exception as exc:
+            logger.warning("Не удалось зарегистрировать cicflowmeter_71_general препроцессор: %s", exc)
+
+    if general_model:
+        try:
+            from app.plugins.builtin.model_general_stage1 import BuiltinGeneralStage1Model
+            registry.register_model(BuiltinGeneralStage1Model(general_model, threshold))
+        except Exception as exc:
+            logger.warning("Не удалось зарегистрировать General Stage1 модель: %s", exc)
+
+    if general_stage2:
+        try:
+            from app.plugins.builtin.model_general_stage2 import BuiltinGeneralStage2Model
+            registry.register_model(BuiltinGeneralStage2Model(general_stage2, threshold))
+        except Exception as exc:
+            logger.warning("Не удалось зарегистрировать General Stage2 модель: %s", exc)
+
     # ── Preset pipelines ──────────────────────────────────────────────────────
-    for preset_fn in (_make_preset_fast, _make_preset_simple, _make_preset_advanced):
+    for preset_fn in (_make_preset_fast, _make_preset_simple, _make_preset_advanced,
+                      _make_preset_general_network, _make_preset_auto):
         try:
             registry.register_pipeline(preset_fn())
         except Exception as exc:
-            logger.warning("Ошибка регистрации preset pipeline: %s", exc)
+            logger.warning("Ошибка регистрации preset pipeline (%s): %s", preset_fn.__name__, exc)
 
     # ── Загрузить пользовательские пайплайны из config/user_pipelines.json ────
     registry.load_user_pipelines()

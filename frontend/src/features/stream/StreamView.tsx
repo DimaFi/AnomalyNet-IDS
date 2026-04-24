@@ -7,6 +7,7 @@ import { formatBytes } from "../../lib/format";
 import { api } from "../../lib/api";
 import { useBlockIp } from "../../lib/useBlockIp";
 import { refreshStreamFromSnapshot } from "../../lib/useRealtimeStream";
+import { deviceEmoji } from "../../lib/deviceTypes";
 import styles from "../panel.module.css";
 import s from "./StreamView.module.css";
 
@@ -229,6 +230,7 @@ export function StreamView() {
               <tr>
                 <th style={{ width: 72 }}>{t("stream.time", "Время")}</th>
                 <th>{t("stream.route", "Маршрут")}</th>
+                <th style={{ width: 90 }} className={s.colDevice}>{t("stream.device", "Устройство")}</th>
                 <th style={{ width: 60 }}>Proto</th>
                 <th style={{ width: 80 }}>Пакеты</th>
                 <th style={{ width: 100 }}>Score</th>
@@ -252,6 +254,15 @@ export function StreamView() {
                         <span className={s.ip}>{item.event.dst_ip}</span>
                         <span className={s.port}>:{item.event.dst_port}</span>
                       </div>
+                    </td>
+                    <td className={s.colDevice}>
+                      <span
+                        className={s.deviceCell}
+                        title={[item.device_type, item.pipeline_used ? `via ${item.pipeline_used}` : null].filter(Boolean).join(" · ")}
+                      >
+                        <span className={s.deviceEmoji}>{deviceEmoji(item.device_type)}</span>
+                        {item.device_name && <span className={s.deviceName}>{item.device_name}</span>}
+                      </span>
                     </td>
                     <td><span className={s.protoBadge}>{item.event.protocol}</span></td>
                     <td className={s.volumeCell}>

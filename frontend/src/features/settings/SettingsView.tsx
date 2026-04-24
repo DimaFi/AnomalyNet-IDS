@@ -485,6 +485,9 @@ function ModelDirsViewer({ settings }: { settings: AppSettings }) {
     { label: "Stage2 модель",        path: settings.catboost_secondary_model_dir },
     { label: "Stage3 модель",        path: settings.catboost_stage3_model_dir },
     { label: "Stage3 артефакты",     path: settings.catboost_stage3_artifacts_dir },
+    { label: "General Stage1",       path: settings.catboost_general_model_dir },
+    { label: "General Stage2",       path: settings.catboost_general_stage2_dir },
+    { label: "General артефакты",    path: settings.catboost_general_artifacts_dir },
   ].filter((d) => d.path);
 
   async function loadDirs() {

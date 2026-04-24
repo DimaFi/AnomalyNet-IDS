@@ -170,13 +170,35 @@ class PipelineService:
                     except Exception:
                         break
 
+                is_auto = self._settings.active_model_id == "plugin:auto"
+
                 for event in events:
                     try:
-                        features = preprocess.transform(event)
-                        inference = model.infer(features)
+                        if is_auto:
+                            pipeline_name = self._resolve_auto_pipeline(event.src_ip)
+                            from app.plugins.runner import PluginPipelineRunner
+                            runner = PluginPipelineRunner(pipeline_name)
+                            features = runner.transform(event)
+                            inference = runner.infer(features)
+                        else:
+                            features = preprocess.transform(event)
+                            inference = model.infer(features)
+                            pipeline_name = None
                     except Exception as exc:
                         logger.warning("Pipeline failed for event %s: %s", event.event_id, exc)
                         continue
+
+                    # Enrich with device info
+                    ev_device_type: str | None = None
+                    ev_device_name: str | None = None
+                    if self._device_tracker is not None:
+                        try:
+                            dev = self._device_tracker.get_device_by_ip(event.src_ip)
+                            if dev is not None:
+                                ev_device_type = dev.device_type
+                                ev_device_name = dev.display_name()
+                        except Exception:
+                            pass
 
                     alert = None
                     if inference.label != "normal":
@@ -210,7 +232,10 @@ class PipelineService:
                         self._scores = self._scores[-500:]
 
                     pipeline_event = PipelineEvent(
-                        event=event, features=features, inference=inference, alert=alert
+                        event=event, features=features, inference=inference, alert=alert,
+                        device_type=ev_device_type,
+                        device_name=ev_device_name,
+                        pipeline_used=pipeline_name if is_auto else None,
                     )
                     self._recent_items.appendleft(pipeline_event)
                     self._store.append_history(pipeline_event)
@@ -359,6 +384,34 @@ class PipelineService:
 
     def set_device_tracker(self, tracker) -> None:
         self._device_tracker = tracker
+
+    # ── Device-aware pipeline routing (plugin:auto mode) ──────────────────────
+
+    _IOT_DEVICE_TYPES = frozenset({
+        "iot_camera", "iot_sensor", "iot_bulb", "iot_plug",
+        "router", "nas", "unknown",
+    })
+    _GENERAL_DEVICE_TYPES = frozenset({
+        "pc_windows", "pc_linux", "pc_mac", "phone",
+        "game_console", "tv", "printer",
+    })
+
+    def _resolve_auto_pipeline(self, src_ip: str) -> str:
+        """Выбирает имя pipeline по типу устройства-источника.
+        Возвращает 'general_network' для ПК/телефонов, иначе 'advanced'."""
+        if self._device_tracker is None:
+            return "advanced"
+        try:
+            device = self._device_tracker.get_device_by_ip(src_ip)
+        except Exception:
+            return "advanced"
+        if device is None or device.device_type not in self._GENERAL_DEVICE_TYPES:
+            return "advanced"
+        from app.plugins.registry import get_registry
+        if "general_network" in get_registry().pipelines:
+            return "general_network"
+        logger.warning("general_network pipeline не зарегистрирован, fallback → advanced для %s", src_ip)
+        return "advanced"
 
     def subscribe(self) -> asyncio.Queue[PipelineEvent]:
         queue: asyncio.Queue[PipelineEvent] = asyncio.Queue(maxsize=100)

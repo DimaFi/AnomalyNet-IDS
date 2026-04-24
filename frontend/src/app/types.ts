@@ -31,6 +31,10 @@ export interface AppSettings {
   catboost_secondary_artifacts_dir: string;
   catboost_stage3_model_dir: string;
   catboost_stage3_artifacts_dir: string;
+  // General Network models (CICIDS 2017)
+  catboost_general_model_dir: string;
+  catboost_general_stage2_dir: string;
+  catboost_general_artifacts_dir: string;
 }
 
 export interface ModelDescriptor {
@@ -98,6 +102,9 @@ export interface PipelineEvent {
   features: FeatureVector;
   inference: InferenceResult;
   alert: AlertRecord | null;
+  device_type?: string | null;
+  device_name?: string | null;
+  pipeline_used?: string | null;
 }
 
 export interface StreamSnapshot {

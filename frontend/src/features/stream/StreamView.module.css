@@ -118,6 +118,35 @@
   font-size: 13px;
 }
 
+/* ── Device column ── */
+.colDevice {
+  white-space: nowrap;
+}
+.deviceCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: default;
+}
+.deviceEmoji {
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.deviceName {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .colDevice { display: none; }
+}
+
 /* ── Time cell ── */
 .timeCell {
   font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;

@@ -47,6 +47,10 @@ class AppSettings(BaseModel):
     # Stage3 model (IoT 2023, 46 features) for routed cascade
     catboost_stage3_model_dir: str = ""
     catboost_stage3_artifacts_dir: str = ""
+    # General Network models (CICIDS 2017, PC/home traffic)
+    catboost_general_model_dir: str = ""
+    catboost_general_stage2_dir: str = ""
+    catboost_general_artifacts_dir: str = ""
 
 
 class ModelDescriptor(BaseModel):
@@ -124,6 +128,9 @@ class PipelineEvent(BaseModel):
     features: FeatureVector
     inference: InferenceResult
     alert: AlertRecord | None = None
+    device_type: str | None = None       # "pc_windows", "iot_camera", etc.
+    device_name: str | None = None       # display_name()
+    pipeline_used: str | None = None     # "advanced", "general_network"
 
 
 class HealthResponse(BaseModel):
@@ -164,6 +171,9 @@ class SettingsUpdate(BaseModel):
     catboost_secondary_artifacts_dir: str = ""
     catboost_stage3_model_dir: str = ""
     catboost_stage3_artifacts_dir: str = ""
+    catboost_general_model_dir: str = ""
+    catboost_general_stage2_dir: str = ""
+    catboost_general_artifacts_dir: str = ""
 
 
 class ModelPreset(BaseModel):

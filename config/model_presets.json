@@ -59,6 +59,21 @@
       "catboost_secondary_artifacts_dir": "",
       "catboost_stage3_model_dir": "",
       "catboost_stage3_artifacts_dir": ""
+    },
+    {
+      "id": "auto-routing",
+      "name": "Авто (по типу устройства)",
+      "description": "IoT камеры и датчики → Advanced IoT pipeline. ПК, телефоны, Smart TV → General Network (CICIDS 2017). Лучший выбор для смешанной домашней сети.",
+      "icon": "advanced",
+      "active_model_id": "plugin:auto",
+      "run_mode": "linux_live",
+      "detection_mode": "advanced",
+      "catboost_model_dir": "",
+      "preprocessing_artifacts_dir": "",
+      "catboost_secondary_model_dir": "",
+      "catboost_secondary_artifacts_dir": "",
+      "catboost_stage3_model_dir": "",
+      "catboost_stage3_artifacts_dir": ""
     }
   ]
 }
