@@ -35,6 +35,8 @@ export interface AppSettings {
   catboost_general_model_dir: string;
   catboost_general_stage2_dir: string;
   catboost_general_artifacts_dir: string;
+  // Base directory of AnomalyNet-ml repo — all model paths auto-derived from it
+  ml_base_dir: string;
 }
 
 export interface ModelDescriptor {

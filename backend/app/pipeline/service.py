@@ -324,6 +324,12 @@ class PipelineService:
             self._loop_task.cancel()
             self._loop_task = None
             self._status = "idle"
+        # Rebuild plugin registry so new paths take effect immediately
+        try:
+            from app.plugins.builtin.presets import build_builtin_registry
+            build_builtin_registry(self._settings)
+        except Exception as exc:
+            logger.warning("Не удалось перестроить plugin registry: %s", exc)
         return self._settings
 
     def select_model(self, model_id: str) -> ModelsRegistry:
@@ -365,6 +371,12 @@ class PipelineService:
         updated = self._settings.model_copy(update=update_fields)
         self._settings = self._store.save_settings(updated)
         self._cache_key = None  # Force pipeline/model rebuild on next event
+        # Rebuild plugin registry with new paths
+        try:
+            from app.plugins.builtin.presets import build_builtin_registry
+            build_builtin_registry(self._settings)
+        except Exception as exc:
+            logger.warning("Не удалось перестроить plugin registry: %s", exc)
         # Also update active model in registry
         self.select_model(preset.active_model_id)
         return self._settings

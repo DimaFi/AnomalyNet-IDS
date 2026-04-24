@@ -19,5 +19,9 @@
   "catboost_secondary_model_dir": "",
   "catboost_secondary_artifacts_dir": "",
   "catboost_stage3_model_dir": "",
-  "catboost_stage3_artifacts_dir": ""
+  "catboost_stage3_artifacts_dir": "",
+  "catboost_general_model_dir": "",
+  "catboost_general_stage2_dir": "",
+  "catboost_general_artifacts_dir": "",
+  "ml_base_dir": ""
 }

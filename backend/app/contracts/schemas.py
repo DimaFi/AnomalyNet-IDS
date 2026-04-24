@@ -51,6 +51,8 @@ class AppSettings(BaseModel):
     catboost_general_model_dir: str = ""
     catboost_general_stage2_dir: str = ""
     catboost_general_artifacts_dir: str = ""
+    # Base directory of AnomalyNet-ml repo — all model paths are auto-derived from it
+    ml_base_dir: str = ""
 
 
 class ModelDescriptor(BaseModel):
@@ -174,6 +176,7 @@ class SettingsUpdate(BaseModel):
     catboost_general_model_dir: str = ""
     catboost_general_stage2_dir: str = ""
     catboost_general_artifacts_dir: str = ""
+    ml_base_dir: str = ""
 
 
 class ModelPreset(BaseModel):

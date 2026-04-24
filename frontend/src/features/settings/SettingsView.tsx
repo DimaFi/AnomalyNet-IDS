@@ -238,9 +238,38 @@ export function SettingsView() {
           </label>
         </div>
 
+        {/* Base ML directory — auto-derives all paths */}
+        <div className={selfStyles.subBlock}>
+          <div className={selfStyles.subBlockTitle}>
+            Папка ML-репозитория
+            <span className={selfStyles.subBlockHint}>все пути к моделям выводятся автоматически</span>
+          </div>
+          <div className={styles.formGrid}>
+            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+              <span>Путь к AnomalyNet-ml</span>
+              <input
+                type="text"
+                value={settings.ml_base_dir ?? ""}
+                placeholder="/opt/anomalynet-ml  или  G:/Диплом/AnomalyNet-ml"
+                onChange={(e) => patch({ ml_base_dir: e.target.value })}
+              />
+            </label>
+          </div>
+          {(settings.ml_base_dir ?? "") && (
+            <div className={selfStyles.mlBasePaths}>
+              <span>Пути выведены автоматически:</span>
+              <code>model/</code> <code>artifacts/</code> <code>stage2_multiclass/models/catboost/</code>{" "}
+              <code>stage3_cic2023/</code> <code>general_network/</code>
+            </div>
+          )}
+        </div>
+
         {/* Paths sub-block */}
         <div className={selfStyles.subBlock}>
-          <div className={selfStyles.subBlockTitle}>IoT модели (Stage1 / Stage2 / Stage3)</div>
+          <div className={selfStyles.subBlockTitle}>
+            IoT модели (Stage1 / Stage2 / Stage3)
+            <span className={selfStyles.subBlockHint}>переопределяют авто-пути если заданы</span>
+          </div>
           <div className={styles.formGrid}>
             <label className={styles.field}>
               <span>{t("settings.catboostModelDir")}</span>
@@ -495,6 +524,23 @@ export function SettingsView() {
 
 // ── Model directory browser ──────────────────────────────────────────────────
 
+const ML_BASE_RELS: Record<string, string> = {
+  catboost_model_dir:               "model",
+  preprocessing_artifacts_dir:      "artifacts",
+  catboost_secondary_model_dir:     "stage2_multiclass/models/catboost",
+  catboost_stage3_model_dir:        "stage3_cic2023/models/catboost",
+  catboost_stage3_artifacts_dir:    "stage3_cic2023/artifacts",
+  catboost_general_model_dir:       "general_network/models/general_stage1/catboost",
+  catboost_general_stage2_dir:      "general_network/models/general_stage2/catboost",
+  catboost_general_artifacts_dir:   "general_network/artifacts",
+};
+
+function resolveDir(individual: string, base: string, rel: string): string {
+  if (individual) return individual;
+  if (base) return base.replace(/[\\/]+$/, "") + "/" + rel;
+  return "";
+}
+
 type DirEntry = { name: string; is_dir: boolean; size_bytes: number | null };
 type DirResult = { path: string; exists: boolean; error?: string; entries: DirEntry[] };
 
@@ -503,16 +549,17 @@ function ModelDirsViewer({ settings }: { settings: AppSettings }) {
   const [results, setResults] = useState<Record<string, DirResult>>({});
   const [loading, setLoading] = useState(false);
   const loadedRef = useRef(false);
+  const base = settings.ml_base_dir ?? "";
 
   const dirs = [
-    { label: "Stage1 модель",        path: settings.catboost_model_dir },
-    { label: "Stage1 артефакты",     path: settings.preprocessing_artifacts_dir },
-    { label: "Stage2 модель",        path: settings.catboost_secondary_model_dir },
-    { label: "Stage3 модель",        path: settings.catboost_stage3_model_dir },
-    { label: "Stage3 артефакты",     path: settings.catboost_stage3_artifacts_dir },
-    { label: "General Stage1",       path: settings.catboost_general_model_dir },
-    { label: "General Stage2",       path: settings.catboost_general_stage2_dir },
-    { label: "General артефакты",    path: settings.catboost_general_artifacts_dir },
+    { label: "Stage1 модель",        path: resolveDir(settings.catboost_model_dir,            base, ML_BASE_RELS.catboost_model_dir) },
+    { label: "Stage1 артефакты",     path: resolveDir(settings.preprocessing_artifacts_dir,   base, ML_BASE_RELS.preprocessing_artifacts_dir) },
+    { label: "Stage2 модель",        path: resolveDir(settings.catboost_secondary_model_dir,  base, ML_BASE_RELS.catboost_secondary_model_dir) },
+    { label: "Stage3 модель",        path: resolveDir(settings.catboost_stage3_model_dir,     base, ML_BASE_RELS.catboost_stage3_model_dir) },
+    { label: "Stage3 артефакты",     path: resolveDir(settings.catboost_stage3_artifacts_dir, base, ML_BASE_RELS.catboost_stage3_artifacts_dir) },
+    { label: "General Stage1",       path: resolveDir(settings.catboost_general_model_dir,    base, ML_BASE_RELS.catboost_general_model_dir) },
+    { label: "General Stage2",       path: resolveDir(settings.catboost_general_stage2_dir,   base, ML_BASE_RELS.catboost_general_stage2_dir) },
+    { label: "General артефакты",    path: resolveDir(settings.catboost_general_artifacts_dir, base, ML_BASE_RELS.catboost_general_artifacts_dir) },
   ].filter((d) => d.path);
 
   async function loadDirs() {

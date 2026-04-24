@@ -19,6 +19,31 @@ from app.plugins.registry import PluginRegistry
 logger = logging.getLogger(__name__)
 
 
+# ── Known relative paths inside AnomalyNet-ml repo ───────────────────────────
+# Layout mirrors what's in AnomalyNet-ml on GitHub.
+_ML_BASE_PATHS: dict[str, str] = {
+    "catboost_model_dir":               "model",
+    "preprocessing_artifacts_dir":      "artifacts",
+    "catboost_secondary_model_dir":     "stage2_multiclass/models/catboost",
+    "catboost_secondary_artifacts_dir": "artifacts",           # Stage2 reuses primary artifacts
+    "catboost_stage3_model_dir":        "stage3_cic2023/models/catboost",
+    "catboost_stage3_artifacts_dir":    "stage3_cic2023/artifacts",
+    "catboost_general_model_dir":       "general_network/models/general_stage1/catboost",
+    "catboost_general_stage2_dir":      "general_network/models/general_stage2/catboost",
+    "catboost_general_artifacts_dir":   "general_network/artifacts",
+}
+
+
+def _resolve(individual: str, base: str, rel: str) -> str:
+    """Return individual path if set, else derive from base+rel, else ''."""
+    if individual:
+        return individual
+    if base:
+        from pathlib import Path
+        return str(Path(base) / rel)
+    return ""
+
+
 # ── Pipeline preset configs (не зависят от путей, только имена плагинов) ─────
 
 def _make_preset_fast() -> PipelineConfig:
@@ -161,13 +186,18 @@ def build_builtin_registry(settings: AppSettings) -> PluginRegistry:
     from app.plugins.registry import get_registry
     registry = get_registry()
 
-    primary_arts  = settings.preprocessing_artifacts_dir
-    secondary_arts = settings.catboost_secondary_artifacts_dir
-    primary_model  = settings.catboost_model_dir
-    secondary_model = settings.catboost_secondary_model_dir
-    general_arts  = settings.catboost_general_artifacts_dir
-    general_model  = settings.catboost_general_model_dir
-    general_stage2 = settings.catboost_general_stage2_dir
+    base = settings.ml_base_dir
+
+    def r(field: str) -> str:
+        return _resolve(getattr(settings, field), base, _ML_BASE_PATHS[field])
+
+    primary_arts    = r("preprocessing_artifacts_dir")
+    secondary_arts  = r("catboost_secondary_artifacts_dir")
+    primary_model   = r("catboost_model_dir")
+    secondary_model = r("catboost_secondary_model_dir")
+    general_arts    = r("catboost_general_artifacts_dir")
+    general_model   = r("catboost_general_model_dir")
+    general_stage2  = r("catboost_general_stage2_dir")
 
     threshold = settings.catboost_threshold
 
