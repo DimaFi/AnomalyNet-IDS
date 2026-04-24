@@ -18,25 +18,43 @@ export interface AppSettings {
   interface_names: string[];
   // CatBoost
   catboost_threshold: number;
-  catboost_model_dir: string;
-  preprocessing_artifacts_dir: string;
   auto_block: boolean;
   auto_block_level: "anomaly" | "warning";
   auto_unblock: boolean;
   auto_unblock_cooldown_min: number;
   whitelist_ips: string[];
-  // Dual-mode detection
+  // Detection mode
   detection_mode: "simple" | "advanced";
-  catboost_secondary_model_dir: string;
-  catboost_secondary_artifacts_dir: string;
-  catboost_stage3_model_dir: string;
-  catboost_stage3_artifacts_dir: string;
-  // General Network models (CICIDS 2017)
-  catboost_general_model_dir: string;
-  catboost_general_stage2_dir: string;
-  catboost_general_artifacts_dir: string;
-  // Base directory of AnomalyNet-ml repo — all model paths auto-derived from it
-  ml_base_dir: string;
+  // Model packages
+  models_dir: string;
+  auto_download_models: boolean;
+  auto_update_models: boolean;
+}
+
+export interface ModelPackageInfo {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  preprocessor: string;
+  model_type: "binary" | "multiclass";
+  threshold: number;
+  is_gate: boolean;
+  cascade_next: string | null;
+  folder_path: string;
+  model_file: string;
+  artifacts_dir: string;
+  is_valid: boolean;
+  errors: string[];
+}
+
+export interface OfficialModelInfo {
+  id: string;
+  name: string;
+  description: string;
+  repo_url: string;
+  models_subdir: string;
+  size_mb: number;
 }
 
 export interface ModelDescriptor {
@@ -153,15 +171,6 @@ export interface ModelPreset {
   active_model_id: string;
   run_mode: RunMode;
   detection_mode: "simple" | "advanced";
-  catboost_model_dir: string;
-  preprocessing_artifacts_dir: string;
-  catboost_secondary_model_dir: string;
-  catboost_secondary_artifacts_dir: string;
-  catboost_stage3_model_dir: string;
-  catboost_stage3_artifacts_dir: string;
-  catboost_general_model_dir?: string;
-  catboost_general_stage2_dir?: string;
-  catboost_general_artifacts_dir?: string;
 }
 
 export interface ModelPresetsRegistry {

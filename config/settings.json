@@ -8,20 +8,13 @@
   "stream_autostart": true,
   "interface_name": "eth0",
   "catboost_threshold": 0.7,
-  "catboost_model_dir": "",
-  "preprocessing_artifacts_dir": "",
   "auto_block": false,
   "auto_block_level": "anomaly",
   "auto_unblock": false,
   "auto_unblock_cooldown_min": 10,
   "whitelist_ips": [],
   "detection_mode": "simple",
-  "catboost_secondary_model_dir": "",
-  "catboost_secondary_artifacts_dir": "",
-  "catboost_stage3_model_dir": "",
-  "catboost_stage3_artifacts_dir": "",
-  "catboost_general_model_dir": "",
-  "catboost_general_stage2_dir": "",
-  "catboost_general_artifacts_dir": "",
-  "ml_base_dir": ""
+  "models_dir": "",
+  "auto_download_models": true,
+  "auto_update_models": false
 }

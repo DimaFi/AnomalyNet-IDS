@@ -173,4 +173,22 @@ export const api = {
     request<{ ip: string; reachable: boolean; latency_ms: number | null; open_ports: number[] }>(
       `/api/devices/${encodeURIComponent(mac)}/probe`, { method: "POST" }
     ),
+
+  // Models Manager
+  listModelPackages: () =>
+    request<import("../app/types").ModelPackageInfo[]>("/api/models-manager/list"),
+  getModelCatalog: () =>
+    request<import("../app/types").OfficialModelInfo[]>("/api/models-manager/catalog"),
+  scanModels: () =>
+    request<{ ok: boolean; found: number }>("/api/models-manager/scan", { method: "POST" }),
+  addModelFolder: (folder_path: string) =>
+    request<{ ok: boolean; id: string; name: string }>("/api/models-manager/add", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ folder_path }),
+    }),
+  getDownloadDest: (catalogId: string) =>
+    request<{ repo_dest: string; models_dir: string; is_installed: boolean }>(
+      `/api/models-manager/download-dest/${catalogId}`
+    ),
 };

@@ -1,94 +1,49 @@
 {
   "presets": [
     {
-      "id": "binary-v1",
-      "name": "Быстрый детектор (только атака/норма)",
-      "description": "Определяет: атака или нет. Высокая скорость, F1=99.4%. Не показывает тип атаки. Хороший выбор для минимальной нагрузки на систему.",
+      "id": "fast",
+      "name": "Быстрый детектор (атака/норма)",
+      "description": "Бинарный детектор без классификации типа атаки. F1=99.4%, минимальная нагрузка на систему.",
       "icon": "binary",
-      "active_model_id": "catboost-iot-v1",
+      "active_model_id": "plugin:fast",
       "run_mode": "linux_live",
-      "detection_mode": "simple",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": "",
-      "catboost_stage3_model_dir": "",
-      "catboost_stage3_artifacts_dir": ""
+      "detection_mode": "simple"
     },
     {
       "id": "simple-cascade",
       "name": "Simple — обнаружение + тип атаки",
-      "description": "Сначала фильтрует трафик (атака/норма), затем определяет тип: DoS, DDoS, Recon, BruteForce и др. Стандартный режим для большинства задач.",
+      "description": "Сначала фильтрует трафик, затем определяет тип: DoS, DDoS, Recon, BruteForce, WebAttack, Bot, Spoofing. Стандартный режим для большинства задач.",
       "icon": "simple",
-      "active_model_id": "catboost-cascade-simple",
+      "active_model_id": "plugin:simple",
       "run_mode": "linux_live",
-      "detection_mode": "simple",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": "",
-      "catboost_stage3_model_dir": "",
-      "catboost_stage3_artifacts_dir": ""
-    },
-    {
-      "id": "cascade-routed",
-      "name": "Cascade Routed — умная маршрутизация",
-      "description": "Stage1 фильтрует трафик, затем маршрутизирует атаки на Stage2 (TCP/BruteForce/Web) или Stage3 (ICMP/UDP/IoT/VPS) в зависимости от протокола. Лучший баланс точности и покрытия.",
-      "icon": "cascade",
-      "active_model_id": "catboost-cascade-routed",
-      "run_mode": "linux_live",
-      "detection_mode": "advanced",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": "",
-      "catboost_stage3_model_dir": "",
-      "catboost_stage3_artifacts_dir": ""
+      "detection_mode": "simple"
     },
     {
       "id": "advanced-cascade",
       "name": "Advanced — улучшенная классификация IoT",
-      "description": "Использует расширенный набор признаков специально для IoT-трафика. Значительно точнее распознаёт Recon, Bot и Spoofing-атаки. Macro F1=0.82 против 0.31 у Simple.",
+      "description": "Stage1 (71 признак) → Stage3 IoT-2023 (46 признаков, Macro F1=0.819). Точнее распознаёт Recon, Bot и Spoofing на IoT-трафике.",
       "icon": "advanced",
-      "active_model_id": "catboost-cascade-advanced",
+      "active_model_id": "plugin:advanced",
       "run_mode": "linux_live",
-      "detection_mode": "advanced",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": "",
-      "catboost_stage3_model_dir": "",
-      "catboost_stage3_artifacts_dir": ""
+      "detection_mode": "advanced"
     },
     {
       "id": "general-network",
       "name": "Домашняя сеть (ПК / общий трафик)",
-      "description": "Для ПК, ноутбуков и смешанного домашнего трафика. Обучен на CICIDS 2017: Stage1 F1=0.9984, FPR=0.08%. 7 классов атак: DoS, DDoS, BruteForce, WebAttack, Recon, Botnet, Infiltration. Идеален для мониторинга на самом ПК.",
+      "description": "Обучен на CICIDS 2017. Для ПК, ноутбуков и смешанного домашнего трафика. 7 классов: DoS, DDoS, BruteForce, WebAttack, Recon, Botnet, Infiltration.",
       "icon": "simple",
       "active_model_id": "plugin:general_network",
       "run_mode": "linux_live",
-      "detection_mode": "simple",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": "",
-      "catboost_stage3_model_dir": "",
-      "catboost_stage3_artifacts_dir": ""
+      "detection_mode": "simple"
     },
     {
       "id": "auto-routing",
       "name": "Авто (по типу устройства)",
-      "description": "Умная маршрутизация: IoT камеры/датчики/роутеры → Advanced IoT. ПК, телефоны, Smart TV → General Network (CICIDS 2017). Оптимален для сервера или роутера с доступом ко всему трафику сети.",
+      "description": "IoT камеры/датчики/роутеры → Advanced IoT. ПК, телефоны, Smart TV → General Network. Оптимален для сервера с доступом ко всему трафику сети.",
       "icon": "advanced",
       "active_model_id": "plugin:auto",
       "run_mode": "linux_live",
-      "detection_mode": "advanced",
-      "catboost_model_dir": "",
-      "preprocessing_artifacts_dir": "",
-      "catboost_secondary_model_dir": "",
-      "catboost_secondary_artifacts_dir": "",
-      "catboost_stage3_model_dir": "",
-      "catboost_stage3_artifacts_dir": ""
+      "detection_mode": "advanced"
     }
   ]
 }

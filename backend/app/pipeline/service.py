@@ -122,10 +122,7 @@ class PipelineService:
             s.active_model_id,
             s.run_mode,
             s.detection_mode,
-            s.catboost_model_dir,
-            s.preprocessing_artifacts_dir,
-            s.catboost_secondary_model_dir,
-            s.catboost_secondary_artifacts_dir,
+            s.models_dir,
             s.catboost_threshold,
         )
 
@@ -348,26 +345,13 @@ class PipelineService:
         return self._store.load_presets()
 
     def apply_preset(self, preset: ModelPreset) -> AppSettings:
-        """Apply a model preset — updates all model-related settings at once.
+        """Apply a model preset — updates model-related settings at once.
         Invalidates the pipeline/model cache so changes take effect immediately."""
         update_fields: dict = {
-            "active_model_id":                  preset.active_model_id,
-            "run_mode":                          preset.run_mode,
-            "detection_mode":                    preset.detection_mode,
-            "catboost_model_dir":                preset.catboost_model_dir,
-            "preprocessing_artifacts_dir":       preset.preprocessing_artifacts_dir,
-            "catboost_secondary_model_dir":      preset.catboost_secondary_model_dir,
-            "catboost_secondary_artifacts_dir":  preset.catboost_secondary_artifacts_dir,
-            "catboost_stage3_model_dir":         preset.catboost_stage3_model_dir,
-            "catboost_stage3_artifacts_dir":     preset.catboost_stage3_artifacts_dir,
+            "active_model_id": preset.active_model_id,
+            "run_mode":        preset.run_mode,
+            "detection_mode":  preset.detection_mode,
         }
-        # Apply general network paths only if preset explicitly sets them (non-empty)
-        if preset.catboost_general_model_dir:
-            update_fields["catboost_general_model_dir"] = preset.catboost_general_model_dir
-        if preset.catboost_general_stage2_dir:
-            update_fields["catboost_general_stage2_dir"] = preset.catboost_general_stage2_dir
-        if preset.catboost_general_artifacts_dir:
-            update_fields["catboost_general_artifacts_dir"] = preset.catboost_general_artifacts_dir
         updated = self._settings.model_copy(update=update_fields)
         self._settings = self._store.save_settings(updated)
         self._cache_key = None  # Force pipeline/model rebuild on next event

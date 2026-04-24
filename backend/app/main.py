@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from app.api.autostart import autostart_router
 from app.api.block import block_router
 from app.api.devices import devices_router, ws_devices_endpoint
+from app.api.models_manager import models_manager_router
 from app.api.plugins import plugins_router
 from app.api.routes import router
 from app.api.update import update_router
@@ -86,6 +87,7 @@ app.include_router(block_router)
 app.include_router(devices_router)
 app.include_router(update_router)
 app.include_router(plugins_router)
+app.include_router(models_manager_router)
 
 # Serve built frontend in production / packaged mode
 _DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"

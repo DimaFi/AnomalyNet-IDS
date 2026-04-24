@@ -25,10 +25,8 @@ class AppSettings(BaseModel):
     # Network capture — single or multi-interface (interface_names takes precedence)
     interface_name: str = "eth0"
     interface_names: list[str] = Field(default_factory=list)
-    # CatBoost model configuration (primary = Stage1 binary)
+    # CatBoost model configuration
     catboost_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
-    catboost_model_dir: str = ""
-    preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
     # "anomaly" = блокировать только аномалии (score≥0.85)
     # "warning"  = блокировать и предупреждения, и аномалии
@@ -38,21 +36,14 @@ class AppSettings(BaseModel):
     auto_unblock_cooldown_min: int = Field(default=10, ge=1, le=120)
     # IPs that are never auto-blocked (whitelist)
     whitelist_ips: list[str] = Field(default_factory=list)
-    # Dual-mode detection
+    # Detection mode (affects capture adapter: whether to compute 46 CIC-IoT-2023 features)
     detection_mode: DetectionMode = "simple"
-    # Secondary model: Stage2 (simple) or Stage3/Stage4 (advanced)
-    catboost_secondary_model_dir: str = ""
-    # Secondary preprocessing artifacts (empty = reuse primary)
-    catboost_secondary_artifacts_dir: str = ""
-    # Stage3 model (IoT 2023, 46 features) for routed cascade
-    catboost_stage3_model_dir: str = ""
-    catboost_stage3_artifacts_dir: str = ""
-    # General Network models (CICIDS 2017, PC/home traffic)
-    catboost_general_model_dir: str = ""
-    catboost_general_stage2_dir: str = ""
-    catboost_general_artifacts_dir: str = ""
-    # Base directory of AnomalyNet-ml repo — all model paths are auto-derived from it
-    ml_base_dir: str = ""
+    # Model packages directory (contains subfolders with metadata.json + model.cbm)
+    models_dir: str = ""
+    # Auto-download official AnomalyNet models on first run
+    auto_download_models: bool = True
+    # Auto-update models via git pull on startup
+    auto_update_models: bool = False
 
 
 class ModelDescriptor(BaseModel):
@@ -161,22 +152,15 @@ class SettingsUpdate(BaseModel):
     interface_name: str = "eth0"
     interface_names: list[str] = Field(default_factory=list)
     catboost_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
-    catboost_model_dir: str = ""
-    preprocessing_artifacts_dir: str = ""
     auto_block: bool = False
     auto_block_level: Literal["anomaly", "warning"] = "anomaly"
     auto_unblock: bool = False
     auto_unblock_cooldown_min: int = Field(default=10, ge=1, le=120)
     whitelist_ips: list[str] = Field(default_factory=list)
     detection_mode: DetectionMode = "simple"
-    catboost_secondary_model_dir: str = ""
-    catboost_secondary_artifacts_dir: str = ""
-    catboost_stage3_model_dir: str = ""
-    catboost_stage3_artifacts_dir: str = ""
-    catboost_general_model_dir: str = ""
-    catboost_general_stage2_dir: str = ""
-    catboost_general_artifacts_dir: str = ""
-    ml_base_dir: str = ""
+    models_dir: str = ""
+    auto_download_models: bool = True
+    auto_update_models: bool = False
 
 
 class ModelPreset(BaseModel):
@@ -187,15 +171,6 @@ class ModelPreset(BaseModel):
     active_model_id: str
     run_mode: RunMode
     detection_mode: DetectionMode = "simple"
-    catboost_model_dir: str = ""
-    preprocessing_artifacts_dir: str = ""
-    catboost_secondary_model_dir: str = ""
-    catboost_secondary_artifacts_dir: str = ""
-    catboost_stage3_model_dir: str = ""
-    catboost_stage3_artifacts_dir: str = ""
-    catboost_general_model_dir: str = ""
-    catboost_general_stage2_dir: str = ""
-    catboost_general_artifacts_dir: str = ""
 
 
 class ModelPresetsRegistry(BaseModel):

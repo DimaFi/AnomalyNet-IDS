@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -26,30 +25,65 @@ class JsonFileStore:
         self._presets_path = self._config_dir / "model_presets.json"
         self._history_dir = self._user_dir / "data" / "history"
 
-        # Root for resolving relative model paths (env override → app_root / models)
-        self._models_root = Path(
-            os.environ.get("ANOMALYNET_MODELS_ROOT", str(app_root / "models"))
-        )
-
         # Migrate settings from old location if user data dir is fresh
         self._migrate_settings_if_needed(app_root)
 
     def _migrate_settings_if_needed(self, app_root: Path) -> None:
         """
         One-time migration: if user settings don't exist yet, copy from the
-        app config dir (old location). Falls back to AppSettings defaults.
+        app config dir (old location). Also migrates ml_base_dir → models_dir.
+        Falls back to AppSettings defaults.
         """
         if self._settings_path.exists():
+            # May still need schema migration (old fields → new)
+            self._migrate_schema()
             return
         old_path = app_root / "config" / "settings.json"
         if old_path.exists():
             try:
                 shutil.copy2(old_path, self._settings_path)
+                self._migrate_schema()
                 return
             except Exception:
                 pass
         # Write defaults
         self.save_settings(AppSettings())
+
+    def _migrate_schema(self) -> None:
+        """Migrate old settings fields to new schema without data loss."""
+        try:
+            raw = self._read_json(self._settings_path)
+        except Exception:
+            return
+
+        changed = False
+
+        # ml_base_dir → models_dir (if models/ subfolder exists)
+        if "ml_base_dir" in raw and not raw.get("models_dir"):
+            base = raw.pop("ml_base_dir", "")
+            if base:
+                candidate = Path(base) / "models"
+                raw["models_dir"] = str(candidate) if candidate.exists() else ""
+            changed = True
+        elif "ml_base_dir" in raw:
+            raw.pop("ml_base_dir", None)
+            changed = True
+
+        # Remove obsolete path fields
+        obsolete = {
+            "catboost_model_dir", "preprocessing_artifacts_dir",
+            "catboost_secondary_model_dir", "catboost_secondary_artifacts_dir",
+            "catboost_stage3_model_dir", "catboost_stage3_artifacts_dir",
+            "catboost_general_model_dir", "catboost_general_stage2_dir",
+            "catboost_general_artifacts_dir",
+        }
+        for field in obsolete:
+            if field in raw:
+                raw.pop(field)
+                changed = True
+
+        if changed:
+            self._write_json(self._settings_path, raw)
 
     def load_settings(self) -> AppSettings:
         if not self._settings_path.exists():
@@ -70,35 +104,7 @@ class JsonFileStore:
         return settings
 
     def load_presets(self) -> ModelPresetsRegistry:
-        """Load model presets, filling empty paths from ANOMALYNET_MODELS_ROOT."""
         raw = self._read_json(self._presets_path)
-        stage1_dir   = str(self._models_root / "stage1" / "catboost")
-        stage1_art   = str(self._models_root / "stage1" / "artifacts")
-        stage2_dir   = str(self._models_root / "stage2" / "catboost")
-        stage3_dir   = str(self._models_root / "stage3" / "catboost")
-        stage3_art   = str(self._models_root / "stage3" / "artifacts")
-
-        for preset in raw.get("presets", []):
-            pid = preset.get("id")
-            if pid in ("binary-v1", "simple-cascade", "advanced-cascade", "cascade-routed"):
-                if not preset.get("catboost_model_dir"):
-                    preset["catboost_model_dir"] = stage1_dir
-                if not preset.get("preprocessing_artifacts_dir"):
-                    preset["preprocessing_artifacts_dir"] = stage1_art
-            if pid == "simple-cascade":
-                if not preset.get("catboost_secondary_model_dir"):
-                    preset["catboost_secondary_model_dir"] = stage2_dir
-            if pid in ("advanced-cascade", "cascade-routed"):
-                if not preset.get("catboost_secondary_model_dir"):
-                    preset["catboost_secondary_model_dir"] = stage3_dir
-                if not preset.get("catboost_secondary_artifacts_dir"):
-                    preset["catboost_secondary_artifacts_dir"] = stage3_art
-            if pid == "cascade-routed":
-                if not preset.get("catboost_stage3_model_dir"):
-                    preset["catboost_stage3_model_dir"] = stage3_dir
-                if not preset.get("catboost_stage3_artifacts_dir"):
-                    preset["catboost_stage3_artifacts_dir"] = stage3_art
-
         return ModelPresetsRegistry.model_validate(raw)
 
     def load_models(self) -> ModelsRegistry:

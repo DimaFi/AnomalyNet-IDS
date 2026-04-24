@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
-import type { AppSettings, NetworkInterface } from "../../app/types";
+import type { AppSettings, ModelPackageInfo, NetworkInterface, OfficialModelInfo } from "../../app/types";
 import { ModelPresetPicker } from "../../components/ModelPresetPicker";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
@@ -15,11 +15,7 @@ export function SettingsView() {
   const [blockedIps, setBlockedIps] = useState<{ ip: string; blocked_at: string }[]>([]);
   const [autostartState, setAutostartState] = useState<{ available: boolean; enabled: boolean } | null>(null);
   const [autostartLoading, setAutostartLoading] = useState(false);
-
-  // Whitelist add input (local only — save on Add/Enter)
   const [whitelistInput, setWhitelistInput] = useState("");
-
-  // Auto-block confirm dialog
   const [showAutoBlockConfirm, setShowAutoBlockConfirm] = useState(false);
   const [confirmIp, setConfirmIp] = useState("");
 
@@ -29,9 +25,7 @@ export function SettingsView() {
   }, []);
 
   const refreshBlocked = useCallback(() => {
-    api.getBlockedIps()
-      .then((res) => setBlockedIps(res.items))
-      .catch(() => setBlockedIps([]));
+    api.getBlockedIps().then((res) => setBlockedIps(res.items)).catch(() => setBlockedIps([]));
   }, []);
 
   useEffect(() => { refreshBlocked(); }, [refreshBlocked]);
@@ -47,7 +41,6 @@ export function SettingsView() {
   }, [refreshBlocked]);
 
   if (!settings) return null;
-  // settings is non-null from here — TypeScript doesn't narrow through closures
   const s = settings;
 
   async function persist(nextSettings: AppSettings) {
@@ -73,9 +66,7 @@ export function SettingsView() {
     const val = whitelistInput.trim();
     if (!val) return;
     const list = s.whitelist_ips ?? [];
-    if (!list.includes(val)) {
-      patch({ whitelist_ips: [...list, val] });
-    }
+    if (!list.includes(val)) patch({ whitelist_ips: [...list, val] });
     setWhitelistInput("");
   }
 
@@ -99,16 +90,14 @@ export function SettingsView() {
         <div className={styles.formGrid}>
           <label className={styles.field}>
             <span>{t("settings.language")}</span>
-            <select value={settings.language}
-              onChange={(e) => patch({ language: e.target.value as "ru" | "en" })}>
+            <select value={s.language} onChange={(e) => patch({ language: e.target.value as "ru" | "en" })}>
               <option value="ru">Русский</option>
               <option value="en">English</option>
             </select>
           </label>
           <label className={styles.field}>
             <span>{t("settings.theme")}</span>
-            <select value={settings.theme}
-              onChange={(e) => patch({ theme: e.target.value as "dark" | "light" | "gray" })}>
+            <select value={s.theme} onChange={(e) => patch({ theme: e.target.value as AppSettings["theme"] })}>
               <option value="dark">Dark</option>
               <option value="light">Light</option>
               <option value="gray">Gray (VS Code)</option>
@@ -116,42 +105,34 @@ export function SettingsView() {
           </label>
           <label className={styles.field}>
             <span>{t("settings.runMode")}</span>
-            <select value={settings.run_mode}
-              onChange={(e) => patch({ run_mode: e.target.value as AppSettings["run_mode"] })}>
+            <select value={s.run_mode} onChange={(e) => patch({ run_mode: e.target.value as AppSettings["run_mode"] })}>
               <option value="linux_live">Linux Live (scapy)</option>
             </select>
           </label>
           <label className={styles.field}>
             <span>{t("settings.retention")}</span>
-            <input type="number" min={1} max={30}
-              value={settings.retention_days}
+            <input type="number" min={1} max={30} value={s.retention_days}
               onChange={(e) => patch({ retention_days: Math.min(30, Math.max(1, Number(e.target.value))) })} />
           </label>
           <label className={styles.toggleField}>
-            <input type="checkbox" checked={settings.capture_enabled}
+            <input type="checkbox" checked={s.capture_enabled}
               onChange={(e) => patch({ capture_enabled: e.target.checked })} />
             <span>{t("settings.capture")}</span>
           </label>
           <label className={styles.toggleField}>
-            <input type="checkbox" checked={settings.stream_autostart}
+            <input type="checkbox" checked={s.stream_autostart}
               onChange={(e) => patch({ stream_autostart: e.target.checked })} />
             <span>{t("settings.autostart")}</span>
           </label>
           {autostartState?.available && (
             <label className={styles.toggleField}>
-              <input
-                type="checkbox"
-                checked={autostartState.enabled}
-                disabled={autostartLoading}
+              <input type="checkbox" checked={autostartState.enabled} disabled={autostartLoading}
                 onChange={async (e) => {
                   setAutostartLoading(true);
-                  try {
-                    const res = await api.setAutostart(e.target.checked);
-                    setAutostartState(res);
-                  } catch { /* ignore */ }
+                  try { const res = await api.setAutostart(e.target.checked); setAutostartState(res); }
+                  catch { /* ignore */ }
                   finally { setAutostartLoading(false); }
-                }}
-              />
+                }} />
               <span>Запускать при старте системы (systemctl)</span>
             </label>
           )}
@@ -164,49 +145,31 @@ export function SettingsView() {
         {interfaces.length > 0 ? (
           <div className={selfStyles.ifaceList}>
             {interfaces.map((iface) => {
-              const selected = (settings.interface_names ?? []).includes(iface.name);
-              const isSingle = settings.interface_name === iface.name && !(settings.interface_names ?? []).length;
+              const selected = (s.interface_names ?? []).includes(iface.name);
+              const isSingle = s.interface_name === iface.name && !(s.interface_names ?? []).length;
               const isActive = selected || isSingle;
               return (
-                <label key={iface.name} className={[
-                  selfStyles.ifaceRow,
-                  isActive ? selfStyles.ifaceRowActive : "",
-                ].filter(Boolean).join(" ")}>
-                  <input
-                    type="checkbox"
-                    checked={isActive}
+                <label key={iface.name} className={[selfStyles.ifaceRow, isActive ? selfStyles.ifaceRowActive : ""].filter(Boolean).join(" ")}>
+                  <input type="checkbox" checked={isActive}
                     onChange={(e) => {
-                      const prev = (settings.interface_names ?? []).length
-                        ? settings.interface_names ?? []
-                        : settings.interface_name ? [settings.interface_name] : [];
-                      const next = e.target.checked
-                        ? [...prev.filter(n => n !== iface.name), iface.name]
-                        : prev.filter((n) => n !== iface.name);
+                      const prev = (s.interface_names ?? []).length ? s.interface_names ?? [] : s.interface_name ? [s.interface_name] : [];
+                      const next = e.target.checked ? [...prev.filter(n => n !== iface.name), iface.name] : prev.filter((n) => n !== iface.name);
                       patch({ interface_names: next, interface_name: next[0] ?? "" });
-                    }}
-                  />
+                    }} />
                   <span className={selfStyles.ifaceName}>{iface.name}</span>
-                  {iface.addresses[0] && (
-                    <span className={selfStyles.ifaceAddr}>{iface.addresses[0]}</span>
-                  )}
-                  {iface.is_recommended && (
-                    <span className={selfStyles.ifaceRecommended}>рекомендуется</span>
-                  )}
-                  {iface.is_default && !iface.is_recommended && (
-                    <span className={selfStyles.ifaceDefault}>шлюз</span>
-                  )}
+                  {iface.addresses[0] && <span className={selfStyles.ifaceAddr}>{iface.addresses[0]}</span>}
+                  {iface.is_recommended && <span className={selfStyles.ifaceRecommended}>рекомендуется</span>}
+                  {iface.is_default && !iface.is_recommended && <span className={selfStyles.ifaceDefault}>шлюз</span>}
                   {iface.bytes_total > 0 && (
                     <span className={selfStyles.ifaceTraffic} title="Всего трафика с момента загрузки">
                       {fmtTraffic(iface.bytes_total)}
                     </span>
                   )}
-                  {!iface.is_up && (
-                    <span className={selfStyles.ifaceDown}>выкл</span>
-                  )}
+                  {!iface.is_up && <span className={selfStyles.ifaceDown}>выкл</span>}
                 </label>
               );
             })}
-            {!(settings.interface_names ?? []).length && !settings.interface_name && (
+            {!(s.interface_names ?? []).length && !s.interface_name && (
               <p className={selfStyles.ifaceHint}>Интерфейс определится автоматически при старте</p>
             )}
           </div>
@@ -214,170 +177,91 @@ export function SettingsView() {
           <div className={styles.formGrid}>
             <label className={styles.field}>
               <span>{t("settings.interfaceName")}</span>
-              <input type="text" value={settings.interface_name}
-                onChange={(e) => patch({ interface_name: e.target.value })}
-                placeholder="eth0" />
+              <input type="text" value={s.interface_name}
+                onChange={(e) => patch({ interface_name: e.target.value })} placeholder="eth0" />
             </label>
           </div>
         )}
       </div>
 
-      {/* ── Model settings ── */}
+      {/* ── Models ── */}
+      <div className={selfStyles.group}>
+        <div className={selfStyles.groupTitle}>Модели</div>
+
+        {/* models_dir */}
+        <div className={styles.formGrid}>
+          <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+            <span>Папка с моделями</span>
+            <input type="text" value={s.models_dir ?? ""}
+              placeholder="/opt/anomalynet-ml/models   или   C:/AnomalyNet-ml/models"
+              onChange={(e) => patch({ models_dir: e.target.value })} />
+          </label>
+          <label className={styles.toggleField}>
+            <input type="checkbox" checked={s.auto_download_models ?? true}
+              onChange={(e) => patch({ auto_download_models: e.target.checked })} />
+            <span>Скачивать официальные модели при первом запуске</span>
+          </label>
+          <label className={styles.toggleField}>
+            <input type="checkbox" checked={s.auto_update_models ?? false}
+              onChange={(e) => patch({ auto_update_models: e.target.checked })} />
+            <span>Автообновление через git pull при старте</span>
+          </label>
+        </div>
+
+        {/* Installed packages / catalog */}
+        <ModelsSection modelsDir={s.models_dir ?? ""} onSetModelsDir={(d) => patch({ models_dir: d })} />
+      </div>
+
+      {/* ── Detection threshold + auto-block ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>{t("settings.groupCatboost")}</div>
         <div className={styles.formGrid}>
           <label className={styles.field}>
             <span>
               {t("settings.catboostThreshold")}
-              <span className={selfStyles.badgeValue}>{settings.catboost_threshold.toFixed(2)}</span>
+              <span className={selfStyles.badgeValue}>{s.catboost_threshold.toFixed(2)}</span>
             </span>
-            <input type="range" min={0.5} max={0.99} step={0.01}
-              value={settings.catboost_threshold}
+            <input type="range" min={0.5} max={0.99} step={0.01} value={s.catboost_threshold}
               onChange={(e) => patch({ catboost_threshold: parseFloat(e.target.value) })} />
             <div className={selfStyles.thresholdPresets}>
-              <button
-                className={[selfStyles.presetBtn, settings.catboost_threshold === 0.5 ? selfStyles.presetBtnActive : ""].join(" ")}
-                onClick={() => patch({ catboost_threshold: 0.5 })}
-                title="Минимальный порог — максимальная чувствительность, больше ложных тревог"
-              >
+              <button className={[selfStyles.presetBtn, s.catboost_threshold === 0.5 ? selfStyles.presetBtnActive : ""].join(" ")}
+                onClick={() => patch({ catboost_threshold: 0.5 })} title="Максимальная чувствительность, больше ложных тревог">
                 Макс. защита (0.50)
               </button>
-              <button
-                className={[selfStyles.presetBtn, settings.catboost_threshold === 0.85 ? selfStyles.presetBtnActive : ""].join(" ")}
-                onClick={() => patch({ catboost_threshold: 0.85 })}
-                title="Высокий порог — меньше ложных тревог, только уверенные атаки"
-              >
+              <button className={[selfStyles.presetBtn, s.catboost_threshold === 0.85 ? selfStyles.presetBtnActive : ""].join(" ")}
+                onClick={() => patch({ catboost_threshold: 0.85 })} title="Меньше ложных тревог, только уверенные атаки">
                 Мин. тревог (0.85)
               </button>
             </div>
           </label>
-        </div>
-
-        {/* Base ML directory — auto-derives all paths */}
-        <div className={selfStyles.subBlock}>
-          <div className={selfStyles.subBlockTitle}>
-            Папка ML-репозитория
-            <span className={selfStyles.subBlockHint}>все пути к моделям выводятся автоматически</span>
-          </div>
-          <div className={styles.formGrid}>
-            <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
-              <span>Путь к AnomalyNet-ml</span>
-              <input
-                type="text"
-                value={settings.ml_base_dir ?? ""}
-                placeholder="/opt/anomalynet-ml  или  G:/Диплом/AnomalyNet-ml"
-                onChange={(e) => patch({ ml_base_dir: e.target.value })}
-              />
-            </label>
-          </div>
-          {(settings.ml_base_dir ?? "") && (
-            <div className={selfStyles.mlBasePaths}>
-              <span>Пути выведены автоматически:</span>
-              <code>model/</code> <code>artifacts/</code> <code>stage2_multiclass/models/catboost/</code>{" "}
-              <code>stage3_cic2023/</code> <code>general_network/</code>
-            </div>
-          )}
-        </div>
-
-        {/* Paths sub-block */}
-        <div className={selfStyles.subBlock}>
-          <div className={selfStyles.subBlockTitle}>
-            IoT модели (Stage1 / Stage2 / Stage3)
-            <span className={selfStyles.subBlockHint}>переопределяют авто-пути если заданы</span>
-          </div>
-          <div className={styles.formGrid}>
-            <label className={styles.field}>
-              <span>{t("settings.catboostModelDir")}</span>
-              <input type="text" value={settings.catboost_model_dir}
-                onChange={(e) => patch({ catboost_model_dir: e.target.value })} />
-            </label>
-            <label className={styles.field}>
-              <span>{t("settings.preprocessingDir")}</span>
-              <input type="text" value={settings.preprocessing_artifacts_dir}
-                onChange={(e) => patch({ preprocessing_artifacts_dir: e.target.value })} />
-            </label>
-          </div>
-        </div>
-
-        {/* General Network paths */}
-        <div className={selfStyles.subBlock}>
-          <div className={selfStyles.subBlockTitle}>General Network модели (CICIDS 2017 — для ПК/домашней сети)</div>
-          <div className={styles.formGrid}>
-            <label className={styles.field}>
-              <span>General Stage1 модель</span>
-              <input type="text" value={settings.catboost_general_model_dir}
-                placeholder="…/general_stage1/catboost"
-                onChange={(e) => patch({ catboost_general_model_dir: e.target.value })} />
-            </label>
-            <label className={styles.field}>
-              <span>General Stage2 модель</span>
-              <input type="text" value={settings.catboost_general_stage2_dir}
-                placeholder="…/general_stage2/catboost"
-                onChange={(e) => patch({ catboost_general_stage2_dir: e.target.value })} />
-            </label>
-            <label className={styles.field}>
-              <span>General артефакты</span>
-              <input type="text" value={settings.catboost_general_artifacts_dir}
-                placeholder="…/general_network/artifacts"
-                onChange={(e) => patch({ catboost_general_artifacts_dir: e.target.value })} />
-            </label>
-          </div>
-        </div>
-
-        {/* Dir viewer sub-block */}
-        <ModelDirsViewer settings={settings} />
-
-        <div className={styles.formGrid}>
           <label className={styles.toggleField}>
-            <input
-              type="checkbox"
-              checked={settings.auto_block}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setShowAutoBlockConfirm(true);
-                } else {
-                  patch({ auto_block: false });
-                }
-              }}
-            />
+            <input type="checkbox" checked={s.auto_block}
+              onChange={(e) => { if (e.target.checked) setShowAutoBlockConfirm(true); else patch({ auto_block: false }); }} />
             <span>{t("settings.autoBlock")}</span>
           </label>
           <label className={styles.field}>
             <span>Уровень авто-блокировки</span>
-            <select
-              value={settings.auto_block_level ?? "anomaly"}
-              disabled={!settings.auto_block}
-              onChange={(e) => patch({ auto_block_level: e.target.value as "anomaly" | "warning" })}
-            >
+            <select value={s.auto_block_level ?? "anomaly"} disabled={!s.auto_block}
+              onChange={(e) => patch({ auto_block_level: e.target.value as "anomaly" | "warning" })}>
               <option value="anomaly">Только аномалии (score ≥ 0.85) — консервативно</option>
               <option value="warning">Предупреждения + аномалии (score ≥ 0.70) — агрессивно</option>
             </select>
           </label>
           <label className={styles.toggleField}>
-            <input
-              type="checkbox"
-              checked={settings.auto_unblock ?? false}
-              disabled={!settings.auto_block}
-              onChange={(e) => patch({ auto_unblock: e.target.checked })}
-            />
+            <input type="checkbox" checked={s.auto_unblock ?? false} disabled={!s.auto_block}
+              onChange={(e) => patch({ auto_unblock: e.target.checked })} />
             <span>Авто-разблокировка через cooldown</span>
           </label>
           <label className={styles.field}>
-            <span>
-              Cooldown (мин)
-              <span className={selfStyles.badgeValue}>{settings.auto_unblock_cooldown_min ?? 10}</span>
-            </span>
-            <input
-              type="number" min={1} max={120}
-              value={settings.auto_unblock_cooldown_min ?? 10}
-              disabled={!settings.auto_block || !settings.auto_unblock}
-              onChange={(e) => patch({ auto_unblock_cooldown_min: Math.min(120, Math.max(1, Number(e.target.value))) })}
-            />
+            <span>Cooldown (мин)<span className={selfStyles.badgeValue}>{s.auto_unblock_cooldown_min ?? 10}</span></span>
+            <input type="number" min={1} max={120} value={s.auto_unblock_cooldown_min ?? 10}
+              disabled={!s.auto_block || !s.auto_unblock}
+              onChange={(e) => patch({ auto_unblock_cooldown_min: Math.min(120, Math.max(1, Number(e.target.value))) })} />
           </label>
-        </div>{/* end formGrid */}
-      </div>{/* end group */}
+        </div>
+      </div>
 
-      {/* ── Active pipeline / Detection mode ── */}
+      {/* ── Active pipeline ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>Активный pipeline</div>
         <div style={{ fontSize: "12.5px", color: "var(--text-secondary)", lineHeight: 1.7, padding: "4px 0" }}>
@@ -389,39 +273,29 @@ export function SettingsView() {
               </code>
               {s.active_model_id === "plugin:advanced" && " — Stage1 → Stage3 IoT2023 (46 признаков, Macro F1=0.82)"}
               {s.active_model_id === "plugin:simple"   && " — Stage1 → Stage2 (71 признак, 8 классов)"}
-              {s.active_model_id === "plugin:fast"     && " — Stage1 бинарный (71 признак, минимальная задержка)"}
+              {s.active_model_id === "plugin:fast"     && " — Stage1 бинарный (минимальная задержка)"}
             </>
           ) : (
             <>
-              <strong>Стандартная модель:</strong>{" "}
+              <strong>Модель:</strong>{" "}
               <code style={{ background: "var(--surface-3)", borderRadius: 4, padding: "1px 6px", fontFamily: "monospace", fontSize: 11 }}>
                 {s.active_model_id}
               </code>
-              {" — "}
-              {s.detection_mode === "advanced"
-                ? "Advanced: Stage1 → Stage3 IoT2023 (71+46 признаков)"
-                : s.detection_mode === "simple"
-                ? "Simple: Stage1 → Stage2 (71 признак, 8 классов)"
-                : "Binary: только Stage1 (71 признак)"}
             </>
           )}
           <span style={{ marginLeft: 8, opacity: 0.45, fontSize: 11 }}>— сменить через «Выбрать модель»</span>
         </div>
       </div>
 
-      {/* ── IP management: two-column table ── */}
+      {/* ── IP management ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>Управление IP-адресами</div>
         <div className={selfStyles.ipTableGrid}>
-
-          {/* Blocked IPs column */}
           <div className={selfStyles.ipColumn}>
             <div className={selfStyles.ipColumnHeader}>
               <span>Заблокированные IP</span>
               {blockedIps.length > 0 && (
-                <button className={selfStyles.clearAllBtn} onClick={() => void handleUnblockAll()}>
-                  Разблокировать все
-                </button>
+                <button className={selfStyles.clearAllBtn} onClick={() => void handleUnblockAll()}>Разблокировать все</button>
               )}
             </div>
             {blockedIps.length === 0 ? (
@@ -431,58 +305,39 @@ export function SettingsView() {
                 {blockedIps.map((entry) => (
                   <div key={entry.ip} className={selfStyles.ipRow}>
                     <span className={selfStyles.ipAddr}>{entry.ip}</span>
-                    <span className={selfStyles.ipMeta}>
-                      {new Date(entry.blocked_at).toLocaleTimeString("ru-RU")}
-                    </span>
-                    <button className={selfStyles.ipRemoveBtn} onClick={() => void handleUnblock(entry.ip)}>
-                      ×
-                    </button>
+                    <span className={selfStyles.ipMeta}>{new Date(entry.blocked_at).toLocaleTimeString("ru-RU")}</span>
+                    <button className={selfStyles.ipRemoveBtn} onClick={() => void handleUnblock(entry.ip)}>×</button>
                   </div>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Whitelist column */}
           <div className={selfStyles.ipColumn}>
             <div className={selfStyles.ipColumnHeader}>
               <span>Белый список <span className={selfStyles.whitelistHint}>не блокируются</span></span>
-              {(settings.whitelist_ips ?? []).length > 0 && (
-                <button className={selfStyles.clearAllBtn}
-                  onClick={() => patch({ whitelist_ips: [] })}>
-                  Очистить всё
-                </button>
+              {(s.whitelist_ips ?? []).length > 0 && (
+                <button className={selfStyles.clearAllBtn} onClick={() => patch({ whitelist_ips: [] })}>Очистить всё</button>
               )}
             </div>
             <div className={selfStyles.ipAddRow}>
-              <input
-                className={selfStyles.ipAddInput}
-                type="text"
-                value={whitelistInput}
-                placeholder="Введите IP-адрес"
-                onChange={(e) => setWhitelistInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") addWhitelistIp(); }}
-              />
-              <button className={selfStyles.ipAddBtn} onClick={addWhitelistIp}>
-                Добавить
-              </button>
+              <input className={selfStyles.ipAddInput} type="text" value={whitelistInput}
+                placeholder="Введите IP-адрес" onChange={(e) => setWhitelistInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addWhitelistIp(); }} />
+              <button className={selfStyles.ipAddBtn} onClick={addWhitelistIp}>Добавить</button>
             </div>
-            {(settings.whitelist_ips ?? []).length === 0 ? (
+            {(s.whitelist_ips ?? []).length === 0 ? (
               <p className={selfStyles.emptyList}>Список пуст</p>
             ) : (
               <div className={selfStyles.ipList}>
-                {(settings.whitelist_ips ?? []).map((ip) => (
+                {(s.whitelist_ips ?? []).map((ip) => (
                   <div key={ip} className={selfStyles.ipRow}>
                     <span className={selfStyles.ipAddr}>{ip}</span>
-                    <button className={selfStyles.ipRemoveBtn} onClick={() => removeWhitelistIp(ip)}>
-                      ×
-                    </button>
+                    <button className={selfStyles.ipRemoveBtn} onClick={() => removeWhitelistIp(ip)}>×</button>
                   </div>
                 ))}
               </div>
             )}
           </div>
-
         </div>
       </div>
 
@@ -492,38 +347,28 @@ export function SettingsView() {
           <div className={selfStyles.confirmDialog}>
             <h3>⚠ Включить авто-блокировку?</h3>
             <p>
-              Система будет автоматически блокировать IP-адреса через <code>iptables</code> при
-              обнаружении атак. Если ваш IP не в белом списке — вы можете заблокировать сами себя.
+              Система будет автоматически блокировать IP через <code>iptables</code>.
+              Если ваш IP не в белом списке — вы можете заблокировать себя.
             </p>
             <div className={selfStyles.confirmIpRow}>
               <label>Добавить ваш IP в белый список (необязательно):</label>
-              <input
-                type="text"
-                value={confirmIp}
-                placeholder="например: 1.2.3.4"
+              <input type="text" value={confirmIp} placeholder="например: 1.2.3.4"
                 onChange={(e) => setConfirmIp(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") {
-                  const ip = confirmIp.trim();
-                  const list = settings.whitelist_ips ?? [];
+                  const ip = confirmIp.trim(); const list = s.whitelist_ips ?? [];
                   patch({ auto_block: true, whitelist_ips: ip && !list.includes(ip) ? [...list, ip] : list });
                   setShowAutoBlockConfirm(false); setConfirmIp("");
-                }}}
-                autoFocus
-              />
+                }}} autoFocus />
             </div>
             <div className={selfStyles.confirmButtons}>
-              <button className={selfStyles.confirmBtnSecondary}
-                onClick={() => { setShowAutoBlockConfirm(false); setConfirmIp(""); }}>
-                Отмена
-              </button>
+              <button className={selfStyles.confirmBtnSecondary} onClick={() => { setShowAutoBlockConfirm(false); setConfirmIp(""); }}>Отмена</button>
               <button className={selfStyles.confirmBtnSecondary}
                 onClick={() => { patch({ auto_block: true }); setShowAutoBlockConfirm(false); setConfirmIp(""); }}>
                 Включить без добавления
               </button>
               <button className={selfStyles.confirmBtnPrimary}
                 onClick={() => {
-                  const ip = confirmIp.trim();
-                  const list = settings.whitelist_ips ?? [];
+                  const ip = confirmIp.trim(); const list = s.whitelist_ips ?? [];
                   patch({ auto_block: true, whitelist_ips: ip && !list.includes(ip) ? [...list, ip] : list });
                   setShowAutoBlockConfirm(false); setConfirmIp("");
                 }}>
@@ -537,105 +382,160 @@ export function SettingsView() {
   );
 }
 
-// ── Model directory browser ──────────────────────────────────────────────────
+// ── Models section ────────────────────────────────────────────────────────────
 
-const ML_BASE_RELS: Record<string, string> = {
-  catboost_model_dir:               "model",
-  preprocessing_artifacts_dir:      "artifacts",
-  catboost_secondary_model_dir:     "stage2_multiclass/models/catboost",
-  catboost_stage3_model_dir:        "stage3_cic2023/models/catboost",
-  catboost_stage3_artifacts_dir:    "stage3_cic2023/artifacts",
-  catboost_general_model_dir:       "general_network/models/general_stage1/catboost",
-  catboost_general_stage2_dir:      "general_network/models/general_stage2/catboost",
-  catboost_general_artifacts_dir:   "general_network/artifacts",
-};
-
-function resolveDir(individual: string, base: string, rel: string): string {
-  if (individual) return individual;
-  if (base) return base.replace(/[\\/]+$/, "") + "/" + rel;
-  return "";
-}
-
-type DirEntry = { name: string; is_dir: boolean; size_bytes: number | null };
-type DirResult = { path: string; exists: boolean; error?: string; entries: DirEntry[] };
-
-function ModelDirsViewer({ settings }: { settings: AppSettings }) {
+function ModelsSection({ modelsDir, onSetModelsDir }: { modelsDir: string; onSetModelsDir: (d: string) => void }) {
+  const [packages, setPackages] = useState<ModelPackageInfo[]>([]);
+  const [catalog, setCatalog] = useState<OfficialModelInfo[]>([]);
   const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<Record<string, DirResult>>({});
-  const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadLog, setDownloadLog] = useState<string[]>([]);
+  const [addInput, setAddInput] = useState("");
   const loadedRef = useRef(false);
-  const base = settings.ml_base_dir ?? "";
 
-  const dirs = [
-    { label: "Stage1 модель",        path: resolveDir(settings.catboost_model_dir,            base, ML_BASE_RELS.catboost_model_dir) },
-    { label: "Stage1 артефакты",     path: resolveDir(settings.preprocessing_artifacts_dir,   base, ML_BASE_RELS.preprocessing_artifacts_dir) },
-    { label: "Stage2 модель",        path: resolveDir(settings.catboost_secondary_model_dir,  base, ML_BASE_RELS.catboost_secondary_model_dir) },
-    { label: "Stage3 модель",        path: resolveDir(settings.catboost_stage3_model_dir,     base, ML_BASE_RELS.catboost_stage3_model_dir) },
-    { label: "Stage3 артефакты",     path: resolveDir(settings.catboost_stage3_artifacts_dir, base, ML_BASE_RELS.catboost_stage3_artifacts_dir) },
-    { label: "General Stage1",       path: resolveDir(settings.catboost_general_model_dir,    base, ML_BASE_RELS.catboost_general_model_dir) },
-    { label: "General Stage2",       path: resolveDir(settings.catboost_general_stage2_dir,   base, ML_BASE_RELS.catboost_general_stage2_dir) },
-    { label: "General артефакты",    path: resolveDir(settings.catboost_general_artifacts_dir, base, ML_BASE_RELS.catboost_general_artifacts_dir) },
-  ].filter((d) => d.path);
-
-  async function loadDirs() {
-    if (loadedRef.current) return;
+  async function load() {
+    const [pkgs, cat] = await Promise.all([
+      api.listModelPackages().catch(() => [] as ModelPackageInfo[]),
+      api.getModelCatalog().catch(() => [] as OfficialModelInfo[]),
+    ]);
+    setPackages(pkgs);
+    setCatalog(cat);
     loadedRef.current = true;
-    setLoading(true);
-    const res: Record<string, DirResult> = {};
-    await Promise.all(dirs.map(async (d) => {
-      try { res[d.path] = await api.lsDir(d.path); }
-      catch { res[d.path] = { path: d.path, exists: false, entries: [], error: "network error" }; }
-    }));
-    setResults(res);
-    setLoading(false);
   }
 
   function handleToggle() {
-    setOpen((v) => !v);
-    if (!open) loadDirs();
+    const next = !open;
+    setOpen(next);
+    if (next && !loadedRef.current) void load();
   }
+
+  async function handleScan() {
+    setScanning(true);
+    try { await api.scanModels(); await load(); } catch { /* ignore */ }
+    finally { setScanning(false); }
+  }
+
+  async function handleAdd() {
+    const path = addInput.trim();
+    if (!path) return;
+    try {
+      await api.addModelFolder(path);
+      setAddInput("");
+      await load();
+    } catch (e: unknown) {
+      alert((e as Error).message ?? "Ошибка добавления");
+    }
+  }
+
+  async function handleDownload(catalogId: string) {
+    setDownloading(catalogId);
+    setDownloadLog([]);
+    try {
+      const resp = await fetch(`/api/models-manager/download/${catalogId}`, { method: "POST" });
+      if (!resp.body) return;
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const lines = decoder.decode(value).split("\n").filter(Boolean);
+        setDownloadLog((prev) => [...prev, ...lines].slice(-30));
+        if (lines.some((l) => l.startsWith("models_dir_set:"))) {
+          const line = lines.find((l) => l.startsWith("models_dir_set:"))!;
+          onSetModelsDir(line.replace("models_dir_set:", "").trim());
+        }
+      }
+      await load();
+    } catch { /* ignore */ }
+    finally { setDownloading(null); }
+  }
+
+  const installedIds = new Set(packages.map((p) => p.id));
 
   return (
     <div className={selfStyles.dirViewer}>
       <button className={selfStyles.dirViewerToggle} onClick={handleToggle}>
-        {open ? "▾" : "▸"} Просмотр папок моделей
-        {!open && <span className={selfStyles.dirViewerHint}>проверить что файлы на месте</span>}
+        {open ? "▾" : "▸"} Управление моделями
+        {!open && packages.length > 0 && (
+          <span className={selfStyles.dirViewerHint}>{packages.length} установлено</span>
+        )}
+        {!open && packages.length === 0 && !modelsDir && (
+          <span className={selfStyles.dirViewerHint} style={{ color: "var(--text-muted)" }}>не настроено</span>
+        )}
       </button>
+
       {open && (
         <div className={selfStyles.dirViewerContent}>
-          {loading && <p className={selfStyles.dirLoading}>Загрузка...</p>}
-          {dirs.map((d) => {
-            const r = results[d.path];
-            return (
-              <div key={d.path} className={selfStyles.dirBlock}>
-                <div className={selfStyles.dirBlockHeader}>
-                  <span className={selfStyles.dirLabel}>{d.label}</span>
-                  {r && (
-                    <span className={r.exists ? selfStyles.dirExists : selfStyles.dirMissing}>
-                      {r.exists ? "✓ найдена" : "✗ не найдена"}
-                    </span>
-                  )}
-                </div>
-                <code className={selfStyles.dirPath}>{d.path}</code>
-                {r?.error && <p className={selfStyles.dirError}>{r.error}</p>}
-                {r?.exists && r.entries.length > 0 && (
-                  <div className={selfStyles.dirEntries}>
-                    {r.entries.map((e) => (
-                      <span key={e.name} className={`${selfStyles.dirEntry} ${e.is_dir ? selfStyles.dirEntryDir : selfStyles.dirEntryFile}`}>
-                        {e.is_dir ? "📁" : fileIcon(e.name)}{" "}{e.name}
-                        {e.size_bytes !== null && !e.is_dir && (
-                          <span className={selfStyles.dirEntrySize}>{fmtSize(e.size_bytes)}</span>
-                        )}
-                      </span>
-                    ))}
+          {/* Official catalog */}
+          {catalog.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div className={selfStyles.subBlockTitle} style={{ marginBottom: 6 }}>Официальные модели</div>
+              {catalog.map((entry) => {
+                const isInstalled = modelsDir !== "";
+                const isDownloading = downloading === entry.id;
+                return (
+                  <div key={entry.id} className={selfStyles.catalogEntry}>
+                    <div className={selfStyles.catalogEntryMain}>
+                      <strong>{entry.name}</strong>
+                      <span className={selfStyles.catalogMeta}>~{entry.size_mb} MB</span>
+                      {isInstalled && <span className={selfStyles.catalogInstalled}>✓ установлено</span>}
+                    </div>
+                    <p className={selfStyles.catalogDesc}>{entry.description}</p>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6 }}>
+                      <button
+                        className={selfStyles.catalogBtn}
+                        disabled={isDownloading}
+                        onClick={() => void handleDownload(entry.id)}
+                      >
+                        {isDownloading ? "Загрузка..." : isInstalled ? "Обновить" : "Скачать"}
+                      </button>
+                    </div>
+                    {isDownloading && downloadLog.length > 0 && (
+                      <pre className={selfStyles.downloadLog}>{downloadLog.join("\n")}</pre>
+                    )}
                   </div>
-                )}
-                {r?.exists && r.entries.length === 0 && (
-                  <p className={selfStyles.dirEmpty}>Папка пуста</p>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
+
+          {/* Installed packages */}
+          <div className={selfStyles.subBlockTitle} style={{ marginBottom: 6 }}>
+            Установленные пакеты
+            <button className={selfStyles.scanBtn} onClick={() => void handleScan()} disabled={scanning}>
+              {scanning ? "Сканирование..." : "↻ Пересканировать"}
+            </button>
+          </div>
+          {packages.length === 0 ? (
+            <p className={selfStyles.emptyList}>
+              {modelsDir ? "Пакеты не найдены в указанной папке" : "Укажите папку с моделями выше"}
+            </p>
+          ) : (
+            <div className={selfStyles.pkgList}>
+              {packages.map((pkg) => (
+                <div key={pkg.id} className={[selfStyles.pkgRow, pkg.is_valid ? "" : selfStyles.pkgRowInvalid].join(" ")}>
+                  <span className={selfStyles.pkgName}>{pkg.name}</span>
+                  <span className={selfStyles.pkgType}>{pkg.model_type === "binary" ? "binary" : "multiclass"}</span>
+                  <span className={selfStyles.pkgPreprocessor}>{pkg.preprocessor}</span>
+                  {pkg.cascade_next && <span className={selfStyles.pkgCascade}>→ {pkg.cascade_next}</span>}
+                  {!pkg.is_valid && <span className={selfStyles.pkgError}>{pkg.errors[0]}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add from folder */}
+          <div style={{ marginTop: 10 }}>
+            <div className={selfStyles.subBlockTitle} style={{ marginBottom: 4 }}>Добавить папку пакета</div>
+            <div className={selfStyles.ipAddRow}>
+              <input className={selfStyles.ipAddInput} type="text" value={addInput}
+                placeholder="/path/to/my-model-package"
+                onChange={(e) => setAddInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void handleAdd(); }} />
+              <button className={selfStyles.ipAddBtn} onClick={() => void handleAdd()}>Добавить</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -646,18 +546,5 @@ function fmtTraffic(b: number): string {
   if (b >= 1_000_000_000) return `${(b / 1_000_000_000).toFixed(1)} GB`;
   if (b >= 1_000_000)     return `${(b / 1_000_000).toFixed(0)} MB`;
   if (b >= 1_000)         return `${(b / 1_000).toFixed(0)} KB`;
-  return `${b} B`;
-}
-
-function fileIcon(name: string): string {
-  if (name.endsWith(".cbm") || name.endsWith(".pkl") || name.endsWith(".joblib")) return "🧠";
-  if (name.endsWith(".json")) return "📋";
-  if (name.endsWith(".png"))  return "🖼";
-  return "📄";
-}
-
-function fmtSize(b: number): string {
-  if (b >= 1_000_000) return `${(b / 1_000_000).toFixed(1)} MB`;
-  if (b >= 1_000)     return `${(b / 1_000).toFixed(0)} KB`;
   return `${b} B`;
 }
