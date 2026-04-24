@@ -99,11 +99,6 @@ export function AboutView() {
           <button className={styles.btnPrimary} onClick={() => void handleCheck()} disabled={checking || applying}>
             {checking ? <><span className={styles.spinner} /> Проверяем...</> : "Проверить обновления"}
           </button>
-          {checkResult?.has_any_update && (
-            <button className={styles.btnApply} onClick={() => void handleApply()} disabled={applying}>
-              {applying ? <><span className={styles.spinner} /> Обновляем...</> : "Применить обновления"}
-            </button>
-          )}
           <RestartButton />
           <ReinstallButton />
           <UninstallButton />
@@ -117,6 +112,11 @@ export function AboutView() {
             <RepoStatus label="ML (модели)"       info={checkResult.ml} />
             {!checkResult.has_any_update && (
               <p className={styles.upToDate}>Всё актуально</p>
+            )}
+            {checkResult.has_any_update && (
+              <button className={styles.btnApply} onClick={() => void handleApply()} disabled={applying} style={{ marginTop: 10, alignSelf: "flex-start" }}>
+                {applying ? <><span className={styles.spinner} /> Обновляем...</> : "Применить обновления"}
+              </button>
             )}
           </div>
         )}
@@ -193,7 +193,7 @@ function RestartButton() {
       {state === "pending" ? <><span className={styles.spinner} /> Перезапускаем...</>
        : state === "done"  ? "Перезапускается..."
        : state === "error" ? "Ошибка — только Linux"
-       : "↺ Перезапустить сервис"}
+       : "↺ Перезапустить"}
     </button>
   );
 }
