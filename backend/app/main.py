@@ -39,8 +39,9 @@ async def lifespan(app: FastAPI):
 
     # Device discovery
     is_mock = getattr(service.settings, "run_mode", "mock") == "mock"
+    iface = getattr(service.settings, "interface_name", None) or None
     tracker = DeviceTracker()
-    scanner = NetworkScanner(is_mock=is_mock)
+    scanner = NetworkScanner(is_mock=is_mock, interface=iface)
     app.state.device_tracker = tracker
     app.state.network_scanner = scanner
     service.set_device_tracker(tracker)

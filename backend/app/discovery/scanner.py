@@ -7,6 +7,8 @@ import socket
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+import psutil
+
 from app.discovery.classifier import guess_device_type
 from app.discovery.models import DeviceInfo
 from app.discovery.oui import get_oui_lookup
@@ -15,6 +17,48 @@ if TYPE_CHECKING:
     from app.discovery.tracker import DeviceTracker
 
 logger = logging.getLogger(__name__)
+
+
+def detect_local_networks(interface: str | None = None) -> list[str]:
+    """Return list of CIDR networks for local non-loopback interfaces.
+
+    If *interface* is specified, only that interface is used.
+    Falls back to all suitable interfaces if the given one has no IPv4 address.
+    """
+    addrs = psutil.net_if_addrs()
+    candidates: list[str] = []
+
+    iface_names = [interface] if interface else list(addrs.keys())
+
+    for iface in iface_names:
+        if iface not in addrs:
+            continue
+        for addr in addrs[iface]:
+            # AF_INET = 2
+            if addr.family != 2:
+                continue
+            ip = addr.address
+            netmask = addr.netmask
+            if not ip or not netmask:
+                continue
+            # Skip loopback and link-local
+            ip_obj = ipaddress.ip_address(ip)
+            if ip_obj.is_loopback or ip_obj.is_link_local:
+                continue
+            try:
+                network = ipaddress.IPv4Network(f"{ip}/{netmask}", strict=False)
+                # Skip tiny or huge networks
+                if network.prefixlen < 8 or network.prefixlen > 30:
+                    continue
+                candidates.append(str(network))
+            except ValueError:
+                continue
+
+    if not candidates and interface:
+        # Fallback: retry without interface filter
+        return detect_local_networks(None)
+
+    return candidates
 
 MOCK_DEVICES: list[tuple[str, str, str, str, str, bool, bool]] = [
     # (mac,                  ip,             vendor,      device_type,   hostname,      is_suspicious, is_online)
@@ -65,14 +109,31 @@ def _scan_arp(network: str) -> list[DeviceInfo]:
 
 
 class NetworkScanner:
-    def __init__(self, is_mock: bool = False, network: str = "192.168.1.0/24") -> None:
+    def __init__(self, is_mock: bool = False, interface: str | None = None) -> None:
         self._is_mock = is_mock
-        self._network = network
+        self._interface = interface  # None = auto-detect
+
+    def _get_networks(self) -> list[str]:
+        networks = detect_local_networks(self._interface)
+        if networks:
+            logger.info("ARP scan targets: %s", networks)
+        else:
+            logger.warning("No suitable network found for ARP scan")
+        return networks
 
     def scan_once(self) -> list[DeviceInfo]:
         if self._is_mock:
             return self._mock_devices()
-        return _scan_arp(self._network)
+        networks = self._get_networks()
+        if not networks:
+            return []
+        all_devices: list[DeviceInfo] = []
+        for net in networks:
+            try:
+                all_devices.extend(_scan_arp(net))
+            except Exception as exc:
+                logger.warning("ARP scan failed for %s: %s", net, exc)
+        return all_devices
 
     def _mock_devices(self) -> list[DeviceInfo]:
         now = datetime.now()
