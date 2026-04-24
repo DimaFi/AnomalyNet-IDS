@@ -61,6 +61,8 @@ function DevicePanel({ device, onClose, onUpdate }: {
   const [nameInput, setNameInput] = useState(device.custom_name || device.hostname || "");
   const [typeInput, setTypeInput] = useState(device.device_type);
   const [loading, setLoading] = useState(false);
+  const [probeResult, setProbeResult] = useState<{ reachable: boolean; latency_ms: number | null; open_ports: number[] } | null>(null);
+  const [probing, setProbing] = useState(false);
 
   useEffect(() => {
     api.getDeviceHistory(device.mac).then(setHistory).catch(() => {});
@@ -94,6 +96,23 @@ function DevicePanel({ device, onClose, onUpdate }: {
     setLoading(true);
     try { await api.blockIp(device.ip); onUpdate(); }
     catch { /* ignore */ } finally { setLoading(false); }
+  };
+
+  const handleRemove = async () => {
+    if (!confirm(`Удалить устройство ${device.display_name}?`)) return;
+    setLoading(true);
+    try { await api.removeDevice(device.mac); onClose(); onUpdate(); }
+    catch { /* ignore */ } finally { setLoading(false); }
+  };
+
+  const handleProbe = async () => {
+    setProbing(true);
+    setProbeResult(null);
+    try {
+      const r = await api.probeDevice(device.mac);
+      setProbeResult(r);
+    } catch { setProbeResult({ reachable: false, latency_ms: null, open_ports: [] }); }
+    finally { setProbing(false); }
   };
 
   return (
@@ -166,6 +185,30 @@ function DevicePanel({ device, onClose, onUpdate }: {
           </div>
         )}
 
+        {/* Probe */}
+        <div className={s.panelSection}>
+          <div className={s.panelSectionTitle}>Тест доступности</div>
+          <button className={s.actionBtn} onClick={handleProbe} disabled={probing}>
+            {probing ? "⟳ Проверяю..." : "⚡ Отправить запрос"}
+          </button>
+          {probeResult && (
+            <div style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
+              <div className={s.infoRow}>
+                <span className={s.infoLabel}>Доступен</span>
+                <span className={s.infoValue} style={{ color: probeResult.reachable ? "var(--ok)" : "var(--danger-strong)" }}>
+                  {probeResult.reachable ? `✓ да${probeResult.latency_ms != null ? ` (${probeResult.latency_ms} мс)` : ""}` : "✗ нет"}
+                </span>
+              </div>
+              {probeResult.open_ports.length > 0 && (
+                <div className={s.infoRow}>
+                  <span className={s.infoLabel}>Открытые порты</span>
+                  <span className={s.infoValue}>{probeResult.open_ports.join(", ")}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Rename */}
         <div className={s.panelSection}>
           <div className={s.panelSectionTitle}>Настройки</div>
@@ -207,6 +250,10 @@ function DevicePanel({ device, onClose, onUpdate }: {
             ↺ Сбросить статус
           </button>
         )}
+        <button className={`${s.actionBtn}`} onClick={handleRemove} disabled={loading}
+          style={{ color: "var(--text-muted)", borderColor: "var(--border)" }}>
+          🗑 Удалить устройство
+        </button>
       </div>
     </aside>
   );
@@ -214,9 +261,66 @@ function DevicePanel({ device, onClose, onUpdate }: {
 
 // ── Main view ─────────────────────────────────────────────────────────────────
 
+function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const [ip, setIp] = useState("");
+  const [mac, setMac] = useState("");
+  const [name, setName] = useState("");
+  const [type, setType] = useState("unknown");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleAdd = async () => {
+    if (!ip.trim()) { setError("IP обязателен"); return; }
+    setLoading(true);
+    setError("");
+    try {
+      await api.addDevice(ip.trim(), mac.trim(), name.trim(), type);
+      onAdded();
+      onClose();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Ошибка");
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
+      <div style={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 24, width: 360, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>Добавить устройство</span>
+          <button className={s.panelClose} onClick={onClose}>✕</button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>IP-адрес *</div>
+          <input className={s.renameInput} value={ip} onChange={e => setIp(e.target.value)}
+            placeholder="192.168.1.100" autoFocus />
+          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>MAC-адрес (необязательно — будет определён автоматически)</div>
+          <input className={s.renameInput} value={mac} onChange={e => setMac(e.target.value)}
+            placeholder="AA:BB:CC:DD:EE:FF" />
+          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Имя</div>
+          <input className={s.renameInput} value={name} onChange={e => setName(e.target.value)}
+            placeholder="Мой роутер" />
+          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Тип</div>
+          <select className={s.typeSelect} value={type} onChange={e => setType(e.target.value)}>
+            {Object.entries(DEVICE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        {error && <div style={{ fontSize: 11, color: "var(--danger-strong)" }}>{error}</div>}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button className={s.actionBtn} onClick={onClose}>Отмена</button>
+          <button className={s.actionBtn} style={{ background: "var(--accent)", color: "#fff", border: "none" }}
+            onClick={handleAdd} disabled={loading}>
+            {loading ? "Добавляю..." : "Добавить"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NetworkMapView() {
   const { devices, selectedMac, deviceStats, setDevices, setSelectedMac, setDeviceStats } = useAppStore();
   const [scanning, setScanning] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   const selected = devices.find((d) => d.mac === selectedMac) ?? null;
@@ -274,6 +378,9 @@ export default function NetworkMapView() {
         <button className={s.scanBtn} onClick={handleScan} disabled={scanning}>
           {scanning ? "⟳ Сканирование..." : "⟳ Сканировать"}
         </button>
+        <button className={s.scanBtn} onClick={() => setShowAddModal(true)}>
+          + Добавить
+        </button>
       </div>
 
       {/* Content */}
@@ -294,6 +401,10 @@ export default function NetworkMapView() {
           />
         )}
       </div>
+
+      {showAddModal && (
+        <AddDeviceModal onClose={() => setShowAddModal(false)} onAdded={loadDevices} />
+      )}
     </div>
   );
 }

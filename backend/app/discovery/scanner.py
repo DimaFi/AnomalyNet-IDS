@@ -3,7 +3,10 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import platform
 import socket
+import subprocess
+import time
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -72,6 +75,56 @@ MOCK_DEVICES: list[tuple[str, str, str, str, str, bool, bool]] = [
 ]
 
 
+def probe_host(ip: str, ports: list[int] | None = None) -> dict:
+    """Ping + port scan a host. Returns reachable, latency_ms, open_ports."""
+    t0 = time.monotonic()
+    reachable = False
+    latency_ms: float | None = None
+
+    # ICMP ping
+    system = platform.system().lower()
+    if system == "windows":
+        cmd = ["ping", "-n", "1", "-w", "1000", ip]
+    else:
+        cmd = ["ping", "-c", "1", "-W", "1", ip]
+    try:
+        result = subprocess.run(cmd, capture_output=True, timeout=3)
+        if result.returncode == 0:
+            reachable = True
+            latency_ms = round((time.monotonic() - t0) * 1000, 1)
+    except Exception:
+        pass
+
+    # Port probe (fallback if ping blocked)
+    check_ports = ports or [80, 443, 22, 8080, 554, 23, 8443]
+    open_ports: list[int] = []
+    for port in check_ports:
+        try:
+            with socket.create_connection((ip, port), timeout=0.5):
+                open_ports.append(port)
+                if not reachable:
+                    reachable = True
+                    latency_ms = round((time.monotonic() - t0) * 1000, 1)
+        except Exception:
+            pass
+
+    return {"reachable": reachable, "latency_ms": latency_ms, "open_ports": open_ports}
+
+
+def arp_single_ip(ip: str) -> str | None:
+    """ARP-lookup a single IP → return MAC or None."""
+    try:
+        from scapy.layers.l2 import ARP, Ether  # type: ignore
+        from scapy.sendrecv import srp  # type: ignore
+        pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=ip)
+        answered, _ = srp(pkt, timeout=2, retry=1, verbose=False)
+        if answered:
+            return answered[0][1].hwsrc.upper()
+    except Exception:
+        pass
+    return None
+
+
 def _resolve_hostname(ip: str) -> str:
     try:
         return socket.gethostbyaddr(ip)[0]
@@ -123,7 +176,8 @@ class NetworkScanner:
 
     def scan_once(self) -> list[DeviceInfo]:
         if self._is_mock:
-            return self._mock_devices()
+            # In mock mode ARP is not available — return empty, user adds manually
+            return []
         networks = self._get_networks()
         if not networks:
             return []
@@ -134,17 +188,6 @@ class NetworkScanner:
             except Exception as exc:
                 logger.warning("ARP scan failed for %s: %s", net, exc)
         return all_devices
-
-    def _mock_devices(self) -> list[DeviceInfo]:
-        now = datetime.now()
-        result = []
-        for mac, ip, vendor, device_type, hostname, is_suspicious, is_online in MOCK_DEVICES:
-            result.append(DeviceInfo(
-                mac=mac, ip=ip, vendor=vendor, device_type=device_type,
-                hostname=hostname, first_seen=now, last_seen=now,
-                is_online=is_online, is_suspicious=is_suspicious,
-            ))
-        return result
 
     async def start_background_scan(
         self,

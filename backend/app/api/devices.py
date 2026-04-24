@@ -78,6 +78,69 @@ async def trigger_scan(
         return {"success": False, "error": str(exc)}
 
 
+@devices_router.post("/devices/add")
+async def add_device(
+    body: AddDeviceRequest,
+    tracker: DeviceTracker = Depends(get_device_tracker),
+) -> dict:
+    from app.discovery.scanner import arp_single_ip
+    mac = body.mac.strip()
+    # If no MAC provided, try ARP lookup
+    if not mac:
+        try:
+            found = await asyncio.get_event_loop().run_in_executor(None, arp_single_ip, body.ip)
+            mac = found or _generate_placeholder_mac(body.ip)
+        except Exception:
+            mac = _generate_placeholder_mac(body.ip)
+
+    mac = mac.upper()
+    dev = tracker.add_device_manual(
+        ip=body.ip, mac=mac,
+        custom_name=body.custom_name,
+        device_type=body.device_type,
+        vendor=body.vendor,
+    )
+    return {"success": True, "device": dev.to_dict()}
+
+
+@devices_router.delete("/devices/{mac}")
+async def remove_device(
+    mac: str,
+    tracker: DeviceTracker = Depends(get_device_tracker),
+) -> dict:
+    ok = tracker.remove_device(mac)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return {"success": True}
+
+
+@devices_router.post("/devices/{mac}/probe")
+async def probe_device(
+    mac: str,
+    tracker: DeviceTracker = Depends(get_device_tracker),
+) -> dict:
+    dev = tracker.get_device_by_mac(mac)
+    if dev is None:
+        raise HTTPException(status_code=404, detail="Device not found")
+    from app.discovery.scanner import probe_host
+    result = await asyncio.get_event_loop().run_in_executor(None, probe_host, dev.ip)
+    # Update open ports in tracker
+    if result["open_ports"]:
+        dev.open_ports = result["open_ports"]
+    return {"ip": dev.ip, **result}
+
+
+def _generate_placeholder_mac(ip: str) -> str:
+    parts = ip.split(".")
+    try:
+        octets = [int(p) for p in parts]
+        return f"02:00:{octets[0]:02X}:{octets[1]:02X}:{octets[2]:02X}:{octets[3]:02X}"
+    except Exception:
+        import uuid
+        raw = uuid.uuid4().hex[:12]
+        return ":".join(raw[i:i+2].upper() for i in range(0, 12, 2))
+
+
 @devices_router.get("/devices/{mac}/history")
 async def device_alert_history(
     mac: str,
@@ -87,6 +150,14 @@ async def device_alert_history(
     if dev is None:
         raise HTTPException(status_code=404, detail="Device not found")
     return tracker.get_alert_history(mac)
+
+
+class AddDeviceRequest(BaseModel):
+    ip: str
+    mac: str = ""
+    custom_name: str = ""
+    device_type: str = "unknown"
+    vendor: str = "Unknown"
 
 
 class LabelRequest(BaseModel):

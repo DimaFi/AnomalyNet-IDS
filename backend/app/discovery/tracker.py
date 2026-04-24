@@ -135,6 +135,46 @@ class DeviceTracker:
                 dev.custom_name = label
                 dev.device_type = device_type
 
+    def add_device_manual(
+        self,
+        ip: str,
+        mac: str,
+        custom_name: str = "",
+        device_type: str = "unknown",
+        vendor: str = "Unknown",
+    ) -> DeviceInfo:
+        mac = mac.upper()
+        now = datetime.now()
+        with self._lock:
+            if mac in self._devices:
+                dev = self._devices[mac]
+                dev.ip = ip
+                if custom_name:
+                    dev.custom_name = custom_name
+                if device_type != "unknown":
+                    dev.device_type = device_type
+                dev.last_seen = now
+            else:
+                dev = DeviceInfo(
+                    mac=mac, ip=ip, vendor=vendor,
+                    device_type=device_type, custom_name=custom_name,
+                    first_seen=now, last_seen=now, is_online=True,
+                )
+                self._devices[mac] = dev
+                self._alert_history[mac] = deque(maxlen=50)
+            self._ip_to_mac[ip] = mac
+        return dev
+
+    def remove_device(self, mac: str) -> bool:
+        mac = mac.upper()
+        with self._lock:
+            if mac not in self._devices:
+                return False
+            dev = self._devices.pop(mac)
+            self._ip_to_mac.pop(dev.ip, None)
+            self._alert_history.pop(mac, None)
+        return True
+
     def set_whitelisted(self, mac: str, value: bool) -> None:
         with self._lock:
             dev = self._devices.get(mac.upper())

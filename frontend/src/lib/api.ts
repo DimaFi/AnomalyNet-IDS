@@ -159,4 +159,16 @@ export const api = {
     request<{ success: boolean }>(`/api/devices/${encodeURIComponent(mac)}/whitelist`, { method: "DELETE" }),
   resetDevice: (mac: string) =>
     request<{ success: boolean }>(`/api/devices/${encodeURIComponent(mac)}/reset`, { method: "POST" }),
+  addDevice: (ip: string, mac: string, custom_name: string, device_type: string) =>
+    request<{ success: boolean; device: Device }>("/api/devices/add", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ ip, mac, custom_name, device_type }),
+    }),
+  removeDevice: (mac: string) =>
+    request<{ success: boolean }>(`/api/devices/${encodeURIComponent(mac)}`, { method: "DELETE" }),
+  probeDevice: (mac: string) =>
+    request<{ ip: string; reachable: boolean; latency_ms: number | null; open_ports: number[] }>(
+      `/api/devices/${encodeURIComponent(mac)}/probe`, { method: "POST" }
+    ),
 };
