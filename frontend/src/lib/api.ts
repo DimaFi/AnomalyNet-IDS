@@ -19,6 +19,7 @@ import type {
   PreprocessorMeta,
   ValidateResponse,
 } from "../types/plugins";
+import type { Device, DeviceStats } from "../types/device";
 
 const jsonHeaders = {
   "Content-Type": "application/json"
@@ -138,4 +139,24 @@ export const api = {
       is_file?: boolean; size_bytes?: number;
       entries: { name: string; is_dir: boolean; size_bytes: number | null }[];
     }>(`/api/fs/ls?path=${encodeURIComponent(path)}`),
+
+  // ── Device / Network Map API ───────────────────────────────────────────────
+  getDevices: (suspiciousOnly = false) =>
+    request<Device[]>(`/api/devices${suspiciousOnly ? "?suspicious_only=true" : ""}`),
+  getDeviceStats: () => request<DeviceStats>("/api/devices/stats"),
+  triggerScan: () => request<{ success: boolean; found?: number; error?: string }>("/api/devices/scan", { method: "POST" }),
+  getDeviceHistory: (mac: string) =>
+    request<import("../types/device").DeviceAlert[]>(`/api/devices/${encodeURIComponent(mac)}/history`),
+  labelDevice: (mac: string, custom_name: string, device_type: string) =>
+    request<{ success: boolean }>(`/api/devices/${encodeURIComponent(mac)}/label`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ custom_name, device_type }),
+    }),
+  whitelistDevice: (mac: string) =>
+    request<{ success: boolean }>(`/api/devices/${encodeURIComponent(mac)}/whitelist`, { method: "POST" }),
+  unwhitelistDevice: (mac: string) =>
+    request<{ success: boolean }>(`/api/devices/${encodeURIComponent(mac)}/whitelist`, { method: "DELETE" }),
+  resetDevice: (mac: string) =>
+    request<{ success: boolean }>(`/api/devices/${encodeURIComponent(mac)}/reset`, { method: "POST" }),
 };

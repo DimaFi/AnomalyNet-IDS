@@ -10,6 +10,7 @@ import type {
   ThemeMode,
   ToastItem
 } from "./types";
+import type { Device, DeviceStats } from "../types/device";
 
 interface AppState {
   view: AppView;
@@ -20,6 +21,10 @@ interface AppState {
   stream: PipelineEvent[];
   toasts: ToastItem[];
   blockedIps: Set<string>;
+  // Network map
+  devices: Device[];
+  selectedMac: string | null;
+  deviceStats: DeviceStats | null;
 
   setView: (view: AppView) => void;
   setHealth: (health: HealthResponse) => void;
@@ -34,6 +39,9 @@ interface AppState {
   dismissToast: (id: string) => void;
   markBlocked: (ip: string) => void;
   markUnblocked: (ip: string) => void;
+  setDevices: (devices: Device[]) => void;
+  setSelectedMac: (mac: string | null) => void;
+  setDeviceStats: (stats: DeviceStats) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -45,6 +53,9 @@ export const useAppStore = create<AppState>((set) => ({
   stream: [],
   toasts: [],
   blockedIps: new Set(),
+  devices: [],
+  selectedMac: null,
+  deviceStats: null,
 
   setView: (view) => set({ view }),
   setHealth: (health) => set({ health }),
@@ -99,5 +110,9 @@ export const useAppStore = create<AppState>((set) => ({
       const next = new Set(state.blockedIps);
       next.delete(ip);
       return { blockedIps: next };
-    })
+    }),
+
+  setDevices: (devices) => set({ devices }),
+  setSelectedMac: (selectedMac) => set({ selectedMac }),
+  setDeviceStats: (deviceStats) => set({ deviceStats }),
 }));

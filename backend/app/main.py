@@ -12,10 +12,13 @@ from fastapi.responses import FileResponse
 
 from app.api.autostart import autostart_router
 from app.api.block import block_router
+from app.api.devices import devices_router, ws_devices_endpoint
 from app.api.plugins import plugins_router
 from app.api.routes import router
 from app.api.update import update_router
 from app.core import APP_ROOT
+from app.discovery.scanner import NetworkScanner
+from app.discovery.tracker import DeviceTracker
 from app.pipeline.service import PipelineService
 from app.storage.json_store import JsonFileStore
 
@@ -34,10 +37,20 @@ async def lifespan(app: FastAPI):
         import logging
         logging.getLogger(__name__).warning("Plugin registry init failed: %s", exc)
 
+    # Device discovery
+    is_mock = getattr(service.settings, "run_mode", "mock") == "mock"
+    tracker = DeviceTracker()
+    scanner = NetworkScanner(is_mock=is_mock)
+    app.state.device_tracker = tracker
+    app.state.network_scanner = scanner
+    service.set_device_tracker(tracker)
+
     await service.start()
+    scan_task = asyncio.create_task(scanner.start_background_scan(tracker=tracker, interval=60))
     try:
         yield
     finally:
+        scan_task.cancel()
         await service.shutdown()
 
 
@@ -52,6 +65,7 @@ app.add_middleware(
 app.include_router(router)
 app.include_router(autostart_router)
 app.include_router(block_router)
+app.include_router(devices_router)
 app.include_router(update_router)
 app.include_router(plugins_router)
 
@@ -71,6 +85,12 @@ if _DIST.exists():
         if candidate.is_file():
             return FileResponse(str(candidate))
         return FileResponse(str(_DIST / "index.html"))
+
+
+@app.websocket("/ws/devices")
+async def devices_ws(websocket: WebSocket) -> None:
+    tracker: DeviceTracker = websocket.app.state.device_tracker
+    await ws_devices_endpoint(websocket, tracker)
 
 
 @app.websocket("/ws/events")

@@ -4,6 +4,7 @@ import { ToastContainer } from "../components/ToastContainer";
 import { ModelPresetPicker } from "../components/ModelPresetPicker";
 import { AboutView } from "../features/about/AboutView";
 import { DashboardView } from "../features/dashboard/DashboardView";
+import NetworkMapView from "../features/network/NetworkMapView";
 import { PluginsView } from "../features/plugins/PluginsView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StreamView } from "../features/stream/StreamView";
@@ -13,11 +14,12 @@ import { useAppStore } from "./store";
 import type { AppSettings, ModelPreset } from "./types";
 import styles from "./App.module.css";
 
-type ViewKey = "dashboard" | "stream" | "plugins" | "settings" | "about";
+type ViewKey = "dashboard" | "stream" | "network" | "plugins" | "settings" | "about";
 
 const viewMap: Record<ViewKey, React.ComponentType> = {
   dashboard: DashboardView,
   stream:    StreamView,
+  network:   NetworkMapView,
   plugins:   PluginsView,
   settings:  SettingsView,
   about:     AboutView,
@@ -43,6 +45,19 @@ function IconStream() {
   );
 }
 
+
+function IconNetwork() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="4" cy="19" r="2" />
+      <circle cx="20" cy="19" r="2" />
+      <line x1="12" y1="7" x2="4" y2="17" />
+      <line x1="12" y1="7" x2="20" y2="17" />
+      <line x1="4" y1="19" x2="20" y2="19" />
+    </svg>
+  );
+}
 
 function IconPlugins() {
   return (
@@ -76,6 +91,7 @@ function IconAbout() {
 const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = [
   { key: "dashboard", Icon: IconDashboard, label: "Dashboard" },
   { key: "stream",    Icon: IconStream,    label: "Stream" },
+  { key: "network",   Icon: IconNetwork,   label: "Карта сети" },
   { key: "plugins",   Icon: IconPlugins,   label: "Plugins" },
   { key: "settings",  Icon: IconSettings,  label: "Settings" },
   { key: "about",     Icon: IconAbout,     label: "About" },
@@ -84,6 +100,7 @@ const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = 
 const PAGE_TITLES: Record<ViewKey, string> = {
   dashboard: "Dashboard",
   stream:    "Live Stream",
+  network:   "Карта сети",
   plugins:   "Плагины",
   settings:  "Settings",
   about:     "О программе",

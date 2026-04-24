@@ -38,6 +38,8 @@ class PipelineService:
         self._cache_key: tuple | None = None  # (active_model_id, relevant settings hash)
         # Blocked IPs registry — tracks IPs blocked via iptables by this service
         self._blocked_ips_registry: dict[str, str] = {}  # ip → ISO timestamp
+        # DeviceTracker hook (optional — set from main.py lifespan)
+        self._device_tracker = None
         # Rolling counters for debug stats (reset on restart)
         self._total_events: int = 0
         self._label_counts: dict[str, int] = {"normal": 0, "warning": 0, "anomaly": 0}
@@ -214,6 +216,12 @@ class PipelineService:
                     self._store.append_history(pipeline_event)
                     await self._fan_out(pipeline_event)
 
+                    if self._device_tracker is not None:
+                        try:
+                            self._device_tracker.on_flow_event(event, inference)
+                        except Exception:
+                            pass
+
                 # Apply retention at most once per hour to avoid frequent filesystem ops
                 now = time.monotonic()
                 if now - self._last_retention_check > 3600:
@@ -348,6 +356,9 @@ class PipelineService:
             interface=", ".join(ifaces),
             capture_status=self._status,
         )
+
+    def set_device_tracker(self, tracker) -> None:
+        self._device_tracker = tracker
 
     def subscribe(self) -> asyncio.Queue[PipelineEvent]:
         queue: asyncio.Queue[PipelineEvent] = asyncio.Queue(maxsize=100)
