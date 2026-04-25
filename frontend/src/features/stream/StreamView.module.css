@@ -448,3 +448,97 @@
   padding: 6px 12px;
   font-size: 12px;
 }
+
+/* ── Priority row states ── */
+.rowInfo td:first-child { opacity: 0.7; }
+.rowInfo { color: #6b7280; }
+
+/* ── Priority badge in table ── */
+.prioBadge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  cursor: default;
+}
+.prio-critical { color: #ef4444; background: rgba(239,68,68,0.1); }
+.prio-high     { color: #f97316; background: rgba(249,115,22,0.1); }
+.prio-medium   { color: #eab308; background: rgba(234,179,8,0.1);  }
+.prio-info     { color: var(--text-muted); background: transparent; }
+
+/* ── Sortable headers ── */
+.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sortable:hover { color: var(--accent); }
+.sortNeutral { font-size: 10px; color: var(--text-muted); margin-left: 2px; }
+.sortActive  { font-size: 10px; color: var(--accent);     margin-left: 2px; }
+
+/* ── Extended filter rows ── */
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+.filterRow + .filterRow { margin-top: 6px; }
+
+.filterActive {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.timeRangeBtns {
+  display: flex;
+  gap: 3px;
+}
+.timeBtn {
+  padding: 2px 7px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.timeBtn:hover   { border-color: var(--accent); color: var(--accent); }
+.timeBtnActive   { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb,91,155,247),0.12); }
+
+.scoreRange {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.scoreInput {
+  width: 52px;
+  padding: 2px 4px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--bg-input, var(--bg-elevated));
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.filterItemInline {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px;
+}
+.filterItemInline input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.filterCounter {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+  padding: 0;
+}

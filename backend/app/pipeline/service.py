@@ -233,12 +233,14 @@ class PipelineService:
                         self._scores = self._scores[-500:]
 
                     from app.mitre.mapping import get_mitre
+                    from app.priority import calc_priority
                     pipeline_event = PipelineEvent(
                         event=event, features=features, inference=inference, alert=alert,
                         device_type=ev_device_type,
                         device_name=ev_device_name,
                         pipeline_used=pipeline_name if is_auto else None,
                         mitre=get_mitre(inference.attack_class),
+                        priority=calc_priority(inference.score, inference.attack_class, event.src_ip),
                     )
                     self._recent_items.appendleft(pipeline_event)
                     self._store.append_history(pipeline_event)

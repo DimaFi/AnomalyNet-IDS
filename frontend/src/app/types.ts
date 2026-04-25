@@ -123,6 +123,8 @@ export interface MitreInfo {
   tactic: string;
 }
 
+export type Priority = "critical" | "high" | "medium" | "info";
+
 export interface PipelineEvent {
   event: NormalizedFlowEvent;
   features: FeatureVector;
@@ -132,6 +134,7 @@ export interface PipelineEvent {
   device_name?: string | null;
   pipeline_used?: string | null;
   mitre?: MitreInfo | null;
+  priority?: Priority;
 }
 
 export interface StreamSnapshot {

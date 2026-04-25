@@ -32,6 +32,11 @@ export function DashboardView() {
     ? (stats.events_by_label["warning"] ?? 0) + (stats.events_by_label["anomaly"] ?? 0)
     : null;
 
+  const now24 = Date.now() - 24 * 60 * 60 * 1000;
+  const criticalCount = stream.filter(
+    (item) => item.priority === "critical" && new Date(item.event.timestamp).getTime() > now24
+  ).length;
+
   const topClass = stats && Object.keys(stats.events_by_attack_class).length > 0
     ? Object.entries(stats.events_by_attack_class).sort((a, b) => b[1] - a[1])[0][0]
     : null;
@@ -77,6 +82,12 @@ export function DashboardView() {
           <span>Атак обнаружено</span>
           <strong style={{ color: attackCount ? "var(--danger)" : undefined }}>
             {attackCount !== null ? attackCount : "—"}
+            {criticalCount > 0 && (
+              <span style={{ marginLeft: 6, fontSize: 11, color: "#ef4444", fontWeight: 700 }}
+                title="Critical за 24ч">
+                {criticalCount} critical
+              </span>
+            )}
           </strong>
         </article>
         <article className={styles.metricCard}>
