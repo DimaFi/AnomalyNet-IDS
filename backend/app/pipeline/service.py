@@ -16,6 +16,7 @@ from app.contracts.schemas import (
 )
 from app.model.factory import build_model_adapter
 from app.preprocess.factory import build_preprocessing_pipeline
+from app.security.blocker import BaseFirewall, create_firewall
 from app.storage.json_store import JsonFileStore
 
 
@@ -38,6 +39,8 @@ class PipelineService:
         self._cache_key: tuple | None = None  # (active_model_id, relevant settings hash)
         # Blocked IPs registry — tracks IPs blocked via iptables by this service
         self._blocked_ips_registry: dict[str, str] = {}  # ip → ISO timestamp
+        # Firewall abstraction (LinuxFirewall on Linux, MockFirewall otherwise)
+        self._firewall: BaseFirewall = create_firewall(self._settings.blocking_mode)
         # DeviceTracker hook (optional — set from main.py lifespan)
         self._device_tracker = None
         # DnsMonitor hook (optional — set from main.py lifespan)
@@ -274,18 +277,13 @@ class PipelineService:
 
     async def _try_block_ip(self, ip: str) -> None:
         if ip in self._blocked_ips_registry:
-            return  # already blocked, skip duplicate iptables call
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "iptables", "-I", "INPUT", "-s", ip, "-j", "DROP",
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-            await proc.wait()
-            if proc.returncode == 0:
-                self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
-        except Exception:
-            pass
+            return  # already blocked, skip duplicate call
+        whitelist = set(self._settings.whitelist_ips)
+        ok = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: self._firewall.block_ip(ip, whitelist)
+        )
+        if ok:
+            self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
 
     async def _auto_unblock_loop(self) -> None:
         """Background task: automatically unblock IPs after the configured cooldown."""
@@ -452,48 +450,62 @@ class PipelineService:
         self._subscribers.discard(queue)
 
     async def block_ip(self, ip: str) -> bool:
-        """Manual block of an IP via iptables. Returns True on success."""
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "iptables", "-I", "INPUT", "-s", ip, "-j", "DROP",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            _, _ = await proc.communicate()
-            if proc.returncode == 0:
-                self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
-            return proc.returncode == 0
-        except FileNotFoundError:
-            return False
-        except Exception:
-            return False
+        """Manual block of an IP via firewall abstraction. Returns True on success."""
+        whitelist = set(self._settings.whitelist_ips)
+        ok = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: self._firewall.block_ip(ip, whitelist)
+        )
+        if ok:
+            self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
+        return ok
 
     async def unblock_ip(self, ip: str) -> bool:
-        """Remove iptables DROP rule for an IP. Returns True on success."""
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                "iptables", "-D", "INPUT", "-s", ip, "-j", "DROP",
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            await proc.communicate()
-            self._blocked_ips_registry.pop(ip, None)
-            return proc.returncode == 0
-        except FileNotFoundError:
-            self._blocked_ips_registry.pop(ip, None)
-            return False
-        except Exception:
-            return False
+        """Remove firewall block for an IP. Returns True on success."""
+        ok = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: self._firewall.unblock_ip(ip)
+        )
+        self._blocked_ips_registry.pop(ip, None)
+        return ok
 
     async def unblock_all_ips(self) -> int:
-        """Remove all iptables DROP rules added by this service. Returns count unblocked."""
-        ips = list(self._blocked_ips_registry.keys())
-        count = 0
-        for ip in ips:
-            success = await self.unblock_ip(ip)
-            if success:
-                count += 1
+        """Flush the ANOMALYNET chain and clear the registry."""
+        count = len(self._blocked_ips_registry)
+        await asyncio.get_event_loop().run_in_executor(None, self._firewall.flush)
+        self._blocked_ips_registry.clear()
         return count
+
+    def rollback_firewall(self) -> bool:
+        """Restore iptables state from snapshot. Clears blocked registry on success."""
+        from app.core import APP_ROOT
+        path = str(APP_ROOT / "data" / "iptables.backup")
+        ok = self._firewall.restore(path)
+        if ok:
+            self._blocked_ips_registry.clear()
+        return ok
+
+    def get_blocking_status(self) -> dict:
+        """Return current blocking subsystem status (for /api/blocking/status)."""
+        import shutil as _shutil
+        import platform as _platform
+        from pathlib import Path as _Path
+        from app.core import APP_ROOT
+        backup_path = APP_ROOT / "data" / "iptables.backup"
+
+        def _ip_forward() -> bool:
+            try:
+                return _Path("/proc/sys/net/ipv4/ip_forward").read_text().strip() == "1"
+            except Exception:
+                return False
+
+        return {
+            "platform": _platform.system(),
+            "iptables_available": bool(_shutil.which("iptables")),
+            "ip_forward_enabled": _ip_forward(),
+            "current_mode": self._settings.blocking_mode,
+            "snapshot_exists": backup_path.exists(),
+            "blocked_count": len(self._blocked_ips_registry),
+            "warnings": self._firewall.get_warnings(),
+        }
 
     def get_blocked_ips(self) -> dict[str, str]:
         """Returns dict of {ip: blocked_at_iso} for all currently tracked blocked IPs."""

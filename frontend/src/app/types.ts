@@ -23,6 +23,7 @@ export interface AppSettings {
   auto_unblock: boolean;
   auto_unblock_cooldown_min: number;
   whitelist_ips: string[];
+  blocking_mode: "pc" | "gateway";
   // Detection mode
   detection_mode: "simple" | "advanced";
   // Model packages

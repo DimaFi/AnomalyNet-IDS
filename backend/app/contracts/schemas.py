@@ -36,6 +36,9 @@ class AppSettings(BaseModel):
     auto_unblock_cooldown_min: int = Field(default=10, ge=1, le=120)
     # IPs that are never auto-blocked (whitelist)
     whitelist_ips: list[str] = Field(default_factory=list)
+    # Blocking mode: "pc" = block access to this host (INPUT chain)
+    #                "gateway" = block forwarded traffic (FORWARD chain)
+    blocking_mode: Literal["pc", "gateway"] = "pc"
     # Detection mode (affects capture adapter: whether to compute 46 CIC-IoT-2023 features)
     detection_mode: DetectionMode = "simple"
     # Model packages directory (contains subfolders with metadata.json + model.cbm)
@@ -161,6 +164,7 @@ class SettingsUpdate(BaseModel):
     auto_unblock: bool = False
     auto_unblock_cooldown_min: int = Field(default=10, ge=1, le=120)
     whitelist_ips: list[str] = Field(default_factory=list)
+    blocking_mode: Literal["pc", "gateway"] = "pc"
     detection_mode: DetectionMode = "simple"
     models_dir: str = ""
     auto_download_models: bool = True

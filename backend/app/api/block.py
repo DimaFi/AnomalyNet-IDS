@@ -89,6 +89,31 @@ async def unblock_ip(
     return {"ip": ip, "unblocked": success}
 
 
+@block_router.post("/block/rollback")
+async def rollback_rules(
+    service: PipelineService = Depends(get_pipeline_service),
+) -> dict:
+    """
+    Restore iptables state from the last snapshot taken before blocking started.
+    Resets all ANOMALYNET rules to the state at the time of the first block call.
+    """
+    ok = service.rollback_firewall()
+    if ok:
+        return {"success": True, "message": "iptables restored from snapshot"}
+    return {"success": False, "message": "No backup found or iptables-restore failed"}
+
+
+@block_router.get("/blocking/status")
+async def blocking_status(
+    service: PipelineService = Depends(get_pipeline_service),
+) -> dict:
+    """
+    Returns the current state of the blocking subsystem:
+    platform, iptables availability, ip_forward, current mode, snapshot, warnings.
+    """
+    return service.get_blocking_status()
+
+
 async def _detect_default_interface() -> str:
     """Returns the interface used for the default route (e.g. enp0s3, eth0)."""
     try:

@@ -234,6 +234,28 @@ export function SettingsView() {
               </button>
             </div>
           </label>
+          <label className={styles.field}>
+            <span>Режим блокировки</span>
+            <div className={selfStyles.thresholdPresets}>
+              <button
+                className={[selfStyles.presetBtn, (s.blocking_mode ?? "pc") === "pc" ? selfStyles.presetBtnActive : ""].join(" ")}
+                onClick={() => patch({ blocking_mode: "pc" })}
+                title="Блокирует входящий трафик к этому компьютеру (цепочка INPUT)">
+                PC Mode
+              </button>
+              <button
+                className={[selfStyles.presetBtn, s.blocking_mode === "gateway" ? selfStyles.presetBtnActive : ""].join(" ")}
+                onClick={() => patch({ blocking_mode: "gateway" })}
+                title="Блокирует транзитный трафик через AnomalyNet как шлюз (цепочка FORWARD)">
+                Gateway Mode
+              </button>
+            </div>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", display: "block" }}>
+              {(s.blocking_mode ?? "pc") === "pc"
+                ? "Блокирует доступ к этому компьютеру (INPUT)"
+                : "Блокирует транзитный трафик через AnomalyNet как шлюз (FORWARD)"}
+            </span>
+          </label>
           <label className={styles.toggleField}>
             <input type="checkbox" checked={s.auto_block}
               onChange={(e) => { if (e.target.checked) setShowAutoBlockConfirm(true); else patch({ auto_block: false }); }} />
