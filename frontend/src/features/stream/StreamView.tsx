@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import type { PipelineEvent, Priority, VerdictLabel } from "../../app/types";
@@ -113,6 +113,16 @@ function buildExportUrl(format: "eve" | "csv", fromTs: number, toTs: number, min
 function ExportMenu({ onExportCurrentCsv }: { onExportCurrentCsv: () => void }) {
   const [open,   setOpen]   = useState(false);
   const [modal,  setModal]  = useState(false);
+  const wrapRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
   const [fromDt, setFromDt] = useState(() => {
     const d = new Date(Date.now() - 86400_000);
     return d.toISOString().slice(0, 16);
@@ -128,13 +138,13 @@ function ExportMenu({ onExportCurrentCsv }: { onExportCurrentCsv: () => void }) 
   }
 
   return (
-    <div className={s.exportWrap}>
+    <div className={s.exportWrap} ref={wrapRef}>
       <button className={s.refreshBtn} onClick={() => setOpen((v) => !v)} title="Экспорт логов">
         ↓ Экспорт
       </button>
 
       {open && (
-        <div className={s.exportDropdown} onMouseLeave={() => setOpen(false)}>
+        <div className={s.exportDropdown}>
           <div className={s.exportSection}>Экспорт текущего вида</div>
           <button className={s.exportItem} onClick={() => { onExportCurrentCsv(); setOpen(false); }}>
             ↓ CSV (отфильтрованные события)
@@ -253,7 +263,7 @@ export function StreamView() {
 
   const [filters, setFilters] = useState<FilterState>(loadFilters);
   const [page, setPage] = useState(0);
-  const [sortKey,  setSortKey]  = useState<SortKey | null>(null);
+  const [sortKey,  setSortKey]  = useState<SortKey | null>("time");
   const [sortDir,  setSortDir]  = useState<"asc" | "desc">("desc");
 
   // Persist filters to localStorage
@@ -377,16 +387,15 @@ export function StreamView() {
             {filtered.length !== stream.length
               ? `${filtered.length} / ${stream.length}`
               : `${stream.length}`}
+            {stream.length >= 500 && <span className={s.counterMax} title="Буфер заполнен"> max</span>}
           </span>
-          {totalPages > 1 && (
-            <div className={s.pagination}>
-              <button className={s.pageBtn} disabled={safePage === 0} onClick={() => setPage(0)}>«</button>
-              <button className={s.pageBtn} disabled={safePage === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>‹</button>
-              <span className={s.pageInfo}>{safePage + 1} / {totalPages}</span>
-              <button className={s.pageBtn} disabled={safePage >= totalPages - 1} onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}>›</button>
-              <button className={s.pageBtn} disabled={safePage >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
-            </div>
-          )}
+          <div className={s.pagination}>
+            <button className={s.pageBtn} disabled={safePage === 0} onClick={() => setPage(0)}>«</button>
+            <button className={s.pageBtn} disabled={safePage === 0} onClick={() => setPage(p => Math.max(0, p - 1))}>‹</button>
+            <span className={s.pageInfo}>{safePage + 1} / {totalPages}</span>
+            <button className={s.pageBtn} disabled={safePage >= totalPages - 1} onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}>›</button>
+            <button className={s.pageBtn} disabled={safePage >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
+          </div>
           <ExportMenu onExportCurrentCsv={() => void exportCsv(filtered)} />
           <button className={s.refreshBtn} onClick={() => void handleRefresh()} disabled={refreshing} title="Обновить из снапшота">
             {refreshing ? "..." : "↺"}
