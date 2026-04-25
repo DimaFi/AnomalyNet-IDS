@@ -59,13 +59,37 @@ class LinuxScapyAdapter(CaptureAdapter):
                 "scapy is not installed. Run: pip install scapy"
             ) from exc
 
+        # Load TLS layer explicitly so bind_layers(TCP, TLS, dport=443) is registered.
+        # Importing only scapy.layers.tls.handshake skips __init__.py where bind_layers lives.
+        try:
+            import scapy.layers.tls  # noqa: F401 — side-effect: registers TLS dissector
+        except Exception:
+            pass
+
+        # Resolve the best available session class for TCP stream reassembly.
+        # Without a session, packets arrive as IP/TCP/Raw and haslayer(TLSClientHello) is False.
+        # SSLSession (Scapy 2.5+) > TCPSession (Scapy 2.4+) > no session (TLS won't work).
+        _TLSSession = None
+        try:
+            from scapy.layers.tls.session import SSLSession as _TLSSession  # type: ignore[assignment]
+        except ImportError:
+            try:
+                from scapy.sessions import TCPSession as _TLSSession  # type: ignore[assignment]
+            except ImportError:
+                pass
+
         iface_arg = self._interfaces[0] if len(self._interfaces) == 1 else self._interfaces
-        self._sniffer = AsyncSniffer(
+
+        sniffer_kwargs: dict = dict(
             iface=iface_arg,
             filter="ip",
             prn=self._packet_callback,
             store=False,
         )
+        if _TLSSession is not None:
+            sniffer_kwargs["session"] = _TLSSession
+
+        self._sniffer = AsyncSniffer(**sniffer_kwargs)
         self._sniffer.start()
 
     async def stop(self) -> None:
@@ -126,7 +150,11 @@ class LinuxScapyAdapter(CaptureAdapter):
 
     def _process_tls(self, pkt) -> None:
         """Extract TLS ClientHello fingerprint and pass to TLSMonitor (scapy thread)."""
-        if not pkt.haslayer("IP"):
+        if not pkt.haslayer("IP") or not pkt.haslayer("TCP"):
+            return
+        # Quick pre-filter: only outbound packets toward TLS ports (avoid checking every packet)
+        dport = pkt["TCP"].dport
+        if dport not in (443, 8443, 465, 993, 995):
             return
         from app.tls.fingerprint import compute_tls_fingerprint_from_scapy
         fp = compute_tls_fingerprint_from_scapy(pkt)
