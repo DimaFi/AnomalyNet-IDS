@@ -414,6 +414,7 @@ class PipelineService:
             active_model_id=self._settings.active_model_id,
             interface=", ".join(ifaces),
             capture_status=self._status,
+            tls_stats=getattr(self._capture_adapter, "get_tls_stats", lambda: {})(),
         )
 
     def set_device_tracker(self, tracker) -> None:

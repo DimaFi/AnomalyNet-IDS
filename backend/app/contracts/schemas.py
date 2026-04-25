@@ -215,3 +215,4 @@ class DebugStats(BaseModel):
     active_model_id: str
     interface: str
     capture_status: str
+    tls_stats: dict[str, int] = {}   # tcp_443_seen / raw_tls_like_seen / tls_fingerprint_seen / tls_alerts_emitted

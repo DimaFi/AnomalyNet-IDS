@@ -13,8 +13,11 @@ Completed flows are pushed into an asyncio.Queue and served via next_event().
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timezone
 from uuid import uuid4
+
+_log = logging.getLogger("app.capture.linux")
 
 from app.capture.base import CaptureAdapter
 from app.contracts.schemas import NormalizedFlowEvent
@@ -40,12 +43,21 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._dns_monitor = None  # set via set_dns_monitor() after construction
         self._tls_monitor = None  # set via set_tls_monitor() after construction
+        self._tls_stats = {
+            "tcp_443_seen": 0,
+            "raw_tls_like_seen": 0,
+            "tls_fingerprint_seen": 0,
+            "tls_alerts_emitted": 0,
+        }
 
     def set_dns_monitor(self, monitor) -> None:
         self._dns_monitor = monitor
 
     def set_tls_monitor(self, monitor) -> None:
         self._tls_monitor = monitor
+
+    def get_tls_stats(self) -> dict:
+        return dict(self._tls_stats)
 
     async def start(self) -> None:
         """Start scapy AsyncSniffer and flow reaper."""
@@ -101,6 +113,7 @@ class LinuxScapyAdapter(CaptureAdapter):
             except Exception:
                 pass
             self._sniffer = None
+        _log.info("[TLS stats] %s", self._tls_stats)
         await self._aggregator.stop()
 
     def _packet_callback(self, pkt) -> None:
@@ -152,18 +165,28 @@ class LinuxScapyAdapter(CaptureAdapter):
         """Extract TLS ClientHello fingerprint and pass to TLSMonitor (scapy thread)."""
         if not pkt.haslayer("IP") or not pkt.haslayer("TCP"):
             return
-        # Quick pre-filter: only outbound packets toward TLS ports (avoid checking every packet)
         dport = pkt["TCP"].dport
         if dport not in (443, 8443, 465, 993, 995):
             return
+        self._tls_stats["tcp_443_seen"] += 1
+
+        # Count Raw TLS-like packets (content_type=0x16) for diagnostics
+        if pkt.haslayer("Raw"):
+            raw_load = bytes(pkt["Raw"].load)
+            if raw_load and raw_load[0] == 0x16:
+                self._tls_stats["raw_tls_like_seen"] += 1
+
         from app.tls.fingerprint import compute_tls_fingerprint_from_scapy
         fp = compute_tls_fingerprint_from_scapy(pkt)
         if fp is None:
             return
+        self._tls_stats["tls_fingerprint_seen"] += 1
+
         src_ip: str = pkt["IP"].src
         dst_ip: str = pkt["IP"].dst
-        dst_port: int = pkt["TCP"].dport if pkt.haslayer("TCP") else 0
-        self._tls_monitor.on_fingerprint(src_ip, dst_ip, dst_port, fp)
+        alert = self._tls_monitor.on_fingerprint(src_ip, dst_ip, dport, fp)
+        if alert is not None:
+            self._tls_stats["tls_alerts_emitted"] += 1
 
     async def _on_flow_ready(self, record: FlowRecord) -> None:
         """Called by FlowAggregator when a flow is finalized."""
