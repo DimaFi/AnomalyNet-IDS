@@ -367,9 +367,17 @@ export function StreamView() {
     || !!filters.ip || filters.priority !== "all" || filters.timeRange > 0
     || filters.scoreMin > 0 || filters.scoreMax < 1 || filters.lanOnly;
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  // Freeze sorted array while user is on any page > 0 so live updates
+  // don't shift content or change the page counter under their hands.
+  const frozenSorted = React.useRef(sorted);
+  useEffect(() => {
+    if (page === 0) frozenSorted.current = sorted;
+  }, [sorted, page]);
+  const stableSorted = page === 0 ? sorted : frozenSorted.current;
+
+  const totalPages = Math.max(1, Math.ceil(stableSorted.length / pageSize));
   const safePage   = Math.min(page, totalPages - 1);
-  const paginated  = sorted.slice(safePage * pageSize, (safePage + 1) * pageSize);
+  const paginated  = stableSorted.slice(safePage * pageSize, (safePage + 1) * pageSize);
 
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <span className={s.sortNeutral}>⇅</span>;
