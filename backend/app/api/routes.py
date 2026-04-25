@@ -161,47 +161,80 @@ def _iter_history(
 
 
 def _eve_line(ev: dict[str, Any]) -> str:
-    event   = ev.get("event", {})
-    inf     = ev.get("inference", {})
-    prio    = ev.get("priority", "info")
-    mitre   = ev.get("mitre") or {}
+    event      = ev.get("event", {})
+    inf        = ev.get("inference", {})
+    prio       = ev.get("priority", "info")
+    mitre      = ev.get("mitre") or {}
+    ev_type    = ev.get("event_type", "flow")
+    metadata   = ev.get("metadata") or {}
     ts_raw  = event.get("timestamp", "")
     try:
         ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00")).strftime("%Y-%m-%dT%H:%M:%S.%f+0000")
     except (ValueError, AttributeError):
         ts = ts_raw
-    obj = {
-        "timestamp":  ts,
-        "event_type": "alert",
-        "src_ip":     event.get("src_ip", ""),
-        "src_port":   event.get("src_port", 0),
-        "dest_ip":    event.get("dst_ip", ""),
-        "dest_port":  event.get("dst_port", 0),
-        "proto":      event.get("protocol", "TCP"),
-        "alert": {
-            "action":       "allowed",
-            "severity":     _SEVERITY_MAP.get(prio, 4),
-            "signature":    "AnomalyNet ML Detection",
-            "signature_id": 9000001,
-            "category":     inf.get("attack_class") or "unknown",
-            "rev":          1,
-        },
-        "flow": {
-            "pkts_toserver":  event.get("packet_count", 0),
-            "pkts_toclient":  0,
-            "bytes_toserver": event.get("byte_count", 0),
-            "bytes_toclient": 0,
-        },
-        "anomalynet": {
-            "score":        inf.get("score", 0.0),
-            "verdict":      inf.get("label", ""),
-            "attack_class": inf.get("attack_class"),
-            "priority":     prio,
-            "model_id":     inf.get("model_id", ""),
-            "mitre_id":     mitre.get("id"),
-            "mitre_tactic": mitre.get("tactic"),
-        },
-    }
+
+    if ev_type == "dns":
+        obj: dict[str, Any] = {
+            "timestamp":  ts,
+            "event_type": "dns",
+            "src_ip":     event.get("src_ip", ""),
+            "proto":      "DNS",
+            "alert": {
+                "action":       "allowed",
+                "severity":     _SEVERITY_MAP.get(prio, 4),
+                "signature":    "AnomalyNet DNS Detection",
+                "signature_id": 9000002,
+                "category":     inf.get("attack_class") or "dns_anomaly",
+                "rev":          1,
+            },
+            "dns": {
+                "domain":   metadata.get("domain", ""),
+                "type":     metadata.get("dns_alert_type", ""),
+                "entropy":  metadata.get("entropy"),
+            },
+            "anomalynet": {
+                "score":        inf.get("score", 0.0),
+                "verdict":      inf.get("label", ""),
+                "attack_class": inf.get("attack_class"),
+                "priority":     prio,
+                "model_id":     inf.get("model_id", ""),
+                "mitre_id":     mitre.get("id"),
+                "mitre_tactic": mitre.get("tactic"),
+            },
+        }
+    else:
+        obj = {
+            "timestamp":  ts,
+            "event_type": "alert",
+            "src_ip":     event.get("src_ip", ""),
+            "src_port":   event.get("src_port", 0),
+            "dest_ip":    event.get("dst_ip", ""),
+            "dest_port":  event.get("dst_port", 0),
+            "proto":      event.get("protocol", "TCP"),
+            "alert": {
+                "action":       "allowed",
+                "severity":     _SEVERITY_MAP.get(prio, 4),
+                "signature":    "AnomalyNet ML Detection",
+                "signature_id": 9000001,
+                "category":     inf.get("attack_class") or "unknown",
+                "rev":          1,
+            },
+            "flow": {
+                "pkts_toserver":  event.get("packet_count", 0),
+                "pkts_toclient":  0,
+                "bytes_toserver": event.get("byte_count", 0),
+                "bytes_toclient": 0,
+            },
+            "anomalynet": {
+                "score":        inf.get("score", 0.0),
+                "verdict":      inf.get("label", ""),
+                "attack_class": inf.get("attack_class"),
+                "priority":     prio,
+                "model_id":     inf.get("model_id", ""),
+                "mitre_id":     mitre.get("id"),
+                "mitre_tactic": mitre.get("tactic"),
+            },
+        }
     return json.dumps(obj, ensure_ascii=False)
 
 
@@ -240,9 +273,9 @@ def export_csv(
     _to   = to_ts   if to_ts   is not None else now
 
     CSV_HEADERS = [
-        "timestamp", "src_ip", "src_port", "dest_ip", "dest_port",
+        "timestamp", "event_type", "src_ip", "src_port", "dest_ip", "dest_port",
         "proto", "verdict", "attack_class", "score", "priority",
-        "mitre_id", "mitre_tactic", "action",
+        "mitre_id", "mitre_tactic", "domain", "action",
     ]
 
     def generate():
@@ -251,18 +284,21 @@ def export_csv(
         writer.writerow(CSV_HEADERS)
         yield buf.getvalue()
         for ev in _iter_history(service, _from, _to, min_priority):
-            event = ev.get("event", {})
-            inf   = ev.get("inference", {})
-            mitre = ev.get("mitre") or {}
-            prio  = ev.get("priority", "info")
+            event    = ev.get("event", {})
+            inf      = ev.get("inference", {})
+            mitre    = ev.get("mitre") or {}
+            prio     = ev.get("priority", "info")
+            ev_type  = ev.get("event_type", "flow")
+            metadata = ev.get("metadata") or {}
             buf = io.StringIO()
             writer = csv.writer(buf)
             writer.writerow([
                 event.get("timestamp", ""),
+                ev_type,
                 event.get("src_ip", ""),
-                event.get("src_port", ""),
-                event.get("dst_ip", ""),
-                event.get("dst_port", ""),
+                event.get("src_port", "") if ev_type == "flow" else "",
+                event.get("dst_ip", "") if ev_type == "flow" else "",
+                event.get("dst_port", "") if ev_type == "flow" else "",
                 event.get("protocol", ""),
                 inf.get("label", ""),
                 inf.get("attack_class") or "",
@@ -270,6 +306,7 @@ def export_csv(
                 prio,
                 mitre.get("id") or "",
                 mitre.get("tactic") or "",
+                metadata.get("domain", ""),
                 "allowed",
             ])
             yield buf.getvalue()

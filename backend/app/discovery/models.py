@@ -43,6 +43,8 @@ class DeviceInfo:
     last_alert_score: Optional[float] = None
     last_alert_time: Optional[datetime] = None
     open_ports: list[int] = field(default_factory=list)
+    dns_alert_count: int = 0
+    last_dns_alert: Optional[datetime] = None
     risk_score: int = 0
     risk_label: str = "low"
 
@@ -73,6 +75,8 @@ class DeviceInfo:
             "last_alert_score": self.last_alert_score,
             "last_alert_time": _dt(self.last_alert_time),
             "open_ports": self.open_ports,
+            "dns_alert_count": self.dns_alert_count,
+            "last_dns_alert": _dt(self.last_dns_alert),
             "risk_score": self.risk_score,
             "risk_label": self.risk_label,
             "device_label": DEVICE_TYPES.get(self.device_type, DEVICE_TYPES["unknown"])["label"],

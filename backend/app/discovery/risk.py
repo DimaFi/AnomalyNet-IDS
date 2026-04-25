@@ -24,27 +24,28 @@ _DEVICE_TYPE_RISK: dict[str, int] = {
 
 
 def calculate_risk_score(device: "DeviceInfo") -> int:
-    """Return integer 0-100 risk score for a device.
+    """Return integer 0-100 risk score.
 
-    Components (each 0-100, weighted):
-      - alert_score    50%: based on alert_count
-      - severity_score 30%: based on last_alert_score
-      - type_score     20%: based on device_type
+    Components (weighted):
+      ml_alert_score  40% — based on ML flow alert_count
+      severity_score  25% — based on last ML alert score
+      dns_score       25% — based on dns_alert_count
+      type_score      10% — based on device_type
     """
-    # alert_score
+    # ml_alert_score
     n = device.alert_count
     if n == 0:
-        alert_s = 0
+        ml_s = 0
     elif n <= 5:
-        alert_s = 20
+        ml_s = 20
     elif n <= 20:
-        alert_s = 50
+        ml_s = 50
     elif n <= 50:
-        alert_s = 75
+        ml_s = 75
     else:
-        alert_s = 100
+        ml_s = 100
 
-    # severity_score
+    # severity_score (last ML alert confidence)
     sc = device.last_alert_score
     if sc is None:
         sev_s = 0
@@ -55,10 +56,21 @@ def calculate_risk_score(device: "DeviceInfo") -> int:
     else:
         sev_s = 100
 
+    # dns_score — one stray alert shouldn't make critical; needs 6+ to reach 100
+    d = device.dns_alert_count
+    if d == 0:
+        dns_s = 0
+    elif d <= 2:
+        dns_s = 30
+    elif d <= 5:
+        dns_s = 60
+    else:
+        dns_s = 100
+
     # device_type_score
     type_s = _DEVICE_TYPE_RISK.get(device.device_type, 50)
 
-    score = round(alert_s * 0.5 + sev_s * 0.3 + type_s * 0.2)
+    score = round(ml_s * 0.40 + sev_s * 0.25 + dns_s * 0.25 + type_s * 0.10)
     return max(0, min(100, score))
 
 

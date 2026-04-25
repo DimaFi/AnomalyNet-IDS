@@ -185,7 +185,12 @@ function DevicePanel({ device, onClose, onUpdate }: {
         <RiskBar score={device.risk_score} label={device.risk_label} />
         {device.risk_score > 0 && (
           <div className={s.riskExplain}>
-            {device.alert_count > 0 && `${device.alert_count} алерт${device.alert_count === 1 ? "" : device.alert_count < 5 ? "а" : "ов"} · `}
+            {device.alert_count > 0 && `${device.alert_count} ML · `}
+            {device.dns_alert_count > 0 && (
+              <span style={{ color: device.dns_alert_count >= 3 ? "#f97316" : "#eab308" }}>
+                {device.dns_alert_count} DNS ·{" "}
+              </span>
+            )}
             {device.last_alert_score != null && `Score ${device.last_alert_score.toFixed(2)} · `}
             {device.device_label}
           </div>

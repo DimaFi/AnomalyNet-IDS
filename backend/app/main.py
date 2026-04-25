@@ -71,6 +71,24 @@ async def lifespan(app: FastAPI):
     app.state.dns_monitor = dns_monitor
     service.set_dns_monitor(dns_monitor)
 
+    # Wire DNS alert → history storage + device risk update
+    import logging as _logging
+    _dns_log = _logging.getLogger("app.dns.monitor")
+
+    def _on_dns_alert(alert: dict) -> None:
+        try:
+            from app.dns.events import dns_alert_to_pipeline_event
+            pipeline_event = dns_alert_to_pipeline_event(alert)
+            store.append_history(pipeline_event)
+        except Exception:
+            _dns_log.exception("Failed to persist DNS alert to history")
+        try:
+            tracker.on_dns_alert(alert.get("src_ip", ""))
+        except Exception:
+            pass
+
+    dns_monitor.set_alert_callback(_on_dns_alert)
+
     await service.start()
     scan_task = asyncio.create_task(scanner.start_background_scan(tracker=tracker, interval=60))
     try:

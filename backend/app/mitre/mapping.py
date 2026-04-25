@@ -11,7 +11,10 @@ MITRE_MAP: dict[str, dict[str, str]] = {
     "BruteForce":   {"id": "T1110", "name": "Brute Force",                 "tactic": "Credential Access"},
     "Spoofing":     {"id": "T1557", "name": "Adversary-in-the-Middle",     "tactic": "Collection"},
     "WebAttack":    {"id": "T1190", "name": "Exploit Public-Facing App",   "tactic": "Initial Access"},
-    "Infiltration": {"id": "T1071", "name": "Application Layer Protocol",  "tactic": "Command & Control"},
+    "Infiltration": {"id": "T1071",    "name": "Application Layer Protocol",   "tactic": "Command & Control"},
+    # DNS anomaly types — heuristic mapping, best-effort
+    "DGA_DOMAIN":   {"id": "T1568.004", "name": "Fast Flux DNS",               "tactic": "Command & Control"},
+    "DNS_TUNNELING":{"id": "T1071.004", "name": "Application Layer Protocol: DNS", "tactic": "Command & Control"},
 }
 
 

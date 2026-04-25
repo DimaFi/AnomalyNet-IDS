@@ -101,6 +101,25 @@ class DeviceTracker:
                 self._traffic[src_ip] = deque(maxlen=300)
             self._traffic[src_ip].append((now, b_in, b_out))
 
+    # ── DNS integration ──────────────────────────────────────
+
+    def on_dns_alert(self, src_ip: str) -> None:
+        """Called from dns_monitor callback (scapy thread) when DGA/tunneling is detected."""
+        now = datetime.now()
+        with self._lock:
+            mac = self._ip_to_mac.get(src_ip)
+            if not mac:
+                return
+            dev = self._devices.get(mac.upper())
+            if not dev:
+                return
+            dev.dns_alert_count += 1
+            dev.last_dns_alert = now
+            dev.is_suspicious = True
+            score = calculate_risk_score(dev)
+            dev.risk_score = score
+            dev.risk_label = _risk_label(score)
+
     # ── Queries ───────────────────────────────────────────────
 
     def get_all_devices(self) -> list[DeviceInfo]:

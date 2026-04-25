@@ -70,7 +70,7 @@ class NormalizedFlowEvent(BaseModel):
     timestamp: datetime
     source: str
     direction: Literal["inbound", "outbound", "lateral"]
-    protocol: Literal["TCP", "UDP", "ICMP", "OTHER"]
+    protocol: Literal["TCP", "UDP", "ICMP", "OTHER", "DNS"]
     src_ip: str
     dst_ip: str
     src_port: int = Field(ge=0, le=65535)
@@ -126,6 +126,8 @@ class PipelineEvent(BaseModel):
     pipeline_used: str | None = None     # "advanced", "general_network"
     mitre: dict[str, str] | None = None  # {"id": "T1498", "name": "...", "tactic": "..."}
     priority: str = "info"               # "critical" | "high" | "medium" | "info"
+    event_type: str = "flow"             # "flow" | "dns"
+    metadata: dict | None = None         # DNS: {domain, entropy, description, transport}
 
 
 class HealthResponse(BaseModel):

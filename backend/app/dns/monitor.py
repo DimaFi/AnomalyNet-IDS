@@ -4,6 +4,7 @@ import math
 import threading
 from collections import defaultdict, deque
 from datetime import datetime, timezone
+from typing import Callable
 
 
 class DnsMonitor:
@@ -11,6 +12,12 @@ class DnsMonitor:
 
     Called from the scapy capture thread via on_dns_packet().
     Uses threading.Lock for all mutable state.
+
+    Alert callback:
+        set_alert_callback(fn) registers a callable invoked synchronously
+        (still in the scapy thread) whenever a DGA or tunneling alert fires.
+        fn receives the alert dict; exceptions are silently swallowed so a
+        broken callback never crashes the capture loop.
     """
 
     def __init__(
@@ -25,6 +32,11 @@ class DnsMonitor:
         self._alerts: deque[dict] = deque(maxlen=max_alerts)
         self._domain_counts: dict[str, int] = defaultdict(int)
         self._device_domain_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+        self._alert_callback: Callable[[dict], None] | None = None
+
+    def set_alert_callback(self, callback: Callable[[dict], None]) -> None:
+        """Register a callable to be invoked on every detected alert."""
+        self._alert_callback = callback
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -47,6 +59,11 @@ class DnsMonitor:
             self._device_domain_counts[src_ip][domain] += 1
             if alert:
                 self._alerts.appendleft({**alert, "ts": ts})
+        if alert and self._alert_callback is not None:
+            try:
+                self._alert_callback(alert)
+            except Exception:
+                pass
         return alert
 
     def get_recent(self, src_ip: str | None = None, limit: int = 50) -> list[dict]:
