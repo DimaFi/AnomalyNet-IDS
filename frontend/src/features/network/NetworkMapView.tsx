@@ -25,6 +25,49 @@ function fmtTime(iso: string | null): string {
   return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+// ── Risk helpers ─────────────────────────────────────────────────────────────
+
+const RISK_COLORS: Record<string, string> = {
+  low:      "#22c55e",
+  medium:   "#eab308",
+  high:     "#f97316",
+  critical: "#ef4444",
+};
+
+const RISK_LABELS_RU: Record<string, string> = {
+  low: "LOW", medium: "MEDIUM", high: "HIGH", critical: "CRITICAL",
+};
+
+function RiskBar({ score, label, compact = false }: { score: number; label: string; compact?: boolean }) {
+  const color = RISK_COLORS[label] ?? RISK_COLORS.low;
+  if (compact) {
+    return (
+      <div className={s.riskBarWrap} title={`Риск: ${score}/100 (${label})`}>
+        <div className={s.riskBarTrack}>
+          <div className={s.riskBarFill} style={{ width: `${score}%`, background: color }} />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={s.riskBlock}>
+      <div className={s.riskHeader}>
+        <span className={s.riskTitle}>Риск</span>
+        <span className={s.riskBadge} style={{ background: `${color}22`, color, border: `1px solid ${color}55` }}>
+          {RISK_LABELS_RU[label] ?? label}
+        </span>
+      </div>
+      <div className={s.riskScoreLine}>
+        <span className={s.riskScore} style={{ color }}>{score}</span>
+        <span className={s.riskScoreMax}> / 100</span>
+      </div>
+      <div className={s.riskBarTrackFull}>
+        <div className={s.riskBarFill} style={{ width: `${score}%`, background: color }} />
+      </div>
+    </div>
+  );
+}
+
 // ── Device Card ──────────────────────────────────────────────────────────────
 
 function DeviceCard({ device, selected, onClick }: {
@@ -42,6 +85,7 @@ function DeviceCard({ device, selected, onClick }: {
       <div className={s.cardEmoji}>{device.device_emoji}</div>
       <div className={s.cardName} title={device.display_name}>{device.display_name}</div>
       <div className={s.cardIp}>{device.ip}</div>
+      <RiskBar score={device.risk_score} label={device.risk_label} compact />
       {device.is_suspicious && (
         <div className={`${s.cardBadge} ${s.cardBadgeDanger}`}>⚠ подозрительный</div>
       )}
@@ -136,6 +180,16 @@ function DevicePanel({ device, onClose, onUpdate }: {
           {device.is_whitelisted && <span className={`${s.badge} ${s.badgeWhitelisted}`}>✓ белый список</span>}
           {!device.is_online && <span className={`${s.badge} ${s.badgeOffline}`}>офлайн</span>}
         </div>
+
+        {/* Risk score */}
+        <RiskBar score={device.risk_score} label={device.risk_label} />
+        {device.risk_score > 0 && (
+          <div className={s.riskExplain}>
+            {device.alert_count > 0 && `${device.alert_count} алерт${device.alert_count === 1 ? "" : device.alert_count < 5 ? "а" : "ов"} · `}
+            {device.last_alert_score != null && `Score ${device.last_alert_score.toFixed(2)} · `}
+            {device.device_label}
+          </div>
+        )}
 
         {/* Info */}
         <div className={s.panelSection}>

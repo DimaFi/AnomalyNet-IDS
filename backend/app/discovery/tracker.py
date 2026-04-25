@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
 from app.discovery.models import DeviceInfo
+from app.discovery.risk import calculate_risk_score, risk_label as _risk_label
 
 if TYPE_CHECKING:
     from app.contracts.schemas import InferenceResult, NormalizedFlowEvent
@@ -40,6 +41,9 @@ class DeviceTracker:
                     if d.vendor != "Unknown":
                         existing.vendor = d.vendor
                 else:
+                    score = calculate_risk_score(d)
+                    d.risk_score = score
+                    d.risk_label = _risk_label(score)
                     self._devices[d.mac] = d
                     self._alert_history[d.mac] = deque(maxlen=50)
                 self._ip_to_mac[d.ip] = d.mac
@@ -87,6 +91,10 @@ class DeviceTracker:
                         "src_ip": src_ip,
                         "dst_ip": getattr(event, "dst_ip", None),
                     })
+
+                score = calculate_risk_score(dev)
+                dev.risk_score = score
+                dev.risk_label = _risk_label(score)
 
             # Track traffic window even for unknown IPs (may be added later by scan)
             if src_ip not in self._traffic:

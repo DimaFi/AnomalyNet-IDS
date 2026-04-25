@@ -20,6 +20,8 @@ export interface Device {
   last_alert_score: number | null;
   last_alert_time: string | null;
   open_ports: number[];
+  risk_score: number;
+  risk_label: "low" | "medium" | "high" | "critical";
 }
 
 export interface DeviceAlert {

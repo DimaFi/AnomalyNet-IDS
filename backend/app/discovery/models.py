@@ -43,6 +43,8 @@ class DeviceInfo:
     last_alert_score: Optional[float] = None
     last_alert_time: Optional[datetime] = None
     open_ports: list[int] = field(default_factory=list)
+    risk_score: int = 0
+    risk_label: str = "low"
 
     def display_name(self) -> str:
         return self.custom_name or self.hostname or self.vendor or self.ip
@@ -71,6 +73,8 @@ class DeviceInfo:
             "last_alert_score": self.last_alert_score,
             "last_alert_time": _dt(self.last_alert_time),
             "open_ports": self.open_ports,
+            "risk_score": self.risk_score,
+            "risk_label": self.risk_label,
             "device_label": DEVICE_TYPES.get(self.device_type, DEVICE_TYPES["unknown"])["label"],
             "device_emoji": DEVICE_TYPES.get(self.device_type, DEVICE_TYPES["unknown"])["emoji"],
         }

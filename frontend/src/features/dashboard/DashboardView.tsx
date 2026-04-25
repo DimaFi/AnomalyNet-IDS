@@ -2,18 +2,38 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import type { DebugStats } from "../../app/types";
+import type { Device } from "../../types/device";
 import { StatusPill } from "../../components/StatusPill";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
+
+const RISK_COLORS: Record<string, string> = {
+  low: "#22c55e", medium: "#eab308", high: "#f97316", critical: "#ef4444",
+};
+const RISK_LABELS_RU: Record<string, string> = {
+  low: "LOW", medium: "MED", high: "HIGH", critical: "CRIT",
+};
 
 export function DashboardView() {
   const { t } = useTranslation();
   const health   = useAppStore((state) => state.health);
   const settings = useAppStore((state) => state.settings);
   const stream   = useAppStore((state) => state.stream);
+  const storeDevices = useAppStore((state) => state.devices);
   const latest   = stream.slice(0, 4);
 
   const [stats, setStats] = useState<DebugStats | null>(null);
+  const [topRiskDevices, setTopRiskDevices] = useState<Device[]>([]);
+
+  useEffect(() => {
+    const update = () => {
+      const sorted = [...storeDevices]
+        .sort((a, b) => b.risk_score - a.risk_score)
+        .slice(0, 3);
+      setTopRiskDevices(sorted);
+    };
+    update();
+  }, [storeDevices]);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +145,40 @@ export function DashboardView() {
           {!latest.length && <p className={styles.emptyState}>Нет данных. Ожидание сетевых потоков...</p>}
         </div>
       </div>
+
+      {topRiskDevices.length > 0 && (
+        <div className={styles.streamPreview}>
+          <div className={styles.subhead}>
+            <h3>Топ устройств по риску</h3>
+          </div>
+          <div className={styles.previewList}>
+            {topRiskDevices.map((d) => {
+              const color = RISK_COLORS[d.risk_label] ?? RISK_COLORS.low;
+              const lbl   = RISK_LABELS_RU[d.risk_label] ?? d.risk_label;
+              return (
+                <div key={d.mac} className={styles.previewRow}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <span style={{ fontSize: 18, lineHeight: 1 }}>{d.device_emoji}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <strong style={{ fontSize: 12, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {d.display_name}
+                      </strong>
+                      <p style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)", margin: 0 }}>{d.ip}</p>
+                    </div>
+                  </div>
+                  <div className={styles.previewMeta}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+                      background: `${color}22`, color, border: `1px solid ${color}55`,
+                    }}>{lbl}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color }}>{d.risk_score}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
