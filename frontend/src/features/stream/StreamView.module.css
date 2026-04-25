@@ -290,6 +290,18 @@
   white-space: nowrap;
   font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
 }
+.pageSizeSelect {
+  font-size: 11px;
+  padding: 2px 4px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: 4px;
+}
+.pageSizeSelect:hover { border-color: var(--accent); color: var(--text-primary); }
 
 /* ── Filter bar ── */
 .filterBar {
@@ -563,11 +575,19 @@
   right: 0;
   z-index: 200;
   min-width: 230px;
-  background: var(--bg-elevated);
+  background: #1e2130;
   border: 1px solid var(--border);
   border-radius: var(--radius, 10px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
   padding: 4px 0;
+}
+:global([data-theme="light"]) .exportDropdown {
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(30,40,100,0.14);
+}
+:global([data-theme="gray"]) .exportDropdown {
+  background: #252526;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.55);
 }
 
 .exportSection {
@@ -624,6 +644,12 @@
 :global([data-theme="light"]) .exportModal {
   background: #ffffff;
   border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 16px 48px rgba(30,40,100,0.18);
+}
+:global([data-theme="gray"]) .exportModal {
+  background: #252526;
+  border-color: rgba(255,255,255,0.10);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.70);
 }
 
 .exportModalHeader {
@@ -672,7 +698,7 @@
   font-size: 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm, 6px);
-  background: var(--bg-input, var(--bg-base));
+  background: var(--surface-2);
   color: var(--text-primary);
 }
 

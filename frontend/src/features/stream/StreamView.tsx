@@ -265,15 +265,21 @@ export function StreamView() {
   const [page, setPage] = useState(0);
   const [sortKey,  setSortKey]  = useState<SortKey | null>("time");
   const [sortDir,  setSortDir]  = useState<"asc" | "desc">("desc");
+  const [pageSize, setPageSize] = useState<number>(() => {
+    try { return parseInt(localStorage.getItem("anomalynet_page_size") ?? "100") || 100; } catch { return 100; }
+  });
 
-  // Persist filters to localStorage
+  // Persist filters and page size to localStorage
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify(filters)); } catch { /* ignore */ }
   }, [filters]);
+  useEffect(() => {
+    try { localStorage.setItem("anomalynet_page_size", String(pageSize)); } catch { /* ignore */ }
+  }, [pageSize]);
 
   function patchFilters(patch: Partial<FilterState>) {
     setFilters((f) => ({ ...f, ...patch }));
-    setPage(0);
+    // Don't reset page — safePage clamping handles out-of-bounds automatically
   }
 
   function resetFilters() {
@@ -284,15 +290,13 @@ export function StreamView() {
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
-    setPage(0);
+    // Don't reset page on sort — safePage handles clamping
   }
 
   async function handleUnblock(ip: string) {
     try { await api.unblockIp(ip); } catch { /* best effort */ }
     markUnblocked(ip);
   }
-
-  const PAGE_SIZE = 100;
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -363,9 +367,9 @@ export function StreamView() {
     || !!filters.ip || filters.priority !== "all" || filters.timeRange > 0
     || filters.scoreMin > 0 || filters.scoreMax < 1 || filters.lanOnly;
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage   = Math.min(page, totalPages - 1);
-  const paginated  = sorted.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const paginated  = sorted.slice(safePage * pageSize, (safePage + 1) * pageSize);
 
   function SortIcon({ col }: { col: SortKey }) {
     if (sortKey !== col) return <span className={s.sortNeutral}>⇅</span>;
@@ -395,6 +399,16 @@ export function StreamView() {
             <span className={s.pageInfo}>{safePage + 1} / {totalPages}</span>
             <button className={s.pageBtn} disabled={safePage >= totalPages - 1} onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}>›</button>
             <button className={s.pageBtn} disabled={safePage >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
+            <select
+              className={s.pageSizeSelect}
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(0); }}
+              title="Строк на странице"
+            >
+              {[25, 50, 100, 250].map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
           </div>
           <ExportMenu onExportCurrentCsv={() => void exportCsv(filtered)} />
           <button className={s.refreshBtn} onClick={() => void handleRefresh()} disabled={refreshing} title="Обновить из снапшота">
