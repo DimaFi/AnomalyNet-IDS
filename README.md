@@ -54,6 +54,80 @@ AnomalyNet supports four presets selectable from the UI:
 
 ---
 
+## Network Map & Device Discovery
+
+AnomalyNet automatically builds a live map of devices on the local network and uses it to route each traffic flow to the appropriate detection model.
+
+### How it works
+
+```
+Network
+ ├─ 📷 Camera  192.168.1.10  (Hikvision)   → IoT pipeline    → Advanced Cascade
+ ├─ 📡 Sensor  192.168.1.20  (Espressif)   → IoT pipeline    → Advanced Cascade
+ ├─ 💻 PC      192.168.1.30  (Microsoft)   → General pipeline → General Network
+ ├─ 📱 Phone   192.168.1.50  (Apple)       → General pipeline → General Network
+ └─ 🌐 Router  192.168.1.1   (TP-Link)     → IoT pipeline    → Advanced Cascade
+```
+
+**1. ARP scanning** — `NetworkScanner` periodically broadcasts ARP requests across the subnet, collecting MAC addresses and IPs of all active devices.
+
+**2. Device classification** — the MAC prefix (OUI database) identifies the vendor, which combined with the hostname and open ports determines the device type: `iot_camera`, `iot_sensor`, `pc_windows`, `phone`, `router`, etc.
+
+**3. DeviceTracker** — maintains a live registry: IP, MAC, type, hostname, first/last seen timestamps, online status, alert count, and 5-minute traffic bytes.
+
+**4. Device-aware routing (`auto` preset)** — when "Auto" mode is selected, each flow is routed based on the source device type:
+
+| Device type | Pipeline |
+|---|---|
+| IoT cameras, sensors, bulbs, routers | Advanced Cascade (Stage 1 → Stage 3, 46 IoT features) |
+| PCs, laptops, smartphones, servers | General Network (Stage 1 → Stage 2, CICIDS 2017) |
+| Unknown devices | Advanced Cascade (conservative fallback) |
+
+This uses specialised models for each traffic type, reducing false positives in mixed home networks.
+
+### Traffic profiles
+
+Each device type generates predictable traffic patterns that the corresponding model was trained on:
+
+| Device | Typical flows | Model trained on |
+|---|---|---|
+| IoT camera | RTSP/RTP streaming, NTP, ICMP | CIC IoT Dataset 2024 |
+| PC / laptop | HTTP/S browsing, SSH, FTP, DNS | CICIDS 2017 |
+| Smartphone | HTTPS APIs, push notifications | CICIDS 2017 |
+
+### Threat model: what the system detects
+
+AnomalyNet operates in **host-based IDS** mode — it captures traffic on the network interface of the machine it runs on. This means it sees:
+
+- **Inbound attacks** targeting the IDS machine (PortScan, BruteForce, DoS from devices on the same network)
+- **Outbound anomalies** from infected devices (Mirai-style scanning, botnet C2 traffic)
+- **Lateral attacks** from inside the network — a compromised IoT gadget, infected PC, or rogue device on the guest WiFi
+
+To monitor **all** network traffic (not just the host's own), deploy the IDS on the gateway (OpenWrt router, Raspberry Pi in bridge mode) or configure port mirroring on a managed switch.
+
+### Network Map UI
+
+The **Network Map** tab shows:
+- Interactive D3 force-graph of all devices with type icons
+- Side panel with device details: vendor, type, traffic, alert history
+- Status indicators: online / offline / suspicious (red highlight on anomalous activity)
+- Actions: rename, whitelist, reset alert counter
+
+In mock mode the tab displays 7 test devices (router, 2 cameras, sensor, PC, phone, smart bulb) without ARP scanning.
+
+### Module structure
+
+```
+backend/app/discovery/
+├── models.py       — DeviceInfo dataclass, 14 device types table
+├── oui.py          — OUI lookup: MAC prefix → vendor (from config/oui.json)
+├── classifier.py   — guess_device_type(vendor, hostname, ports) → type
+├── scanner.py      — NetworkScanner: ARP scan (Scapy) + mock mode
+└── tracker.py      — DeviceTracker: registry, alert history, 5-min traffic
+```
+
+---
+
 ## Architecture
 
 ```
