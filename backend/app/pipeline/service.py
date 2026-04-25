@@ -232,11 +232,13 @@ class PipelineService:
                     if len(self._scores) > 500:
                         self._scores = self._scores[-500:]
 
+                    from app.mitre.mapping import get_mitre
                     pipeline_event = PipelineEvent(
                         event=event, features=features, inference=inference, alert=alert,
                         device_type=ev_device_type,
                         device_name=ev_device_name,
                         pipeline_used=pipeline_name if is_auto else None,
+                        mitre=get_mitre(inference.attack_class),
                     )
                     self._recent_items.appendleft(pipeline_event)
                     self._store.append_history(pipeline_event)

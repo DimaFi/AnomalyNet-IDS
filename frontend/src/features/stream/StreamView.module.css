@@ -118,6 +118,23 @@
   font-size: 13px;
 }
 
+.mitreBadge {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  opacity: 0.8;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+.mitreBadge:hover {
+  opacity: 1;
+  text-decoration: underline;
+  color: var(--accent);
+}
+
 /* ── Device column ── */
 .colDevice {
   white-space: nowrap;

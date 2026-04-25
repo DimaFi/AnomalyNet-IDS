@@ -273,7 +273,23 @@ export function StreamView() {
                     <td><StatusPill value={item.inference.label} /></td>
                     <td>
                       {item.inference.attack_class
-                        ? <span className={getAttackClassStyle(item.inference.attack_class)}>{item.inference.attack_class}</span>
+                        ? (
+                          <span className={getAttackClassStyle(item.inference.attack_class)}>
+                            {item.inference.attack_class}
+                            {item.mitre && (
+                              <a
+                                className={s.mitreBadge}
+                                href={`https://attack.mitre.org/techniques/${item.mitre.id}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`${item.mitre.id} · ${item.mitre.name} · ${item.mitre.tactic}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {item.mitre.id} · {item.mitre.tactic}
+                              </a>
+                            )}
+                          </span>
+                        )
                         : <span className={s.noClass}>—</span>}
                     </td>
                     <td>
@@ -319,6 +335,18 @@ export function StreamView() {
                   {item.inference.attack_class && (
                     <span className={getAttackClassStyle(item.inference.attack_class)}>
                       {item.inference.attack_class}
+                      {item.mitre && (
+                        <a
+                          className={s.mitreBadge}
+                          href={`https://attack.mitre.org/techniques/${item.mitre.id}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`${item.mitre.id} · ${item.mitre.name} · ${item.mitre.tactic}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {item.mitre.id} · {item.mitre.tactic}
+                        </a>
+                      )}
                     </span>
                   )}
                 </div>

@@ -117,6 +117,12 @@ export interface AlertRecord {
   event_id: string;
 }
 
+export interface MitreInfo {
+  id: string;
+  name: string;
+  tactic: string;
+}
+
 export interface PipelineEvent {
   event: NormalizedFlowEvent;
   features: FeatureVector;
@@ -125,6 +131,7 @@ export interface PipelineEvent {
   device_type?: string | null;
   device_name?: string | null;
   pipeline_used?: string | null;
+  mitre?: MitreInfo | null;
 }
 
 export interface StreamSnapshot {

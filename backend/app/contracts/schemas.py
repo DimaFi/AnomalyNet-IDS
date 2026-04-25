@@ -124,6 +124,7 @@ class PipelineEvent(BaseModel):
     device_type: str | None = None       # "pc_windows", "iot_camera", etc.
     device_name: str | None = None       # display_name()
     pipeline_used: str | None = None     # "advanced", "general_network"
+    mitre: dict[str, str] | None = None  # {"id": "T1498", "name": "...", "tactic": "..."}
 
 
 class HealthResponse(BaseModel):
