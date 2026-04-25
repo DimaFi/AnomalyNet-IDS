@@ -45,6 +45,8 @@ class PipelineService:
         self._device_tracker = None
         # DnsMonitor hook (optional — set from main.py lifespan)
         self._dns_monitor = None
+        # TLSMonitor hook (optional — set from main.py lifespan)
+        self._tls_monitor = None
         # Rolling counters for debug stats (reset on restart)
         self._total_events: int = 0
         self._label_counts: dict[str, int] = {"normal": 0, "warning": 0, "anomaly": 0}
@@ -124,6 +126,10 @@ class PipelineService:
                 fn = getattr(adapter, "set_dns_monitor", None)
                 if fn is not None:
                     fn(self._dns_monitor)
+            if self._tls_monitor is not None:
+                fn = getattr(adapter, "set_tls_monitor", None)
+                if fn is not None:
+                    fn(self._tls_monitor)
             start = getattr(adapter, "start", None)
             if start:
                 await start()
@@ -415,9 +421,15 @@ class PipelineService:
 
     def set_dns_monitor(self, monitor) -> None:
         self._dns_monitor = monitor
-        # If the capture adapter already exists, pass the monitor to it
         if self._capture_adapter is not None:
             fn = getattr(self._capture_adapter, "set_dns_monitor", None)
+            if fn is not None:
+                fn(monitor)
+
+    def set_tls_monitor(self, monitor) -> None:
+        self._tls_monitor = monitor
+        if self._capture_adapter is not None:
+            fn = getattr(self._capture_adapter, "set_tls_monitor", None)
             if fn is not None:
                 fn(monitor)
 

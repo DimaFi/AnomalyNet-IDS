@@ -73,7 +73,7 @@ class NormalizedFlowEvent(BaseModel):
     timestamp: datetime
     source: str
     direction: Literal["inbound", "outbound", "lateral"]
-    protocol: Literal["TCP", "UDP", "ICMP", "OTHER", "DNS"]
+    protocol: Literal["TCP", "UDP", "ICMP", "OTHER", "DNS", "TLS"]
     src_ip: str
     dst_ip: str
     src_port: int = Field(ge=0, le=65535)

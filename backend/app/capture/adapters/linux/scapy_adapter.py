@@ -39,9 +39,13 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._sniffer = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._dns_monitor = None  # set via set_dns_monitor() after construction
+        self._tls_monitor = None  # set via set_tls_monitor() after construction
 
     def set_dns_monitor(self, monitor) -> None:
         self._dns_monitor = monitor
+
+    def set_tls_monitor(self, monitor) -> None:
+        self._tls_monitor = monitor
 
     async def start(self) -> None:
         """Start scapy AsyncSniffer and flow reaper."""
@@ -88,6 +92,11 @@ class LinuxScapyAdapter(CaptureAdapter):
                 self._process_dns(pkt)
             except Exception:
                 pass
+        if self._tls_monitor is not None:
+            try:
+                self._process_tls(pkt)
+            except Exception:
+                pass
 
     _QTYPE_MAP = {1: "A", 2: "NS", 5: "CNAME", 15: "MX", 16: "TXT", 28: "AAAA", 255: "ANY"}
 
@@ -114,6 +123,19 @@ class LinuxScapyAdapter(CaptureAdapter):
         except Exception:
             return
         self._dns_monitor.on_dns_packet(src_ip, domain, qtype)
+
+    def _process_tls(self, pkt) -> None:
+        """Extract TLS ClientHello fingerprint and pass to TLSMonitor (scapy thread)."""
+        if not pkt.haslayer("IP"):
+            return
+        from app.tls.fingerprint import compute_tls_fingerprint_from_scapy
+        fp = compute_tls_fingerprint_from_scapy(pkt)
+        if fp is None:
+            return
+        src_ip: str = pkt["IP"].src
+        dst_ip: str = pkt["IP"].dst
+        dst_port: int = pkt["TCP"].dport if pkt.haslayer("TCP") else 0
+        self._tls_monitor.on_fingerprint(src_ip, dst_ip, dst_port, fp)
 
     async def _on_flow_ready(self, record: FlowRecord) -> None:
         """Called by FlowAggregator when a flow is finalized."""
