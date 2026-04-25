@@ -98,17 +98,21 @@ class DnsMonitor:
         label = domain.split(".")[0]
         ent = self._entropy(label)
 
-        # DGA: high entropy + long subdomain
-        if ent > 3.5 and len(label) > 8:
+        # DGA heuristic: high entropy + random-looking character mix (digits present).
+        # Threshold 4.0 + digit_ratio >= 15% avoids FP on long human-readable names
+        # like "firebaseremoteconfig". Frontend filters (.local, PTR, etc.) are the
+        # user-configurable layer on top — nothing is hidden here.
+        digit_ratio = sum(1 for c in label if c.isdigit()) / max(len(label), 1)
+        if ent > 4.0 and len(label) > 8 and digit_ratio >= 0.15:
             return {
                 "type": "DGA_DOMAIN",
                 "domain": domain,
                 "src_ip": src_ip,
                 "entropy": round(ent, 2),
-                "description": f"Возможный DGA домен: энтропия {ent:.2f}",
+                "description": f"Возможный DGA домен: энтропия {ent:.2f}, цифры {digit_ratio:.0%}",
             }
 
-        # DNS tunneling: abnormally long label
+        # DNS tunneling: abnormally long label (data exfiltration via subdomains)
         if len(label) > 50:
             return {
                 "type": "DNS_TUNNELING",

@@ -109,7 +109,8 @@ class LinuxScapyAdapter(CaptureAdapter):
             domain = (qname_raw.decode() if isinstance(qname_raw, bytes) else qname_raw).rstrip(".")
             if not domain:
                 return
-            qtype = self._QTYPE_MAP.get(dns.qd.qtype, str(dns.qd.qtype))
+            qtype_num = dns.qd.qtype
+            qtype = self._QTYPE_MAP.get(qtype_num, str(qtype_num))
         except Exception:
             return
         self._dns_monitor.on_dns_packet(src_ip, domain, qtype)
