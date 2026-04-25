@@ -174,6 +174,22 @@ export const api = {
       `/api/devices/${encodeURIComponent(mac)}/probe`, { method: "POST" }
     ),
 
+  // ── DNS Monitoring ─────────────────────────────────────────────────────────
+  getDnsRecent: (srcIp?: string, limit = 50) =>
+    request<{ items: import("../types/dns").DnsEntry[]; available: boolean }>(
+      `/api/dns/recent?limit=${limit}${srcIp ? `&src_ip=${encodeURIComponent(srcIp)}` : ""}`
+    ),
+  getDnsTop: (srcIp?: string, limit = 20) =>
+    request<{ domains: { domain: string; count: number }[]; available: boolean }>(
+      `/api/dns/top?limit=${limit}${srcIp ? `&src_ip=${encodeURIComponent(srcIp)}` : ""}`
+    ),
+  getDnsAlerts: (limit = 50) =>
+    request<{ alerts: import("../types/dns").DnsAlert[]; available: boolean }>(
+      `/api/dns/alerts?limit=${limit}`
+    ),
+  getDeviceDnsSummary: (ip: string) =>
+    request<import("../types/dns").DeviceDnsSummary>(`/api/dns/device/${encodeURIComponent(ip)}/summary`),
+
   // Models Manager
   listModelPackages: () =>
     request<import("../app/types").ModelPackageInfo[]>("/api/models-manager/list"),

@@ -38,6 +38,10 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._aggregator = FlowAggregator(on_flow_complete=self._on_flow_ready)
         self._sniffer = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._dns_monitor = None  # set via set_dns_monitor() after construction
+
+    def set_dns_monitor(self, monitor) -> None:
+        self._dns_monitor = monitor
 
     async def start(self) -> None:
         """Start scapy AsyncSniffer and flow reaper."""
@@ -79,6 +83,36 @@ class LinuxScapyAdapter(CaptureAdapter):
         This eliminates asyncio saturation under flood (2000+ pps).
         """
         self._aggregator.ingest(pkt)
+        if self._dns_monitor is not None:
+            try:
+                self._process_dns(pkt)
+            except Exception:
+                pass
+
+    _QTYPE_MAP = {1: "A", 2: "NS", 5: "CNAME", 15: "MX", 16: "TXT", 28: "AAAA", 255: "ANY"}
+
+    def _process_dns(self, pkt) -> None:
+        """Extract DNS query from packet and pass to DnsMonitor (scapy thread)."""
+        try:
+            from scapy.layers.dns import DNS, DNSQR
+            from scapy.layers.inet import IP
+        except ImportError:
+            return
+        if not pkt.haslayer(DNS):
+            return
+        dns = pkt[DNS]
+        if dns.qr != 0 or dns.qd is None:  # only outgoing queries
+            return
+        src_ip = pkt[IP].src if pkt.haslayer(IP) else "0.0.0.0"
+        try:
+            qname_raw = dns.qd.qname
+            domain = (qname_raw.decode() if isinstance(qname_raw, bytes) else qname_raw).rstrip(".")
+            if not domain:
+                return
+            qtype = self._QTYPE_MAP.get(dns.qd.qtype, str(dns.qd.qtype))
+        except Exception:
+            return
+        self._dns_monitor.on_dns_packet(src_ip, domain, qtype)
 
     async def _on_flow_ready(self, record: FlowRecord) -> None:
         """Called by FlowAggregator when a flow is finalized."""

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../app/store";
 import { api } from "../../lib/api";
 import type { Device, DeviceAlert, DevicesWsMessage } from "../../types/device";
+import type { DeviceDnsSummary } from "../../types/dns";
 import s from "./NetworkMapView.module.css";
 
 const DEVICE_TYPES: Record<string, string> = {
@@ -57,6 +58,7 @@ function DevicePanel({ device, onClose, onUpdate }: {
   device: Device; onClose: () => void; onUpdate: () => void;
 }) {
   const [history, setHistory] = useState<DeviceAlert[]>([]);
+  const [dnsSummary, setDnsSummary] = useState<DeviceDnsSummary | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameInput, setNameInput] = useState(device.custom_name || device.hostname || "");
   const [typeInput, setTypeInput] = useState(device.device_type);
@@ -66,7 +68,8 @@ function DevicePanel({ device, onClose, onUpdate }: {
 
   useEffect(() => {
     api.getDeviceHistory(device.mac).then(setHistory).catch(() => {});
-  }, [device.mac]);
+    api.getDeviceDnsSummary(device.ip).then(setDnsSummary).catch(() => {});
+  }, [device.mac, device.ip]);
 
   const handleRename = async () => {
     setLoading(true);
@@ -182,6 +185,35 @@ function DevicePanel({ device, onClose, onUpdate }: {
                 <div className={s.alertLabel}>{device.last_alert_type} {device.last_alert_score != null ? `(${(device.last_alert_score * 100).toFixed(0)}%)` : ""}</div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* DNS activity */}
+        {dnsSummary && dnsSummary.available && dnsSummary.total_queries > 0 && (
+          <div className={s.panelSection}>
+            <div className={s.panelSectionTitle}>
+              DNS активность
+              {dnsSummary.alert_count > 0 && (
+                <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700,
+                  padding: "1px 6px", borderRadius: 4,
+                  background: "rgba(var(--warn-rgb,234,179,8),0.15)",
+                  color: "var(--warn)", border: "1px solid rgba(234,179,8,0.3)" }}>
+                  ⚠ {dnsSummary.alert_count} аном.
+                </span>
+              )}
+            </div>
+            <div className={s.infoRow}>
+              <span className={s.infoLabel}>Запросов</span>
+              <span className={s.infoValue}>{dnsSummary.total_queries}</span>
+            </div>
+            {dnsSummary.top_domains.map((d) => (
+              <div key={d.domain} className={s.infoRow}>
+                <span className={s.infoValue} style={{ fontFamily: "monospace", fontSize: 11,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  maxWidth: 180 }} title={d.domain}>{d.domain}</span>
+                <span className={s.infoLabel} style={{ marginLeft: "auto", flexShrink: 0 }}>×{d.count}</span>
+              </div>
+            ))}
           </div>
         )}
 

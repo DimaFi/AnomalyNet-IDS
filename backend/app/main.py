@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from app.api.autostart import autostart_router
 from app.api.block import block_router
 from app.api.devices import devices_router, ws_devices_endpoint
+from app.api.dns import dns_router
 from app.api.models_manager import models_manager_router
 from app.api.plugins import plugins_router
 from app.api.routes import router
@@ -21,6 +22,7 @@ from app.api.block import _detect_best_interface_by_traffic
 from app.core import APP_ROOT
 from app.discovery.scanner import NetworkScanner
 from app.discovery.tracker import DeviceTracker
+from app.dns.monitor import DnsMonitor
 from app.pipeline.service import PipelineService
 from app.storage.json_store import JsonFileStore
 
@@ -64,6 +66,11 @@ async def lifespan(app: FastAPI):
     app.state.network_scanner = scanner
     service.set_device_tracker(tracker)
 
+    # DNS monitoring (runs in linux_live mode; gracefully no-op otherwise)
+    dns_monitor = DnsMonitor()
+    app.state.dns_monitor = dns_monitor
+    service.set_dns_monitor(dns_monitor)
+
     await service.start()
     scan_task = asyncio.create_task(scanner.start_background_scan(tracker=tracker, interval=60))
     try:
@@ -85,6 +92,7 @@ app.include_router(router)
 app.include_router(autostart_router)
 app.include_router(block_router)
 app.include_router(devices_router)
+app.include_router(dns_router)
 app.include_router(update_router)
 app.include_router(plugins_router)
 app.include_router(models_manager_router)

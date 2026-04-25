@@ -8,6 +8,7 @@ import { api } from "../../lib/api";
 import { useBlockIp } from "../../lib/useBlockIp";
 import { refreshStreamFromSnapshot } from "../../lib/useRealtimeStream";
 import { deviceEmoji } from "../../lib/deviceTypes";
+import { DnsView } from "./DnsView";
 import styles from "../panel.module.css";
 import s from "./StreamView.module.css";
 
@@ -261,6 +262,8 @@ export function StreamView() {
   const blockIp       = useBlockIp();
   const [refreshing, setRefreshing] = useState(false);
 
+  const [viewTab, setViewTab] = useState<"flows" | "dns">("flows");
+
   const [filters, setFilters] = useState<FilterState>(loadFilters);
   const [page, setPage] = useState(0);
   const [sortKey,  setSortKey]  = useState<SortKey | null>("time");
@@ -395,6 +398,16 @@ export function StreamView() {
           </p>
         </div>
         <div className={s.headerRight}>
+          <div className={s.viewTabs}>
+            <button
+              className={`${s.viewTabBtn} ${viewTab === "flows" ? s.viewTabActive : ""}`}
+              onClick={() => setViewTab("flows")}
+            >Потоки</button>
+            <button
+              className={`${s.viewTabBtn} ${viewTab === "dns" ? s.viewTabActive : ""}`}
+              onClick={() => setViewTab("dns")}
+            >DNS</button>
+          </div>
           <span className={s.counter}>
             {filtered.length !== stream.length
               ? `${filtered.length} / ${stream.length}`
@@ -425,7 +438,11 @@ export function StreamView() {
         </div>
       </div>
 
-      {/* ── Filter bar ── */}
+      {/* ── DNS view ── */}
+      {viewTab === "dns" && <DnsView />}
+
+      {/* ── Flows: filter bar + tables ── */}
+      {viewTab === "flows" && <>
       <div className={s.filterBar}>
         {/* Row 1: existing filters */}
         <div className={s.filterRow}>
@@ -725,6 +742,7 @@ export function StreamView() {
           </p>
         )}
       </div>
+      </>}
     </section>
   );
 }
