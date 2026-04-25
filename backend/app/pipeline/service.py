@@ -37,8 +37,8 @@ class PipelineService:
         self._preprocess_cache = None
         self._model_cache = None
         self._cache_key: tuple | None = None  # (active_model_id, relevant settings hash)
-        # Blocked IPs registry — tracks IPs blocked via iptables by this service
-        self._blocked_ips_registry: dict[str, str] = {}  # ip → ISO timestamp
+        # Blocked IPs registry — persisted to disk; restored on startup
+        self._blocked_ips_registry: dict[str, str] = store.load_blocked_ips()
         # Firewall abstraction (LinuxFirewall on Linux, MockFirewall otherwise)
         self._firewall: BaseFirewall = create_firewall(self._settings.blocking_mode)
         # DeviceTracker hook (optional — set from main.py lifespan)
@@ -80,6 +80,13 @@ class PipelineService:
         if self._settings.stream_autostart and self._loop_task is None:
             self._loop_task = asyncio.create_task(self._run_loop())
         self._unblock_task = asyncio.create_task(self._auto_unblock_loop())
+        # Restore firewall rules from persisted registry (no-op if registry empty)
+        if self._blocked_ips_registry:
+            whitelist = set(self._settings.whitelist_ips)
+            ips = list(self._blocked_ips_registry)
+            await asyncio.get_event_loop().run_in_executor(
+                None, lambda: self._firewall.sync_rules(ips, whitelist)
+            )
 
     async def shutdown(self) -> None:
         for task in (self._loop_task, self._unblock_task):
@@ -284,6 +291,7 @@ class PipelineService:
         )
         if ok:
             self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
+            self._store.save_blocked_ips(self._blocked_ips_registry)
 
     async def _auto_unblock_loop(self) -> None:
         """Background task: automatically unblock IPs after the configured cooldown."""
@@ -457,6 +465,7 @@ class PipelineService:
         )
         if ok:
             self._blocked_ips_registry[ip] = datetime.now(timezone.utc).isoformat()
+            self._store.save_blocked_ips(self._blocked_ips_registry)
         return ok
 
     async def unblock_ip(self, ip: str) -> bool:
@@ -465,6 +474,7 @@ class PipelineService:
             None, lambda: self._firewall.unblock_ip(ip)
         )
         self._blocked_ips_registry.pop(ip, None)
+        self._store.save_blocked_ips(self._blocked_ips_registry)
         return ok
 
     async def unblock_all_ips(self) -> int:
@@ -472,6 +482,7 @@ class PipelineService:
         count = len(self._blocked_ips_registry)
         await asyncio.get_event_loop().run_in_executor(None, self._firewall.flush)
         self._blocked_ips_registry.clear()
+        self._store.save_blocked_ips(self._blocked_ips_registry)
         return count
 
     def rollback_firewall(self) -> bool:

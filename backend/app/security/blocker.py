@@ -88,6 +88,24 @@ class BaseFirewall(ABC):
     def restore(self, path: str) -> bool:
         """Restore iptables state from file. Returns True on success."""
 
+    def sync_rules(self, ips: list[str], whitelist: set[str] | None = None) -> int:
+        """
+        Ensure all IPs in `ips` are present in the active chain.
+        Skips IPs that are already blocked (no duplicates).
+        Skips protected / whitelisted IPs.
+        Returns the number of rules actually added.
+        """
+        existing = set(self.list_rules())
+        added = 0
+        for ip in ips:
+            if ip in existing:
+                continue
+            if self.block_ip(ip, whitelist):
+                added += 1
+        if added:
+            _log.info("[SYNC] restored %d rule(s) from registry", added)
+        return added
+
     def get_warnings(self) -> list[str]:
         return []
 

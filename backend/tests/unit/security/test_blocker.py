@@ -225,3 +225,91 @@ def test_create_firewall_returns_linux_on_linux():
     assert isinstance(fw, LinuxFirewall)
     assert fw.blocking_mode == "gateway"
     assert fw._chain == "ANOMALYNET_FORWARD"
+
+
+# ── sync_rules tests ──────────────────────────────────────────────────────────
+
+class TestSyncRulesMock:
+    """sync_rules on MockFirewall — no iptables, pure in-memory."""
+
+    def test_sync_adds_missing_ips(self):
+        fw = MockFirewall()
+        added = fw.sync_rules(["1.2.3.4", "5.6.7.8"])
+        assert added == 2
+        assert set(fw.list_rules()) == {"1.2.3.4", "5.6.7.8"}
+
+    def test_sync_no_duplicates(self):
+        fw = MockFirewall()
+        fw.block_ip("1.2.3.4")
+        added = fw.sync_rules(["1.2.3.4", "9.9.9.9"])
+        assert added == 1  # only 9.9.9.9 was missing
+        assert "1.2.3.4" in fw.list_rules()
+        assert "9.9.9.9" in fw.list_rules()
+
+    def test_sync_respects_whitelist(self):
+        fw = MockFirewall()
+        added = fw.sync_rules(["1.2.3.4", "5.5.5.5"], whitelist={"5.5.5.5"})
+        assert added == 1
+        assert "5.5.5.5" not in fw.list_rules()
+
+    def test_sync_empty_list_returns_zero(self):
+        fw = MockFirewall()
+        assert fw.sync_rules([]) == 0
+
+    def test_sync_all_already_present(self):
+        fw = MockFirewall()
+        fw.block_ip("1.2.3.4")
+        fw.block_ip("5.6.7.8")
+        added = fw.sync_rules(["1.2.3.4", "5.6.7.8"])
+        assert added == 0
+
+
+class TestSyncRulesLinux:
+    """sync_rules on LinuxFirewall — mocked run_command."""
+
+    def teardown_method(self, _):
+        blocker_module.run_command = blocker_module._default_run
+
+    def _make_fw(self, mode: str = "pc", existing_ips: list[str] | None = None) -> LinuxFirewall:
+        """Create LinuxFirewall with chain ready and optional pre-existing rules."""
+        fw = LinuxFirewall(blocking_mode=mode)
+        fw._chain_ready = True
+        fw._protected = set()
+
+        # Stub list_rules to return existing_ips
+        existing = set(existing_ips or [])
+        calls_log: list[list[str]] = []
+
+        def _run(cmd: list[str]) -> tuple[int, str]:
+            calls_log.append(cmd)
+            return (0, "")
+
+        blocker_module.run_command = _run
+        fw._calls = calls_log
+        fw._existing_stub = existing
+
+        # Override list_rules to return stubbed existing rules
+        fw.list_rules = lambda: list(existing)  # type: ignore[method-assign]
+        return fw
+
+    def test_sync_pc_mode_adds_to_input_chain(self):
+        fw = self._make_fw(mode="pc")
+        fw.sync_rules(["10.0.0.1", "10.0.0.2"])
+        block_calls = [c for c in fw._calls if "-A" in c]
+        assert ["iptables", "-A", "ANOMALYNET_INPUT", "-s", "10.0.0.1", "-j", "DROP"] in block_calls
+        assert ["iptables", "-A", "ANOMALYNET_INPUT", "-s", "10.0.0.2", "-j", "DROP"] in block_calls
+
+    def test_sync_gateway_mode_adds_to_forward_chain(self):
+        fw = self._make_fw(mode="gateway")
+        fw.sync_rules(["10.0.0.5"])
+        block_calls = [c for c in fw._calls if "-A" in c]
+        assert ["iptables", "-A", "ANOMALYNET_FORWARD", "-s", "10.0.0.5", "-j", "DROP"] in block_calls
+
+    def test_sync_skips_existing_rules(self):
+        fw = self._make_fw(existing_ips=["10.0.0.1"])
+        added = fw.sync_rules(["10.0.0.1", "10.0.0.2"])
+        assert added == 1
+        block_calls = [c for c in fw._calls if "-A" in c]
+        # 10.0.0.1 already present — should not appear in block calls
+        for c in block_calls:
+            assert "10.0.0.1" not in c

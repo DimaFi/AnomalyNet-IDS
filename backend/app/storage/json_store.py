@@ -24,6 +24,7 @@ class JsonFileStore:
         self._models_path = self._config_dir / "models_registry.json"
         self._presets_path = self._config_dir / "model_presets.json"
         self._history_dir = self._user_dir / "data" / "history"
+        self._blocked_ips_path = self._user_dir / "data" / "blocked_ips.json"
 
     @property
     def history_dir(self) -> Path:
@@ -135,6 +136,20 @@ class JsonFileStore:
                     if len(items) >= limit:
                         return items
         return items
+
+    def save_blocked_ips(self, registry: dict[str, str]) -> None:
+        """Persist the blocked-IPs registry to disk (ip → ISO timestamp)."""
+        self._write_json(self._blocked_ips_path, dict(registry))
+
+    def load_blocked_ips(self) -> dict[str, str]:
+        """Load the persisted blocked-IPs registry. Returns {} on missing/corrupt file."""
+        if not self._blocked_ips_path.exists():
+            return {}
+        try:
+            data = self._read_json(self._blocked_ips_path)
+            return {str(k): str(v) for k, v in data.items()}
+        except Exception:
+            return {}
 
     def apply_retention(self, retention_days: int) -> None:
         cutoff = datetime.now(timezone.utc).date() - timedelta(days=retention_days)
