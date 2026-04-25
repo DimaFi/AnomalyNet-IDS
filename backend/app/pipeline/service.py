@@ -313,6 +313,10 @@ class PipelineService:
             items=list(self._recent_items),
         )
 
+    @property
+    def history_dir(self):
+        return self._store.history_dir
+
     def history(self, limit: int = 50, offset: int = 0) -> list[PipelineEvent]:
         items = list(self._recent_items)
         if offset:

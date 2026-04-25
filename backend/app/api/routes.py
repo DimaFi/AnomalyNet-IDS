@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import csv
+import io
+import json
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Generator
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.contracts.schemas import (
@@ -108,6 +112,174 @@ def get_registry_state(service: PipelineService = Depends(get_pipeline_service))
             if cfg.validate(registry)
         },
     }
+
+
+_PRIORITY_WEIGHT = {"critical": 4, "high": 3, "medium": 2, "info": 1}
+_SEVERITY_MAP    = {"critical": 1, "high": 2, "medium": 3, "info": 4}
+
+
+def _iter_history(
+    service: PipelineService,
+    from_ts: float,
+    to_ts: float,
+    min_priority: str,
+) -> Generator[dict[str, Any], None, None]:
+    """Yield raw event dicts from NDJSON history files within the time window."""
+    min_weight = _PRIORITY_WEIGHT.get(min_priority, 0)
+    history_dir = service.history_dir
+    for path in sorted(history_dir.glob("*.ndjson")):
+        # Quick skip: file date outside range
+        try:
+            file_date = datetime.fromisoformat(path.stem).date()
+            file_ts = datetime.combine(file_date, datetime.min.time(), tzinfo=timezone.utc).timestamp()
+            if file_ts > to_ts + 86400:
+                continue
+            if file_ts + 86400 < from_ts:
+                continue
+        except ValueError:
+            pass
+        with path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                ts_str = ev.get("event", {}).get("timestamp", "")
+                try:
+                    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00")).timestamp()
+                except (ValueError, AttributeError):
+                    continue
+                if ts < from_ts or ts > to_ts:
+                    continue
+                prio = ev.get("priority", "info")
+                if min_weight > 0 and _PRIORITY_WEIGHT.get(prio, 1) < min_weight:
+                    continue
+                yield ev
+
+
+def _eve_line(ev: dict[str, Any]) -> str:
+    event   = ev.get("event", {})
+    inf     = ev.get("inference", {})
+    prio    = ev.get("priority", "info")
+    mitre   = ev.get("mitre") or {}
+    ts_raw  = event.get("timestamp", "")
+    try:
+        ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00")).strftime("%Y-%m-%dT%H:%M:%S.%f+0000")
+    except (ValueError, AttributeError):
+        ts = ts_raw
+    obj = {
+        "timestamp":  ts,
+        "event_type": "alert",
+        "src_ip":     event.get("src_ip", ""),
+        "src_port":   event.get("src_port", 0),
+        "dest_ip":    event.get("dst_ip", ""),
+        "dest_port":  event.get("dst_port", 0),
+        "proto":      event.get("protocol", "TCP"),
+        "alert": {
+            "action":       "allowed",
+            "severity":     _SEVERITY_MAP.get(prio, 4),
+            "signature":    "AnomalyNet ML Detection",
+            "signature_id": 9000001,
+            "category":     inf.get("attack_class") or "unknown",
+            "rev":          1,
+        },
+        "flow": {
+            "pkts_toserver":  event.get("packet_count", 0),
+            "pkts_toclient":  0,
+            "bytes_toserver": event.get("byte_count", 0),
+            "bytes_toclient": 0,
+        },
+        "anomalynet": {
+            "score":        inf.get("score", 0.0),
+            "verdict":      inf.get("label", ""),
+            "attack_class": inf.get("attack_class"),
+            "priority":     prio,
+            "model_id":     inf.get("model_id", ""),
+            "mitre_id":     mitre.get("id"),
+            "mitre_tactic": mitre.get("tactic"),
+        },
+    }
+    return json.dumps(obj, ensure_ascii=False)
+
+
+@router.get("/export/eve")
+def export_eve(
+    from_ts: float = Query(default=None),
+    to_ts:   float = Query(default=None),
+    min_priority: str = Query(default="all"),
+    service: PipelineService = Depends(get_pipeline_service),
+):
+    now = datetime.now(timezone.utc).timestamp()
+    _from = from_ts if from_ts is not None else now - 86400
+    _to   = to_ts   if to_ts   is not None else now
+
+    def generate():
+        for ev in _iter_history(service, _from, _to, min_priority):
+            yield _eve_line(ev) + "\n"
+
+    filename = f"anomalynet-eve-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.json"
+    return StreamingResponse(
+        generate(),
+        media_type="application/x-ndjson",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/export/csv")
+def export_csv(
+    from_ts: float = Query(default=None),
+    to_ts:   float = Query(default=None),
+    min_priority: str = Query(default="all"),
+    service: PipelineService = Depends(get_pipeline_service),
+):
+    now = datetime.now(timezone.utc).timestamp()
+    _from = from_ts if from_ts is not None else now - 86400
+    _to   = to_ts   if to_ts   is not None else now
+
+    CSV_HEADERS = [
+        "timestamp", "src_ip", "src_port", "dest_ip", "dest_port",
+        "proto", "verdict", "attack_class", "score", "priority",
+        "mitre_id", "mitre_tactic", "action",
+    ]
+
+    def generate():
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(CSV_HEADERS)
+        yield buf.getvalue()
+        for ev in _iter_history(service, _from, _to, min_priority):
+            event = ev.get("event", {})
+            inf   = ev.get("inference", {})
+            mitre = ev.get("mitre") or {}
+            prio  = ev.get("priority", "info")
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow([
+                event.get("timestamp", ""),
+                event.get("src_ip", ""),
+                event.get("src_port", ""),
+                event.get("dst_ip", ""),
+                event.get("dst_port", ""),
+                event.get("protocol", ""),
+                inf.get("label", ""),
+                inf.get("attack_class") or "",
+                inf.get("score", ""),
+                prio,
+                mitre.get("id") or "",
+                mitre.get("tactic") or "",
+                "allowed",
+            ])
+            yield buf.getvalue()
+
+    filename = f"anomalynet-events-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.csv"
+    return StreamingResponse(
+        generate(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/export")

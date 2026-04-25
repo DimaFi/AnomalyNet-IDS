@@ -84,6 +84,123 @@ function ScoreBar({ score }: { score: number }) {
   );
 }
 
+// ── Export helpers ────────────────────────────────────────────────────────────
+
+const QUICK_RANGES = [
+  { label: "1 час",   hours: 1  },
+  { label: "6 часов", hours: 6  },
+  { label: "24 часа", hours: 24 },
+  { label: "7 дней",  hours: 168 },
+] as const;
+
+const PRIORITY_OPTIONS = [
+  { value: "all",      label: "Все" },
+  { value: "info",     label: "Info+" },
+  { value: "medium",   label: "Medium+" },
+  { value: "high",     label: "High+" },
+  { value: "critical", label: "Critical" },
+] as const;
+
+function buildExportUrl(format: "eve" | "csv", fromTs: number, toTs: number, minPriority: string) {
+  const params = new URLSearchParams({
+    from_ts: String(fromTs),
+    to_ts:   String(toTs),
+    min_priority: minPriority,
+  });
+  return `/api/export/${format}?${params.toString()}`;
+}
+
+function ExportMenu({ onExportCurrentCsv }: { onExportCurrentCsv: () => void }) {
+  const [open,   setOpen]   = useState(false);
+  const [modal,  setModal]  = useState(false);
+  const [fromDt, setFromDt] = useState(() => {
+    const d = new Date(Date.now() - 86400_000);
+    return d.toISOString().slice(0, 16);
+  });
+  const [toDt,   setToDt]   = useState(() => new Date().toISOString().slice(0, 16));
+  const [prio,   setPrio]   = useState("all");
+
+  function download(format: "eve" | "csv", hours: number | null, customFrom?: string, customTo?: string, customPrio?: string) {
+    const now = Date.now() / 1000;
+    const fromTs = hours !== null ? now - hours * 3600 : new Date(customFrom!).getTime() / 1000;
+    const toTs   = hours !== null ? now                : new Date(customTo!).getTime()   / 1000;
+    window.location.href = buildExportUrl(format, fromTs, toTs, customPrio ?? "all");
+  }
+
+  return (
+    <div className={s.exportWrap}>
+      <button className={s.refreshBtn} onClick={() => setOpen((v) => !v)} title="Экспорт логов">
+        ↓ Экспорт
+      </button>
+
+      {open && (
+        <div className={s.exportDropdown} onMouseLeave={() => setOpen(false)}>
+          <div className={s.exportSection}>Экспорт текущего вида</div>
+          <button className={s.exportItem} onClick={() => { onExportCurrentCsv(); setOpen(false); }}>
+            ↓ CSV (отфильтрованные события)
+          </button>
+
+          <div className={s.exportSection}>EVE JSON</div>
+          {QUICK_RANGES.map((r) => (
+            <button key={r.hours} className={s.exportItem}
+              onClick={() => { download("eve", r.hours); setOpen(false); }}>
+              ↓ EVE JSON — {r.label}
+            </button>
+          ))}
+
+          <div className={s.exportSection}>CSV</div>
+          {QUICK_RANGES.map((r) => (
+            <button key={r.hours} className={s.exportItem}
+              onClick={() => { download("csv", r.hours); setOpen(false); }}>
+              ↓ CSV — {r.label}
+            </button>
+          ))}
+
+          <div className={s.exportDivider} />
+          <button className={s.exportItem} onClick={() => { setModal(true); setOpen(false); }}>
+            ⚙ За период...
+          </button>
+        </div>
+      )}
+
+      {modal && (
+        <div className={s.exportOverlay} onClick={(e) => e.target === e.currentTarget && setModal(false)}>
+          <div className={s.exportModal}>
+            <div className={s.exportModalHeader}>
+              <span>Экспорт за период</span>
+              <button className={s.exportModalClose} onClick={() => setModal(false)}>×</button>
+            </div>
+            <div className={s.exportModalBody}>
+              <label className={s.exportModalRow}>
+                <span>С</span>
+                <input type="datetime-local" className={s.exportInput} value={fromDt} onChange={(e) => setFromDt(e.target.value)} />
+              </label>
+              <label className={s.exportModalRow}>
+                <span>По</span>
+                <input type="datetime-local" className={s.exportInput} value={toDt} onChange={(e) => setToDt(e.target.value)} />
+              </label>
+              <label className={s.exportModalRow}>
+                <span>Приоритет</span>
+                <select className={s.exportInput} value={prio} onChange={(e) => setPrio(e.target.value)}>
+                  {PRIORITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className={s.exportModalFooter}>
+              <button className={s.exportDlBtn} onClick={() => download("eve", null, fromDt, toDt, prio)}>
+                ↓ EVE JSON
+              </button>
+              <button className={s.exportDlBtn} onClick={() => download("csv", null, fromDt, toDt, prio)}>
+                ↓ CSV
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PRIORITY_WEIGHT: Record<string, number> = { critical: 4, high: 3, medium: 2, info: 1 };
 const PRIORITY_BORDER: Record<string, string> = {
   critical: "3px solid #ef4444",
@@ -270,9 +387,7 @@ export function StreamView() {
               <button className={s.pageBtn} disabled={safePage >= totalPages - 1} onClick={() => setPage(totalPages - 1)}>»</button>
             </div>
           )}
-          <button className={s.refreshBtn} onClick={() => void exportCsv(filtered)} title="Экспорт в CSV">
-            ↓ CSV
-          </button>
+          <ExportMenu onExportCurrentCsv={() => void exportCsv(filtered)} />
           <button className={s.refreshBtn} onClick={() => void handleRefresh()} disabled={refreshing} title="Обновить из снапшота">
             {refreshing ? "..." : "↺"}
           </button>

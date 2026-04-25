@@ -25,6 +25,10 @@ class JsonFileStore:
         self._presets_path = self._config_dir / "model_presets.json"
         self._history_dir = self._user_dir / "data" / "history"
 
+    @property
+    def history_dir(self) -> Path:
+        return self._history_dir
+
         # Migrate settings from old location if user data dir is fresh
         self._migrate_settings_if_needed(app_root)
 
