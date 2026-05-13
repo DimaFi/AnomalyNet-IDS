@@ -253,6 +253,76 @@ function loadFilters(): FilterState {
   return { ...DEFAULT_FILTERS };
 }
 
+// ── TLS view ─────────────────────────────────────────────────────────────────
+
+function TlsView({ stream }: { stream: PipelineEvent[] }) {
+  const tlsEvents = useMemo(
+    () => stream.filter((e) => e.event_type === "tls").slice(0, 500),
+    [stream],
+  );
+
+  if (!tlsEvents.length) {
+    return (
+      <p className={styles.emptyState}>
+        Нет TLS событий. TLS fingerprinting активен только в режиме linux_live.
+      </p>
+    );
+  }
+
+  return (
+    <div className={styles.tableWrap}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th style={{ width: 72 }}>Время</th>
+            <th>Источник</th>
+            <th>JA4</th>
+            <th>SNI</th>
+            <th>ALPN</th>
+            <th style={{ width: 80 }}>TLS ver</th>
+            <th style={{ width: 90 }}>Тип алерта</th>
+            <th style={{ width: 80 }}>Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tlsEvents.map((item) => {
+            const m = item.metadata ?? {};
+            const alertType: string = (m.tls_alert_type as string) ?? item.inference.attack_class ?? "";
+            const isMany = alertType === "TOO_MANY_TLS_FINGERPRINTS";
+            return (
+              <tr key={item.event.event_id} className={isMany ? s.attackRow : ""}>
+                <td className={s.timeCell}>{formatTime(item.event.timestamp)}</td>
+                <td>
+                  <div className={s.route}>
+                    <span className={s.ip}>{item.event.src_ip}</span>
+                    <span className={s.arrow}>→</span>
+                    <span className={s.ip}>{item.event.dst_ip}</span>
+                    <span className={s.port}>:{item.event.dst_port}</span>
+                  </div>
+                </td>
+                <td>
+                  <code className={s.ja4Code} title={`raw: ${m.ja4_raw ?? ""}\nlegacy: ${m.ja4_legacy ?? ""}\nsource: ${m.ja4_source ?? ""}`}>
+                    {(m.ja4 as string) || "—"}
+                  </code>
+                </td>
+                <td className={s.sniCell}>{(m.sni as string) || <span className={s.noClass}>—</span>}</td>
+                <td><span className={s.protoBadge}>{(m.alpn as string) || "—"}</span></td>
+                <td>{(m.tls_version as string) || "—"}</td>
+                <td>
+                  <span className={`${s.attackClassBadge} ${isMany ? s.classDdos : ""}`} title={alertType}>
+                    {isMany ? "TOO_MANY" : "NEW"}
+                  </span>
+                </td>
+                <td><ScoreBar score={item.inference.score} /></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function StreamView() {
   const { t } = useTranslation();
   const stream        = useAppStore((state) => state.stream);
@@ -262,7 +332,7 @@ export function StreamView() {
   const blockIp       = useBlockIp();
   const [refreshing, setRefreshing] = useState(false);
 
-  const [viewTab, setViewTab] = useState<"flows" | "dns">("flows");
+  const [viewTab, setViewTab] = useState<"flows" | "dns" | "tls">("flows");
 
   const [filters, setFilters] = useState<FilterState>(loadFilters);
   const [page, setPage] = useState(0);
@@ -407,6 +477,10 @@ export function StreamView() {
               className={`${s.viewTabBtn} ${viewTab === "dns" ? s.viewTabActive : ""}`}
               onClick={() => setViewTab("dns")}
             >DNS</button>
+            <button
+              className={`${s.viewTabBtn} ${viewTab === "tls" ? s.viewTabActive : ""}`}
+              onClick={() => setViewTab("tls")}
+            >TLS</button>
           </div>
           <span className={s.counter}>
             {filtered.length !== stream.length
@@ -440,6 +514,9 @@ export function StreamView() {
 
       {/* ── DNS view ── */}
       {viewTab === "dns" && <DnsView />}
+
+      {/* ── TLS view ── */}
+      {viewTab === "tls" && <TlsView stream={stream} />}
 
       {/* ── Flows: filter bar + tables ── */}
       {viewTab === "flows" && <>

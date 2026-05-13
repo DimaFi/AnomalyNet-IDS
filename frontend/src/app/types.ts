@@ -126,11 +126,38 @@ export interface MitreInfo {
 
 export type Priority = "critical" | "high" | "medium" | "info";
 
+export interface PipelineEventMetadata {
+  // DNS metadata
+  domain?: string;
+  entropy?: number;
+  description?: string;
+  transport?: string;
+  dns_alert_type?: string;
+  // TLS metadata
+  ja4?: string;
+  ja4_legacy?: string;
+  ja4_raw?: string;
+  ja4_source?: "scapy_tls" | "raw_tcp" | "reassembled_tcp" | "quic" | string;
+  ja4_version?: string;
+  sni?: string;
+  alpn?: string;
+  tls_version?: string;
+  cipher_count?: number;
+  ext_count?: number;
+  tls_alert_type?: string;
+  unique_count?: number;
+  reason?: string;
+  // Generic
+  [key: string]: unknown;
+}
+
 export interface PipelineEvent {
   event: NormalizedFlowEvent;
   features: FeatureVector;
   inference: InferenceResult;
   alert: AlertRecord | null;
+  event_type?: "flow" | "dns" | "tls" | string;
+  metadata?: PipelineEventMetadata | null;
   device_type?: string | null;
   device_name?: string | null;
   pipeline_used?: string | null;

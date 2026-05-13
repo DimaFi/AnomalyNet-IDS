@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from collections import deque
 from datetime import datetime, timezone, timedelta
@@ -47,6 +48,13 @@ class PipelineService:
         self._dns_monitor = None
         # TLSMonitor hook (optional — set from main.py lifespan)
         self._tls_monitor = None
+        # asyncio loop reference — set on start(), cleared on shutdown()
+        # Used to bridge Scapy/DNS/TLS threads back into the event loop.
+        self._event_loop: asyncio.AbstractEventLoop | None = None
+        # Semaphore limits concurrent external-event publishing from side threads.
+        # If all N slots are taken (burst TLS/DNS traffic), new events are dropped.
+        # This prevents unbounded call_soon_threadsafe queue growth and OOM.
+        self._ext_event_sem = threading.Semaphore(100)
         # Rolling counters for debug stats (reset on restart)
         self._total_events: int = 0
         self._label_counts: dict[str, int] = {"normal": 0, "warning": 0, "anomaly": 0}
@@ -79,6 +87,7 @@ class PipelineService:
         return self._models.items[0]
 
     async def start(self) -> None:
+        self._event_loop = asyncio.get_running_loop()
         if self._settings.stream_autostart and self._loop_task is None:
             self._loop_task = asyncio.create_task(self._run_loop())
         self._unblock_task = asyncio.create_task(self._auto_unblock_loop())
@@ -100,6 +109,7 @@ class PipelineService:
                     pass
         self._loop_task = None
         self._unblock_task = None
+        self._event_loop = None
         try:
             await asyncio.wait_for(self._stop_adapter(), timeout=5.0)
         except asyncio.TimeoutError:
@@ -313,6 +323,52 @@ class PipelineService:
             ]
             for ip in to_unblock:
                 await self.unblock_ip(ip)
+
+    def publish_external_event(self, pipeline_event: PipelineEvent) -> None:
+        """Publish a non-flow event (TLS / DNS alert) from a side-thread.
+
+        TLS and DNS monitor callbacks run in the Scapy capture thread — outside
+        the asyncio event loop.  This method is the thread-safe bridge.
+
+        Rate limiting: a Semaphore with capacity 100 prevents unbounded
+        call_soon_threadsafe queue growth under burst TLS/DNS traffic.
+        Excess events are silently dropped (the next unique fingerprint will
+        still fire an alert after the burst subsides).
+        """
+        if not self._ext_event_sem.acquire(blocking=False):
+            logger.debug("[TLS/DNS] external event dropped — semaphore full (burst traffic)")
+            return
+
+        loop = self._event_loop
+        if loop is not None and loop.is_running():
+            loop.call_soon_threadsafe(self._deliver_external_event, pipeline_event)
+        else:
+            # Fallback: called from event loop thread or before start()
+            self._deliver_external_event(pipeline_event)
+
+    def _deliver_external_event(self, pipeline_event: PipelineEvent) -> None:
+        """Called inside the event loop thread (via call_soon_threadsafe)."""
+        try:
+            self._record_pipeline_event(pipeline_event)
+            self._store.append_history(pipeline_event)
+            loop = self._event_loop
+            if loop is not None and loop.is_running():
+                task = loop.create_task(self._fan_out(pipeline_event))
+                # Attach a no-op callback so the task reference stays alive
+                # until completion and exceptions are not silently swallowed.
+                task.add_done_callback(
+                    lambda t: logger.debug("[fan_out] error: %s", t.exception())
+                    if not t.cancelled() and t.exception() else None
+                )
+        finally:
+            self._ext_event_sem.release()
+
+    def _record_pipeline_event(self, pipeline_event: PipelineEvent) -> None:
+        """Update in-memory recent_items and rolling counters."""
+        self._recent_items.appendleft(pipeline_event)
+        self._total_events += 1
+        label = pipeline_event.inference.label if pipeline_event.inference else "normal"
+        self._label_counts[label] = self._label_counts.get(label, 0) + 1
 
     async def _fan_out(self, pipeline_event: PipelineEvent) -> None:
         stale: list[asyncio.Queue[PipelineEvent]] = []

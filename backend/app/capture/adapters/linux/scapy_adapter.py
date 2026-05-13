@@ -44,9 +44,12 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._dns_monitor = None  # set via set_dns_monitor() after construction
         self._tls_monitor = None  # set via set_tls_monitor() after construction
         self._tls_stats = {
-            "tcp_443_seen": 0,
-            "raw_tls_like_seen": 0,
-            "tls_fingerprint_seen": 0,
+            "tls_ports_seen": 0,        # TCP packets on any TLS port
+            "raw_tls_like_seen": 0,     # raw bytes starting with 0x16
+            "tls_fingerprint_seen": 0,  # successfully parsed ClientHello
+            "tls_parse_success_scapy": 0,
+            "tls_parse_success_raw": 0,
+            "tls_parse_failed": 0,
             "tls_alerts_emitted": 0,
         }
 
@@ -161,16 +164,33 @@ class LinuxScapyAdapter(CaptureAdapter):
             return
         self._dns_monitor.on_dns_packet(src_ip, domain, qtype)
 
+    # Common TLS ports — covers HTTPS, SMTPS, IMAPS, POP3S, LDAPS,
+    # AMQP TLS, MQTT TLS, RDP TLS, alternate HTTPS, syslog TLS.
+    _TLS_PORTS: frozenset[int] = frozenset({
+        443,    # HTTPS
+        8443,   # alt-HTTPS
+        465,    # SMTPS
+        993,    # IMAPS
+        995,    # POP3S
+        636,    # LDAPS
+        2087,   # cPanel HTTPS
+        2096,   # cPanel webmail
+        3269,   # LDAPS Global Catalog
+        5671,   # AMQP TLS
+        6514,   # Syslog TLS
+        8883,   # MQTT TLS
+    })
+
     def _process_tls(self, pkt) -> None:
         """Extract TLS ClientHello fingerprint and pass to TLSMonitor (scapy thread)."""
         if not pkt.haslayer("IP") or not pkt.haslayer("TCP"):
             return
         dport = pkt["TCP"].dport
-        if dport not in (443, 8443, 465, 993, 995):
+        if dport not in self._TLS_PORTS:
             return
-        self._tls_stats["tcp_443_seen"] += 1
+        self._tls_stats["tls_ports_seen"] += 1
 
-        # Count Raw TLS-like packets (content_type=0x16) for diagnostics
+        # Diagnostic: count raw packets that look like TLS handshake (0x16)
         if pkt.haslayer("Raw"):
             raw_load = bytes(pkt["Raw"].load)
             if raw_load and raw_load[0] == 0x16:
@@ -179,8 +199,15 @@ class LinuxScapyAdapter(CaptureAdapter):
         from app.tls.fingerprint import compute_tls_fingerprint_from_scapy
         fp = compute_tls_fingerprint_from_scapy(pkt)
         if fp is None:
+            self._tls_stats["tls_parse_failed"] += 1
             return
+
         self._tls_stats["tls_fingerprint_seen"] += 1
+        source = fp.get("ja4_source")
+        if source == "scapy_tls":
+            self._tls_stats["tls_parse_success_scapy"] += 1
+        elif source == "raw_tcp":
+            self._tls_stats["tls_parse_success_raw"] += 1
 
         src_ip: str = pkt["IP"].src
         dst_ip: str = pkt["IP"].dst

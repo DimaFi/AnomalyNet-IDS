@@ -747,3 +747,20 @@
 .exportDlBtn:hover {
   background: rgba(var(--accent-rgb, 91,155,247), 0.22);
 }
+
+
+/* ── TLS view ── */
+.ja4Code {
+  font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  word-break: break-all;
+  cursor: help;
+}
+.sniCell {
+  font-size: 12px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

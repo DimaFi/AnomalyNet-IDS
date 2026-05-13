@@ -1,274 +1,448 @@
 """
-Scapy-specific TLS ClientHello parser.
+TLS ClientHello parser — JA4 fingerprinting (FoxIO-compatible).
 
-Returns a JA4-LIKE fingerprint dict.
+Two dissection paths:
+  1. Scapy native  — packet has TLSClientHello layer (requires SSLSession).
+  2. Raw TCP bytes — manual parse from TCP payload (no TCP reassembly).
 
-⚠️  NOT official JA4 — simplified custom implementation.
-    The "ja4" field name is kept for UI/metadata compatibility.
-    The hashing algorithm can be replaced later without changing TLSMonitor.
+Public API
+----------
+compute_tls_fingerprint_from_scapy(packet) -> dict | None
+parse_tls_client_hello_raw(data: bytes)    -> dict | None
+get_parse_stats()                          -> dict
+reset_parse_stats()                        -> None
 
-Public API:
-    compute_tls_fingerprint_from_scapy(packet) -> dict | None
-    parse_tls_client_hello_raw(data: bytes)    -> dict | None
+Output dict keys
+----------------
+ja4          canonical FoxIO JA4 (sorted ciphers / exts / sig-algs)
+ja4_raw      JA4 with original wire order (debug / parity)
+ja4_legacy   pre-FoxIO AnomalyNet format (backward compat only)
+ja4_source   "scapy_tls" | "raw_tcp"
+ja4_version  format version tag — bumped on formula changes
+sni          SNI hostname, "" if absent
+alpn         first ALPN protocol, "" if absent
+tls_version  human-readable TLS version
+cipher_count non-GREASE cipher count
+ext_count    non-GREASE extension count
+
+JA4 format (FoxIO spec)
+-----------------------
+  {transport}{tls_version}{sni_flag}{cc:02d}{ec:02d}{alpn_token}
+    _ SHA256( sorted_cipher_csv )[:12]
+    _ SHA256( sorted_ext_csv + "_" + sorted_sigalg_csv )[:12]
+
+  transport  : t (TCP) | q (QUIC, future)
+  tls_version: 13 / 12 / 11 / 10
+  sni_flag   : d (SNI present) | i (absent)
+  cc / ec    : counts capped at 99, GREASE filtered
+  alpn_token : first+last char of first ALPN, or "00"
+
+  cipher hash  = SHA256(",".join(sorted_hex4_ciphers))[:12]
+  ext hash     = SHA256(ext_part + "_" + sigalg_part)[:12]
+                   ext_part    = ",".join(sorted_hex4_exts)   -- SNI+ALPN excluded
+                   sigalg_part = ",".join(sorted_hex4_sigalgs)
+
+IMPORTANT: ja4_legacy uses the old formula (all exts in one hash, no sig-algs)
+and exists only for backward-compat with stored events. Do not use for detection.
 """
 
 from __future__ import annotations
 
 import hashlib
 import logging
+from dataclasses import dataclass, field
 
 _log = logging.getLogger("app.tls.fingerprint")
 
-# ── GREASE values (RFC 8701) — filtered before hashing ───────────────────────
+# ── Constants ─────────────────────────────────────────────────────────────────
+
+_JA4_VERSION  = "foxio_v1"         # bumped from foxio_compat_v1 — ext hash fixed
+_JA4_ZERO     = "000000000000"     # 12-char zero hash for empty inputs
+
+# RFC 8701 GREASE values filtered before counting / hashing
 _GREASE: frozenset[int] = frozenset(
     v for v in range(0x0A0A, 0xFFFF + 1, 0x1010) if (v & 0x0F0F) == 0x0A0A
 )
 
-# ── TLS version code mapping ──────────────────────────────────────────────────
 _VERSION_CODES: dict[int, str] = {
-    0x0301: "10",  # TLS 1.0
-    0x0302: "11",  # TLS 1.1
-    0x0303: "12",  # TLS 1.2
-    0x0304: "13",  # TLS 1.3
+    0x0301: "10", 0x0302: "11", 0x0303: "12", 0x0304: "13",
 }
-
 _VERSION_STRINGS: dict[int, str] = {
-    0x0301: "TLS 1.0",
-    0x0302: "TLS 1.1",
-    0x0303: "TLS 1.2",
-    0x0304: "TLS 1.3",
+    0x0301: "TLS 1.0", 0x0302: "TLS 1.1", 0x0303: "TLS 1.2", 0x0304: "TLS 1.3",
 }
 
+_EXT_SNI                = 0x0000
+_EXT_ALPN               = 0x0010
+_EXT_SIGNATURE_ALGS     = 0x000D
+_EXT_SUPPORTED_VERSIONS = 0x002B
 
-def _hex_hash(parts: list[int]) -> str:
-    """sha256(sorted hex values joined by comma), first 12 chars."""
-    joined = ",".join(f"{v:x}" for v in sorted(parts))
-    return hashlib.sha256(joined.encode()).hexdigest()[:12]
+
+# ── Parse statistics (module-level, GIL-safe for simple int increments) ───────
+
+@dataclass
+class _ParseStats:
+    scapy_ok:         int = 0
+    raw_ok:           int = 0
+    failed:           int = 0
+    not_client_hello: int = 0
+    truncated:        int = 0
+    malformed:        int = 0
+    import_error:     int = 0
+
+_stats = _ParseStats()
 
 
-def _build_result(
-    detected_version: int,
+def get_parse_stats() -> dict:
+    """Return a snapshot of module-level parse counters."""
+    return {k: getattr(_stats, k) for k in _stats.__dataclass_fields__}
+
+
+def reset_parse_stats() -> None:
+    global _stats
+    _stats = _ParseStats()
+
+
+# ── Hash helpers ──────────────────────────────────────────────────────────────
+
+def _sha12(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+
+def _cipher_hash(ciphers: list[int], *, sort: bool) -> str:
+    items = [f"{c:04x}" for c in ciphers]
+    if sort:
+        items.sort()
+    return _sha12(",".join(items)) if items else _JA4_ZERO
+
+
+def _ext_hash(ext_types: list[int], sig_algs: list[int], *, sort: bool) -> str:
+    """FoxIO JA4_c formula: SHA256("<sorted_ext_csv>_<sorted_sigalg_csv>")[:12].
+
+    SNI (0x0000) and ALPN (0x0010) are excluded from ext_types.
+    The underscore separator is always present, even when one side is empty.
+    Both sides empty → zero hash (no extensions at all is degenerate input).
+    """
+    exts = [e for e in ext_types if e not in {_EXT_SNI, _EXT_ALPN}]
+    sigs = list(sig_algs)
+    if sort:
+        exts.sort()
+        sigs.sort()
+    ext_part = ",".join(f"{e:04x}" for e in exts)
+    sig_part = ",".join(f"{s:04x}" for s in sigs)
+    if not ext_part and not sig_part:
+        return _JA4_ZERO
+    return _sha12(f"{ext_part}_{sig_part}")
+
+
+def _alpn_token(alpn: str) -> str:
+    """JA4 ALPN token: first+last char, "00" if empty or non-ASCII.
+
+    Single-char ALPN: char repeated ("h" → "hh").
+    ≥2 chars: first+last ("http/1.1" → "h1", "h2" → "h2").
+    """
+    if not alpn or ord(alpn[0]) > 127:
+        return "00"
+    return f"{alpn[0]}{alpn[-1]}"
+
+
+# ── Legacy hash (pre-FoxIO, backward compat) ──────────────────────────────────
+
+def _build_ja4_legacy(version: int, ciphers: list[int], ext_types: list[int]) -> str:
+    vc     = _VERSION_CODES.get(version, "00")
+    prefix = f"t{vc}{len(ciphers):02d}{len(ext_types):02d}"
+    ch     = _cipher_hash(ciphers, sort=True)
+    # legacy: all exts (incl SNI+ALPN), no sig-algs
+    all_exts = sorted(f"{e:04x}" for e in ext_types)
+    eh = _sha12(",".join(all_exts)) if all_exts else _JA4_ZERO
+    return f"{prefix}_{ch}_{eh}"
+
+
+# ── Canonical JA4 builder ─────────────────────────────────────────────────────
+
+def _build_ja4(
+    *,
+    transport: str,
+    version: int,
     ciphers: list[int],
     ext_types: list[int],
+    sig_algs: list[int],
     sni: str,
     alpn: str,
+    sort: bool,
+) -> str:
+    vc     = _VERSION_CODES.get(version, "00")
+    prefix = (
+        f"{transport}{vc}"
+        f"{'d' if sni else 'i'}"
+        f"{min(len(ciphers), 99):02d}"
+        f"{min(len(ext_types), 99):02d}"
+        f"{_alpn_token(alpn)}"
+    )
+    ch = _cipher_hash(ciphers, sort=sort)
+    eh = _ext_hash(ext_types, sig_algs, sort=sort)
+    return f"{prefix}_{ch}_{eh}"
+
+
+def _make_result(
+    *,
+    source: str,
+    version: int,
+    ciphers: list[int],
+    ext_types: list[int],
+    sig_algs: list[int],
+    sni: str,
+    alpn: str,
+    transport: str = "t",
 ) -> dict:
-    version_code = _VERSION_CODES.get(detected_version, "00")
-    cipher_count = len(ciphers)
-    ext_count = len(ext_types)
-    prefix = f"t{version_code}{cipher_count:02d}{ext_count:02d}"
-    cipher_hash = _hex_hash(ciphers) if ciphers else "000000000000"
-    ext_hash = _hex_hash(ext_types) if ext_types else "000000000000"
+    canonical = _build_ja4(
+        transport=transport, version=version, ciphers=ciphers,
+        ext_types=ext_types, sig_algs=sig_algs, sni=sni, alpn=alpn, sort=True,
+    )
+    raw = _build_ja4(
+        transport=transport, version=version, ciphers=ciphers,
+        ext_types=ext_types, sig_algs=sig_algs, sni=sni, alpn=alpn, sort=False,
+    )
+    legacy = _build_ja4_legacy(version, ciphers, ext_types)
     return {
-        "ja4": f"{prefix}_{cipher_hash}_{ext_hash}",
-        "sni": sni,
-        "alpn": alpn,
-        "tls_version": _VERSION_STRINGS.get(detected_version, f"0x{detected_version:04x}"),
-        "cipher_count": cipher_count,
-        "ext_count": ext_count,
+        "ja4":          canonical,
+        "ja4_raw":      raw,
+        "ja4_legacy":   legacy,
+        "ja4_source":   source,
+        "ja4_version":  _JA4_VERSION,
+        "sni":          sni,
+        "alpn":         alpn,
+        "tls_version":  _VERSION_STRINGS.get(version, f"0x{version:04x}"),
+        "cipher_count": len(ciphers),
+        "ext_count":    len(ext_types),
     }
 
 
-# ── Raw bytes parser ──────────────────────────────────────────────────────────
+# ── Sig-alg extraction helpers ────────────────────────────────────────────────
+
+def _coerce_int(value) -> int | None:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, bytes):
+        if len(value) == 1: return value[0]
+        if len(value) == 2: return (value[0] << 8) | value[1]
+        return None
+    try:
+        return int(value)
+    except Exception:
+        return None
+
+
+def _sig_algs_from_scapy(ext) -> list[int]:
+    raw = None
+    for attr in ("sig_algs", "algs", "signature_algs", "signature_algorithms"):
+        raw = getattr(ext, attr, None)
+        if raw:
+            break
+    if not raw:
+        return []
+    if not isinstance(raw, (list, tuple)):
+        raw = [raw]
+    result: list[int] = []
+    for item in raw:
+        if hasattr(item, "sig_alg"):
+            item = getattr(item, "sig_alg")
+        elif hasattr(item, "hash_alg") and hasattr(item, "sig_alg"):
+            h = _coerce_int(getattr(item, "hash_alg"))
+            s = _coerce_int(getattr(item, "sig_alg"))
+            if h is not None and s is not None:
+                item = (h << 8) | s
+        v = _coerce_int(item)
+        if v is not None and v not in _GREASE:
+            result.append(v)
+    return result
+
+
+def _sig_algs_from_raw(data: bytes) -> list[int]:
+    if len(data) < 2:
+        return []
+    list_len = (data[0] << 8) | data[1]
+    end = min(2 + list_len, len(data))
+    result: list[int] = []
+    pos = 2
+    while pos + 2 <= end:
+        v = (data[pos] << 8) | data[pos + 1]
+        if v not in _GREASE:
+            result.append(v)
+        pos += 2
+    return result
+
+
+# ── Raw TCP parser ────────────────────────────────────────────────────────────
 
 def parse_tls_client_hello_raw(data: bytes) -> dict | None:
     """Parse TLS ClientHello from raw TCP payload bytes.
 
-    Returns fingerprint dict or None if data is not a valid ClientHello.
-    Never raises — all index accesses are guarded.
-
-    Limitation: no TCP reassembly. If the ClientHello is split across
-    multiple TCP segments this function returns None (acceptable for MVP).
+    Never raises — all buffer accesses are bounds-checked.
+    Returns None for non-ClientHello, truncated, or malformed data.
+    Limitation: no TCP reassembly (ClientHello split across segments → None).
     """
-    # Need at least: 5 (TLS record) + 4 (HS header) + 2 (version) + 32 (random) + 1 (sid_len)
     if len(data) < 44:
-        return None
+        _stats.failed += 1; _stats.truncated += 1; return None
+    if data[0] != 0x16 or data[1] != 0x03:
+        _stats.failed += 1; _stats.not_client_hello += 1; return None
 
-    # ── TLS record header (5 bytes) ───────────────────────────────────────────
-    if data[0] != 0x16:          # content_type must be Handshake
-        return None
-    if data[1] != 0x03:          # major version must be 3 (all TLS 1.x)
-        return None
     record_len = (data[3] << 8) | data[4]
-    if len(data) < 5 + record_len:   # record split across TCP segments
-        return None
+    if len(data) < 5 + record_len:
+        _stats.failed += 1; _stats.truncated += 1; return None
+    if data[5] != 0x01:
+        _stats.failed += 1; _stats.not_client_hello += 1; return None
 
-    # ── Handshake header (4 bytes at offset 5) ────────────────────────────────
-    if data[5] != 0x01:          # handshake_type must be ClientHello
-        return None
     hs_len = (data[6] << 16) | (data[7] << 8) | data[8]
     hs_end = 9 + hs_len
     if len(data) < hs_end:
-        return None
+        _stats.failed += 1; _stats.truncated += 1; return None
 
-    pos = 9  # ClientHello body begins here
-
-    # ── client_version (2 bytes) ──────────────────────────────────────────────
-    if pos + 2 > hs_end:
-        return None
-    client_version = (data[pos] << 8) | data[pos + 1]
-    pos += 2
-
-    # ── random (32 bytes) ─────────────────────────────────────────────────────
+    pos = 9
+    # client_version
+    if pos + 2 > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
+    client_version = (data[pos] << 8) | data[pos + 1]; pos += 2
+    # random (32 bytes)
     pos += 32
-    if pos > hs_end:
-        return None
-
-    # ── session_id ────────────────────────────────────────────────────────────
-    if pos + 1 > hs_end:
-        return None
-    sid_len = data[pos]
-    pos += 1 + sid_len
-    if pos > hs_end:
-        return None
-
-    # ── cipher_suites ─────────────────────────────────────────────────────────
-    if pos + 2 > hs_end:
-        return None
-    cs_len = (data[pos] << 8) | data[pos + 1]
-    pos += 2
-    if pos + cs_len > hs_end:
-        return None
+    if pos > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
+    # session_id
+    if pos + 1 > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
+    pos += 1 + data[pos]
+    if pos > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
+    # cipher_suites
+    if pos + 2 > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
+    cs_len = (data[pos] << 8) | data[pos + 1]; pos += 2
+    if pos + cs_len > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
     ciphers: list[int] = []
     cs_end = pos + cs_len
     while pos + 2 <= cs_end:
         c = (data[pos] << 8) | data[pos + 1]
-        if c not in _GREASE:
-            ciphers.append(c)
+        if c not in _GREASE: ciphers.append(c)
         pos += 2
     pos = cs_end
+    # compression_methods
+    if pos + 1 > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
+    pos += 1 + data[pos]
+    if pos > hs_end: _stats.failed += 1; _stats.malformed += 1; return None
 
-    # ── compression_methods ───────────────────────────────────────────────────
-    if pos + 1 > hs_end:
-        return None
-    comp_len = data[pos]
-    pos += 1 + comp_len
-    if pos > hs_end:
-        return None
-
-    # ── extensions (optional) ─────────────────────────────────────────────────
     ext_types: list[int] = []
-    sni = ""
-    alpn = ""
-    detected_version = client_version
+    sig_algs:  list[int] = []
+    sni       = ""
+    alpn      = ""
+    detected  = client_version
 
     if pos + 2 <= hs_end:
-        exts_len = (data[pos] << 8) | data[pos + 1]
-        pos += 2
-        exts_end = min(pos + exts_len, hs_end)
-
+        exts_len  = (data[pos] << 8) | data[pos + 1]; pos += 2
+        exts_end  = min(pos + exts_len, hs_end)
         while pos + 4 <= exts_end:
-            ext_type = (data[pos] << 8) | data[pos + 1]
-            ext_dlen = (data[pos + 2] << 8) | data[pos + 3]
-            pos += 4
-            ext_data_end = pos + ext_dlen
-            if ext_data_end > exts_end:
-                break  # truncated extension — stop parsing
+            et    = (data[pos] << 8) | data[pos + 1]
+            edlen = (data[pos + 2] << 8) | data[pos + 3]; pos += 4
+            eend  = pos + edlen
+            if eend > exts_end: break
+            edata = data[pos:eend]
 
-            if ext_type not in _GREASE:
-                ext_types.append(ext_type)
-
-                # SNI (type 0): [0:2] list_len, [2] name_type, [3:5] name_len, [5:] name
-                if ext_type == 0 and ext_dlen >= 5 and pos + 5 <= ext_data_end:
-                    if data[pos + 2] == 0x00:  # name_type host_name
-                        name_len = (data[pos + 3] << 8) | data[pos + 4]
-                        name_end = pos + 5 + name_len
-                        if name_end <= ext_data_end:
-                            try:
-                                sni = data[pos + 5:name_end].decode("ascii", errors="replace")
-                            except Exception:
-                                pass
-
-                # ALPN (type 16): [0:2] list_len, [2] proto_len, [3:] proto
-                elif ext_type == 16 and ext_dlen >= 3 and pos + 3 <= ext_data_end:
-                    proto_len = data[pos + 2]
-                    proto_end = pos + 3 + proto_len
-                    if proto_end <= ext_data_end:
-                        try:
-                            alpn = data[pos + 3:proto_end].decode("ascii", errors="replace")
-                        except Exception:
-                            pass
-
-                # Supported Versions (type 43): [0] list_len, [1:] versions (uint16 each)
-                # Reveals TLS 1.3 even when outer version field says 0x0303
-                elif ext_type == 43 and ext_dlen >= 3 and pos + 1 <= ext_data_end:
-                    sv_list_len = data[pos]
+            if et not in _GREASE:
+                ext_types.append(et)
+                if et == _EXT_SNI and edlen >= 5 and data[pos + 2] == 0x00:
+                    nl = (data[pos + 3] << 8) | data[pos + 4]
+                    ne = pos + 5 + nl
+                    if ne <= eend:
+                        try: sni = data[pos + 5:ne].decode("ascii", errors="replace")
+                        except Exception: pass
+                elif et == _EXT_ALPN and edlen >= 3:
+                    pl = data[pos + 2]; pe = pos + 3 + pl
+                    if pe <= eend:
+                        try: alpn = data[pos + 3:pe].decode("ascii", errors="replace")
+                        except Exception: pass
+                elif et == _EXT_SUPPORTED_VERSIONS and edlen >= 3 and pos + 1 <= eend:
                     sv_pos = pos + 1
-                    sv_end = sv_pos + sv_list_len
-                    if sv_end <= ext_data_end:
+                    sv_end = sv_pos + data[pos]
+                    if sv_end <= eend:
                         while sv_pos + 2 <= sv_end:
                             v = (data[sv_pos] << 8) | data[sv_pos + 1]
-                            if v == 0x0304:
-                                detected_version = 0x0304
-                                break
+                            if v not in _GREASE: detected = max(detected, v)
                             sv_pos += 2
+                elif et == _EXT_SIGNATURE_ALGS:
+                    sig_algs.extend(_sig_algs_from_raw(edata))
+            pos = eend
 
-            pos = ext_data_end
+    _stats.raw_ok += 1
+    return _make_result(source="raw_tcp", version=detected, ciphers=ciphers,
+                        ext_types=ext_types, sig_algs=sig_algs, sni=sni, alpn=alpn)
 
-    return _build_result(detected_version, ciphers, ext_types, sni, alpn)
 
-
-# ── Scapy-based parser (primary path) ────────────────────────────────────────
+# ── Scapy-based parser ────────────────────────────────────────────────────────
 
 def compute_tls_fingerprint_from_scapy(packet) -> dict | None:
     """Extract TLS ClientHello fingerprint from a Scapy packet.
 
-    Two-path dissection:
-    1. Native: packet already has TLSClientHello layer (session=SSLSession active).
-    2. Raw fallback: packet has TCP/Raw layers — parse bytes directly.
-       Works without session= in AsyncSniffer. No TCP reassembly (see above).
+    Path 1: native Scapy TLSClientHello layer (best quality, needs SSLSession).
+    Path 2: raw TCP payload fallback (works without session= in AsyncSniffer).
 
-    Returns None if packet is not a ClientHello or on any error.
-    Never raises.
+    Never raises. Returns None for non-ClientHello or on any error.
     """
-    # ── Path 1: scapy already dissected TLS ──────────────────────────────────
     try:
         from scapy.layers.tls.handshake import TLSClientHello  # type: ignore[import]
     except ImportError:
-        # scapy TLS layer not available — go straight to raw fallback
+        _stats.failed += 1; _stats.import_error += 1
         TLSClientHello = None  # type: ignore[assignment,misc]
 
+    # ── Path 1: Scapy dissector ───────────────────────────────────────────────
     try:
         if TLSClientHello is not None and packet.haslayer(TLSClientHello):
             hello = packet[TLSClientHello]
-            raw_version: int = getattr(hello, "version", 0x0303)
-            ciphers_raw = getattr(hello, "ciphers", None) or []
-            ciphers: list[int] = [c for c in ciphers_raw if c not in _GREASE]
-            exts_raw = getattr(hello, "ext", None) or []
-            ext_types: list[int] = []
-            sni = ""
-            alpn = ""
-            for ext in exts_raw:
-                ext_type_val: int = getattr(ext, "type", -1)
-                if ext_type_val in _GREASE:
-                    continue
-                ext_types.append(ext_type_val)
-                if ext_type_val == 0:
-                    try:
-                        server_names = getattr(ext, "servernames", [])
-                        if server_names:
-                            nb = getattr(server_names[0], "servername", b"")
-                            sni = nb.decode("ascii", errors="replace") if isinstance(nb, bytes) else str(nb)
-                    except Exception:
-                        pass
-                elif ext_type_val == 16:
-                    try:
-                        protocols = getattr(ext, "protocols", [])
-                        if protocols:
-                            pb = getattr(protocols[0], "protocol", b"")
-                            alpn = pb.decode("ascii", errors="replace") if isinstance(pb, bytes) else str(pb)
-                    except Exception:
-                        pass
-            return _build_result(raw_version, ciphers, ext_types, sni, alpn)
-    except Exception as exc:
-        _log.warning("[TLS] scapy dissect error: %s", exc)
+            detected  = getattr(hello, "version", 0x0303) or 0x0303
+            ciphers   = [c for c in (getattr(hello, "ciphers", None) or []) if c not in _GREASE]
+            exts_raw  = getattr(hello, "ext", None) or []
 
-    # ── Path 2: raw bytes fallback ────────────────────────────────────────────
+            ext_types: list[int] = []
+            sig_algs:  list[int] = []
+            sni = ""; alpn = ""
+
+            for ext in exts_raw:
+                et = getattr(ext, "type", -1)
+                if et in _GREASE: continue
+                ext_types.append(et)
+
+                if et == _EXT_SNI:
+                    try:
+                        sn_list = getattr(ext, "servernames", [])
+                        if sn_list:
+                            nb = getattr(sn_list[0], "servername", b"")
+                            sni = nb.decode("ascii", errors="replace") if isinstance(nb, bytes) else str(nb)
+                    except Exception: pass
+
+                elif et == _EXT_ALPN:
+                    try:
+                        protos = getattr(ext, "protocols", [])
+                        if protos:
+                            pb = getattr(protos[0], "protocol", b"")
+                            alpn = pb.decode("ascii", errors="replace") if isinstance(pb, bytes) else str(pb)
+                    except Exception: pass
+
+                elif et == _EXT_SUPPORTED_VERSIONS:
+                    try:
+                        versions = getattr(ext, "versions", None) or getattr(ext, "supported_versions", None) or []
+                        for v in versions:
+                            if hasattr(v, "version"): v = getattr(v, "version")
+                            cv = _coerce_int(v)
+                            if cv is not None and cv not in _GREASE:
+                                detected = max(detected, cv)
+                    except Exception: pass
+
+                elif et == _EXT_SIGNATURE_ALGS:
+                    sig_algs.extend(_sig_algs_from_scapy(ext))
+
+            _stats.scapy_ok += 1
+            return _make_result(source="scapy_tls", version=detected, ciphers=ciphers,
+                                ext_types=ext_types, sig_algs=sig_algs, sni=sni, alpn=alpn)
+    except Exception as exc:
+        _log.debug("[TLS] scapy dissect error: %s", exc)
+
+    # ── Path 2: raw fallback ──────────────────────────────────────────────────
     try:
         if not packet.haslayer("TCP") or not packet.haslayer("Raw"):
-            return None
-        raw_bytes = bytes(packet["Raw"].load)
-        return parse_tls_client_hello_raw(raw_bytes)
+            _stats.failed += 1; _stats.not_client_hello += 1; return None
+        return parse_tls_client_hello_raw(bytes(packet["Raw"].load))
     except Exception as exc:
-        _log.warning("[TLS] raw fallback error: %s", exc)
-        return None
+        _log.debug("[TLS] raw fallback error: %s", exc)
+        _stats.failed += 1; _stats.malformed += 1; return None

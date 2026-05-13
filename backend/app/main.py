@@ -101,7 +101,7 @@ async def lifespan(app: FastAPI):
         try:
             from app.tls.events import tls_alert_to_pipeline_event
             pipeline_event = tls_alert_to_pipeline_event(alert)
-            store.append_history(pipeline_event)
+            service.publish_external_event(pipeline_event)
         except Exception:
             _tls_log.exception("Failed to persist TLS alert to history")
 
