@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { ToastContainer } from "../components/ToastContainer";
 import { ModelPresetPicker } from "../components/ModelPresetPicker";
 import { AboutView } from "../features/about/AboutView";
+import { AlertsView } from "../features/alerts/AlertsView";
 import { DashboardView } from "../features/dashboard/DashboardView";
 import NetworkMapView from "../features/network/NetworkMapView";
 import { PluginsView } from "../features/plugins/PluginsView";
@@ -14,11 +15,12 @@ import { useAppStore } from "./store";
 import type { AppSettings, ModelPreset } from "./types";
 import styles from "./App.module.css";
 
-type ViewKey = "dashboard" | "stream" | "network" | "plugins" | "settings" | "about";
+type ViewKey = "dashboard" | "stream" | "alerts" | "network" | "plugins" | "settings" | "about";
 
 const viewMap: Record<ViewKey, React.ComponentType> = {
   dashboard: DashboardView,
   stream:    StreamView,
+  alerts:    AlertsView,
   network:   NetworkMapView,
   plugins:   PluginsView,
   settings:  SettingsView,
@@ -45,6 +47,16 @@ function IconStream() {
   );
 }
 
+
+function IconAlerts() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
 
 function IconNetwork() {
   return (
@@ -91,6 +103,7 @@ function IconAbout() {
 const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = [
   { key: "dashboard", Icon: IconDashboard, label: "Dashboard" },
   { key: "stream",    Icon: IconStream,    label: "Stream" },
+  { key: "alerts",    Icon: IconAlerts,    label: "Инциденты" },
   { key: "network",   Icon: IconNetwork,   label: "Карта сети" },
   { key: "plugins",   Icon: IconPlugins,   label: "Plugins" },
   { key: "settings",  Icon: IconSettings,  label: "Settings" },
@@ -100,6 +113,7 @@ const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = 
 const PAGE_TITLES: Record<ViewKey, string> = {
   dashboard: "Dashboard",
   stream:    "Live Stream",
+  alerts:    "Инциденты",
   network:   "Карта сети",
   plugins:   "Плагины",
   settings:  "Settings",

@@ -69,6 +69,8 @@ export const api = {
   unblockAllIps: () => request<{ unblocked: number; message: string }>("/api/blocked-ips/all", { method: "DELETE" }),
   getInterfaces: () => request<NetworkInterface[]>("/api/interfaces"),
   getDebugStats: () => request<DebugStats>("/api/debug/stats"),
+  getDashboardTimeseries: (window = 60) => request<import("../app/types").DashboardTimeseries>(`/api/dashboard/timeseries?window=${window}`),
+  getDashboardSummary: () => request<import("../app/types").DashboardSummary>("/api/dashboard/summary"),
   getModelPresets: () => request<ModelPresetsRegistry>("/api/model-presets"),
   applyModelPreset: (presetId: string) =>
     request<AppSettings>(`/api/model-presets/apply/${presetId}`, {
@@ -214,5 +216,11 @@ export const api = {
   getDownloadDest: (catalogId: string) =>
     request<{ repo_dest: string; models_dir: string; is_installed: boolean }>(
       `/api/models-manager/download-dest/${catalogId}`
+    ),
+
+  // ── GeoIP ──────────────────────────────────────────────────────────────────
+  getGeoip: (ip: string) =>
+    request<{ ip: string; is_private: boolean; country: string; flag: string; hint: string }>(
+      `/api/geoip/${encodeURIComponent(ip)}`
     ),
 };

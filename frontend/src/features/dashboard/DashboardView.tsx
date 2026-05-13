@@ -6,6 +6,7 @@ import type { Device } from "../../types/device";
 import { StatusPill } from "../../components/StatusPill";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
+import { DashboardCharts } from "./DashboardCharts";
 
 const RISK_COLORS: Record<string, string> = {
   low: "#22c55e", medium: "#eab308", high: "#f97316", critical: "#ef4444",
@@ -189,6 +190,8 @@ export function DashboardView() {
           </div>
         </div>
       )}
+
+      <DashboardCharts />
 
       {topRiskDevices.length > 0 && (
         <div className={styles.streamPreview}>

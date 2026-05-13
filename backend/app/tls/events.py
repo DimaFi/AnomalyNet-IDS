@@ -16,6 +16,8 @@ from app.contracts.schemas import (
     NormalizedFlowEvent,
     PipelineEvent,
 )
+from app.mitre.mapping import get_mitre
+from app.security.ja4_reputation import lookup_ja4_reputation
 
 
 def tls_alert_to_pipeline_event(alert: dict) -> PipelineEvent:
@@ -59,10 +61,16 @@ def tls_alert_to_pipeline_event(alert: dict) -> PipelineEvent:
     # Score: NEW fingerprint → 0.5 (medium confidence), TOO_MANY → 0.7 (higher concern)
     score = 0.7 if alert_type == "TOO_MANY_TLS_FINGERPRINTS" else 0.5
 
+    # JA4 reputation check — boosts score if fingerprint is in known-bad DB
+    ja4_str = fp.get("ja4", "")
+    reputation = lookup_ja4_reputation(ja4_str)
+    if reputation:
+        score = min(1.0, score + reputation.get("score_boost", 0.0))
+
     inference = InferenceResult(
         event_id=eid,
         label="warning",
-        score=score,
+        score=round(score, 4),
         reason=alert_type,
         model_id="tls_monitor",
         attack_class=alert_type,
@@ -85,27 +93,44 @@ def tls_alert_to_pipeline_event(alert: dict) -> PipelineEvent:
         event_id=eid,
     )
 
+    # Priority: reputation hit → high, TOO_MANY → high, default → medium
+    if reputation and reputation.get("severity") in ("critical", "high"):
+        priority = "high"
+    elif alert_type == "TOO_MANY_TLS_FINGERPRINTS":
+        priority = "high"
+    else:
+        priority = "medium"
+
+    metadata: dict = {
+        "ja4":          ja4_str,
+        "ja4_legacy":   fp.get("ja4_legacy", ""),
+        "ja4_raw":      fp.get("ja4_raw", ""),
+        "ja4_source":   fp.get("ja4_source", ""),
+        "ja4_version":  fp.get("ja4_version", ""),
+        "sni":          fp.get("sni", ""),
+        "alpn":         fp.get("alpn", ""),
+        "tls_version":  fp.get("tls_version", ""),
+        "cipher_count": fp.get("cipher_count", 0),
+        "ext_count":    fp.get("ext_count", 0),
+        "reason":       description,
+        "tls_alert_type": alert_type,
+        "unique_count": unique_count,
+    }
+    if reputation:
+        metadata["ja4_reputation"] = {
+            "label":       reputation.get("label", ""),
+            "severity":    reputation.get("severity", ""),
+            "description": reputation.get("description", ""),
+            "source":      reputation.get("source", ""),
+        }
+
     return PipelineEvent(
         event=flow_event,
         features=features,
         inference=inference,
         alert=alert_record,
         event_type="tls",
-        priority="medium",
-        mitre=None,   # not assigned at MVP stage
-        metadata={
-            "ja4":          fp.get("ja4", ""),
-            "ja4_legacy":   fp.get("ja4_legacy", ""),
-            "ja4_raw":      fp.get("ja4_raw", ""),
-            "ja4_source":   fp.get("ja4_source", ""),
-            "ja4_version":  fp.get("ja4_version", ""),
-            "sni":          fp.get("sni", ""),
-            "alpn":         fp.get("alpn", ""),
-            "tls_version":  fp.get("tls_version", ""),
-            "cipher_count": fp.get("cipher_count", 0),
-            "ext_count":    fp.get("ext_count", 0),
-            "reason":       description,
-            "tls_alert_type": alert_type,
-            "unique_count": unique_count,
-        },
+        priority=priority,
+        mitre=get_mitre(alert_type),
+        metadata=metadata,
     )

@@ -92,6 +92,87 @@ def get_debug_stats(service: PipelineService = Depends(get_pipeline_service)) ->
     return service.debug_stats()
 
 
+@router.get("/dashboard/timeseries")
+def get_dashboard_timeseries(
+    window: int = Query(default=60, description="Window in minutes (15, 60, or 1440)"),
+    service: PipelineService = Depends(get_pipeline_service),
+):
+    """Aggregate recent events into per-minute buckets for time-series charts.
+
+    Uses in-memory _recent_items (last 500 events) — no disk reads, fast.
+    Returns: buckets with normal/warning/anomaly counts + TLS/DNS breakdown.
+    """
+    from math import floor
+    now_ts = datetime.now(timezone.utc).timestamp()
+    cutoff = now_ts - window * 60
+    bucket_sec = 60  # 1-minute buckets
+
+    # bucket_ts → {"normal": int, "warning": int, "anomaly": int}
+    buckets: dict[int, dict[str, int]] = {}
+
+    for ev in service._recent_items:
+        try:
+            ts_str = ev.event.timestamp
+            if hasattr(ts_str, "timestamp"):
+                ts = ts_str.timestamp()
+            else:
+                ts = datetime.fromisoformat(str(ts_str).replace("Z", "+00:00")).timestamp()
+            if ts < cutoff:
+                continue
+            bucket = int(floor(ts / bucket_sec) * bucket_sec)
+            if bucket not in buckets:
+                buckets[bucket] = {"normal": 0, "warning": 0, "anomaly": 0}
+            label = ev.inference.label
+            buckets[bucket][label] = buckets[bucket].get(label, 0) + 1
+        except Exception:
+            continue
+
+    # Fill missing buckets with zeros so frontend gets a continuous series
+    sorted_keys = sorted(buckets.keys()) if buckets else []
+    if sorted_keys:
+        all_keys = range(int(floor(cutoff / bucket_sec) * bucket_sec), sorted_keys[-1] + bucket_sec, bucket_sec)
+        for k in all_keys:
+            if k not in buckets:
+                buckets[k] = {"normal": 0, "warning": 0, "anomaly": 0}
+
+    result = [
+        {"ts": k, "normal": v["normal"], "warning": v["warning"], "anomaly": v["anomaly"]}
+        for k, v in sorted(buckets.items())
+    ]
+    return {"buckets": result, "window_minutes": window, "bucket_minutes": 1}
+
+
+@router.get("/dashboard/summary")
+def get_dashboard_summary(
+    service: PipelineService = Depends(get_pipeline_service),
+):
+    """Aggregate summary for pie/donut charts — attack class and event type distribution.
+
+    Uses in-memory stats counters (updated in _run_loop) — always fast.
+    """
+    stats = service.debug_stats()
+    # event type breakdown from recent items
+    type_counts: dict[str, int] = {"flow": 0, "dns": 0, "tls": 0}
+    for ev in service._recent_items:
+        et = getattr(ev, "event_type", None) or "flow"
+        type_counts[et] = type_counts.get(et, 0) + 1
+
+    return {
+        "by_class":      stats.events_by_attack_class,
+        "by_verdict":    stats.events_by_label,
+        "by_event_type": type_counts,
+        "total_events":  stats.uptime_events_total,
+        "avg_score":     stats.avg_score,
+    }
+
+
+@router.get("/geoip/{ip}")
+def get_geoip(ip: str):
+    """Offline GeoIP lookup — private ranges and major RIR blocks. No network calls."""
+    from app.security.geoip import lookup
+    return lookup(ip)
+
+
 @router.get("/debug/registry")
 def get_registry_state(service: PipelineService = Depends(get_pipeline_service)):
     """Returns the current state of the plugin registry — which pipelines/preprocessors/models

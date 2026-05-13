@@ -3,7 +3,7 @@ export type LanguageCode = "ru" | "en";
 export type RunMode = "mock" | "windows_stub" | "linux_stub" | "linux_live";
 export type StatusLevel = "idle" | "active" | "warning" | "error";
 export type VerdictLabel = "normal" | "warning" | "anomaly";
-export type AppView = "dashboard" | "stream" | "network" | "plugins" | "settings" | "about";
+export type AppView = "dashboard" | "stream" | "alerts" | "network" | "plugins" | "settings" | "about";
 
 export interface AppSettings {
   language: LanguageCode;
@@ -213,6 +213,27 @@ export interface ModelPreset {
 
 export interface ModelPresetsRegistry {
   presets: ModelPreset[];
+}
+
+export interface TimeseriesBucket {
+  ts: number;
+  normal: number;
+  warning: number;
+  anomaly: number;
+}
+
+export interface DashboardTimeseries {
+  buckets: TimeseriesBucket[];
+  window_minutes: number;
+  bucket_minutes: number;
+}
+
+export interface DashboardSummary {
+  by_class: Record<string, number>;
+  by_verdict: Record<string, number>;
+  by_event_type: Record<string, number>;
+  total_events: number;
+  avg_score: number;
 }
 
 export interface DebugStats {

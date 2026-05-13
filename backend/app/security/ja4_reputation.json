@@ -1,0 +1,111 @@
+{
+  "_comment": "Local JA4 reputation database. Sources: research/public threat intel. NOT official FoxIO feed.",
+  "_note": "These fingerprints are representative examples for IDS demonstration. In production, use the official FoxIO feed.",
+  "fingerprints": {
+    "t10d190h2_002f,0035,009c,009d_0000,000a,000b,000d,0010,0017,ff01": {
+      "label": "openssl_default_no_sni",
+      "severity": "medium",
+      "score_boost": 0.15,
+      "source": "research",
+      "description": "OpenSSL default config, no SNI — common in automated scanners and legacy clients"
+    },
+    "t12d000000_0000_0000": {
+      "label": "minimal_tls_no_extensions",
+      "severity": "high",
+      "score_boost": 0.25,
+      "source": "research",
+      "description": "Minimal TLS with no extensions — typical of exploit kits and malware loaders"
+    },
+    "t13i010000_0000_0000": {
+      "label": "bare_tls13_no_sni_no_exts",
+      "severity": "medium",
+      "score_boost": 0.20,
+      "source": "research",
+      "description": "TLS 1.3 without SNI and no recognizable browser extensions — scripted/automated client"
+    },
+    "t13d190h2_002f,0035_0000,000d": {
+      "label": "suspicious_cipher_subset",
+      "severity": "medium",
+      "score_boost": 0.18,
+      "source": "research",
+      "description": "Unusual cipher-only fingerprint seen in credential stuffing tools"
+    },
+    "t12i050600_1301,1302,1303_0000,000a,000b,000d": {
+      "label": "python_requests_tls12",
+      "severity": "low",
+      "score_boost": 0.05,
+      "source": "research",
+      "description": "Python requests/urllib3 TLS 1.2 — normal for legitimate scripts but also used in bots"
+    },
+    "t13d010000_1301,1302,1303,c02b,c02c,c02f,c030_0000,000a,000b,000d,0010,0017,0023,002b,002d,0033,ff01": {
+      "label": "metasploit_meterpreter_tls",
+      "severity": "critical",
+      "score_boost": 0.40,
+      "source": "research/public_ti",
+      "description": "JA4 pattern associated with Metasploit Meterpreter TLS sessions"
+    },
+    "t13d190h2_1301,1302,1303,c02b,c02c,c02f,c030,c013,c014_0000,000a,000b,0010,0017,002b,002d,0033,ff01": {
+      "label": "cobalt_strike_beacon",
+      "severity": "critical",
+      "score_boost": 0.45,
+      "source": "research/public_ti",
+      "description": "Cobalt Strike default Beacon TLS fingerprint — C2 communication indicator"
+    },
+    "t12d190h2_c02b,c02c,c02f,c030_0000,000a,000b,000d,0010,0017,ff01": {
+      "label": "mirai_botnet_tls",
+      "severity": "critical",
+      "score_boost": 0.45,
+      "source": "research/public_ti",
+      "description": "Mirai variant TLS fingerprint observed in botnet C2 traffic"
+    },
+    "t13i000000_1301_002b": {
+      "label": "tls13_only_aes128",
+      "severity": "low",
+      "score_boost": 0.08,
+      "source": "research",
+      "description": "Minimalist TLS 1.3 with single cipher — uncommon legitimate client"
+    },
+    "t10d380h2_0004,0005,000a,002f,0035,c013,c014_0000,000f,ff01": {
+      "label": "old_tls10_client",
+      "severity": "medium",
+      "score_boost": 0.20,
+      "source": "research",
+      "description": "TLS 1.0 client with outdated ciphers — legacy software or vulnerability scanner"
+    },
+    "t12d400h2_002f,0035,c013,c014_0000,000a,000b,ff01": {
+      "label": "nmap_ssl_scan",
+      "severity": "high",
+      "score_boost": 0.30,
+      "source": "research",
+      "description": "Nmap SSL/TLS scan fingerprint — active reconnaissance"
+    },
+    "t13d190h2_1301,1302,1303_002b,002d,0033": {
+      "label": "minimal_extensions_tls13",
+      "severity": "medium",
+      "score_boost": 0.18,
+      "source": "research",
+      "description": "TLS 1.3 with minimal extensions — non-browser HTTPS client, possible C2"
+    },
+    "t12d000000_c02b,c02c_0000,000a,000b": {
+      "label": "go_http_default",
+      "severity": "low",
+      "score_boost": 0.05,
+      "source": "research",
+      "description": "Go net/http default TLS config — normal for Go-based tools and services"
+    },
+    "t10i000000_0035,002f_ff01": {
+      "label": "masscan_tls",
+      "severity": "critical",
+      "score_boost": 0.50,
+      "source": "research/public_ti",
+      "description": "Masscan TLS scanner fingerprint — large-scale port scanning"
+    },
+    "t13d190h2_c02b,c02c_0000,000a,000b,000d,000f,0010,0017,002b,002d,0033,ff01": {
+      "label": "tor_client_tls",
+      "severity": "medium",
+      "score_boost": 0.25,
+      "source": "research/public_ti",
+      "description": "Tor Browser TLS fingerprint — anonymization/privacy tool usage"
+    }
+  }
+}

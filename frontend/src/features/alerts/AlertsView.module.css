@@ -1,0 +1,318 @@
+/* ── Header stats ─────────────────────────────────────────── */
+.headerStats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.statBadge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* ── Filters bar ──────────────────────────────────────────── */
+.filtersBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.filterGroup > label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+/* ── Segmented control ────────────────────────────────────── */
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.segmented button {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-fluent), color var(--duration-fast) var(--ease-fluent);
+}
+
+.segmented button:last-child { border-right: none; }
+.segmented button:hover { background: var(--surface-3); color: var(--text-secondary); }
+
+.segActive {
+  background: var(--surface-3) !important;
+  color: var(--accent) !important;
+}
+
+/* ── Filter inputs ────────────────────────────────────────── */
+.filterSelect,
+.filterInput {
+  font-size: 12px;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-primary);
+  outline: none;
+  min-width: 130px;
+  transition: border-color var(--duration-fast) var(--ease-fluent);
+}
+
+.filterSelect:focus,
+.filterInput:focus {
+  border-color: var(--accent);
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding-top: 0.2rem;
+}
+
+.checkLabel input { accent-color: var(--accent); cursor: pointer; }
+
+/* ── Export button ────────────────────────────────────────── */
+.exportBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  cursor: pointer;
+  align-self: flex-end;
+  transition: border-color var(--duration-fast) var(--ease-fluent), color var(--duration-fast) var(--ease-fluent);
+}
+
+.exportBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.exportBtn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Table rows ───────────────────────────────────────────── */
+.row {
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-fluent);
+}
+.row:hover { background: var(--surface-3); }
+
+.rowWarning { background: rgba(var(--warn-rgb,  234,179,8), 0.04); }
+.rowAnomaly { background: rgba(var(--danger-rgb,239,68,68), 0.05); }
+.rowWarning:hover { background: rgba(var(--warn-rgb,  234,179,8), 0.09) !important; }
+.rowAnomaly:hover { background: rgba(var(--danger-rgb,239,68,68), 0.10) !important; }
+
+.rowExpanded {
+  outline: 1px solid var(--border-accent);
+  outline-offset: -1px;
+}
+
+/* ── Cell styles ──────────────────────────────────────────── */
+.tdTime {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tdRoute {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: nowrap;
+  font-size: 12px;
+}
+
+.ip {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.port {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.arrow {
+  color: var(--text-muted);
+  margin: 0 2px;
+  opacity: 0.5;
+}
+
+.tdScore {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.tdMitre { white-space: nowrap; }
+
+.tdJa4 {
+  max-width: 150px;
+  overflow: hidden;
+}
+
+.verdictDot {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.muted { color: var(--text-muted); font-size: 12px; }
+
+.mono {
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ── Badges ───────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badgeDefault { color: var(--text-muted); background: var(--surface-3); border-color: var(--border); }
+.badgeFlow    { color: #3b82f6; background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.25); }
+.badgeDns     { color: #22c55e; background: rgba(34,197,94, 0.12); border-color: rgba(34,197,94, 0.25); }
+.badgeTls     { color: #a855f7; background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.25); }
+
+.badgeDdos  { color: #ef4444; background: rgba(239,68,68, 0.12); border-color: rgba(239,68,68, 0.25); }
+.badgeDos   { color: #f97316; background: rgba(249,115,22,0.12); border-color: rgba(249,115,22,0.25); }
+.badgeRecon { color: #3b82f6; background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.25); }
+.badgeBrute { color: #22c55e; background: rgba(34,197,94, 0.12); border-color: rgba(34,197,94, 0.25); }
+.badgeWeb   { color: #a855f7; background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.25); }
+.badgeBot   { color: #eab308; background: rgba(234,179,8, 0.12); border-color: rgba(234,179,8, 0.25); }
+.badgeSpoof { color: #06b6d4; background: rgba(6,182,212, 0.12); border-color: rgba(6,182,212, 0.25); }
+
+/* ── MITRE badge ──────────────────────────────────────────── */
+.mitreBadge {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(139,92,246,0.12);
+  border: 1px solid rgba(139,92,246,0.3);
+  color: #8b5cf6;
+}
+
+.mitreLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.mitreLink:hover { text-decoration: underline; }
+
+/* ── Priority badge ───────────────────────────────────────── */
+.priorBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.priorCritical { color: #ef4444; background: rgba(239,68,68, 0.12); border-color: rgba(239,68,68, 0.3); }
+.priorHigh     { color: #f97316; background: rgba(249,115,22,0.12); border-color: rgba(249,115,22,0.3); }
+.priorMedium   { color: #eab308; background: rgba(234,179,8, 0.12); border-color: rgba(234,179,8, 0.3); }
+
+/* ── Expanded row ─────────────────────────────────────────── */
+.expandedRow {
+  background: var(--surface-2);
+}
+
+.expandedRow td {
+  padding: 0 !important;
+  border-top: none !important;
+}
+
+.expanded {
+  padding: 0.85rem 1rem;
+  border-top: 1px dashed var(--border);
+}
+
+.expandedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.expandedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.expandedTitle {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 0.75rem;
+  font-size: 11px;
+}
+
+.dl dt {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dl dd {
+  color: var(--text-secondary);
+  margin: 0;
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+/* ── Mobile ───────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .filtersBar { flex-direction: column; }
+  .tdJa4, .tdMitre { display: none; }
+}
