@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
-import type { DebugStats } from "../../app/types";
+import type { DebugStats, TlsStats } from "../../app/types";
 import type { Device } from "../../types/device";
 import { StatusPill } from "../../components/StatusPill";
 import { api } from "../../lib/api";
@@ -23,6 +23,7 @@ export function DashboardView() {
   const latest   = stream.slice(0, 4);
 
   const [stats, setStats] = useState<DebugStats | null>(null);
+  const [tlsStats, setTlsStats] = useState<TlsStats | null>(null);
   const [topRiskDevices, setTopRiskDevices] = useState<Device[]>([]);
 
   useEffect(() => {
@@ -41,10 +42,23 @@ export function DashboardView() {
       try {
         const data = await api.getDebugStats();
         if (!cancelled) setStats(data);
-      } catch { /* ignore — stats endpoint may be temporarily unavailable */ }
+      } catch { /* ignore */ }
     }
     void fetchStats();
     const id = setInterval(() => { void fetchStats(); }, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchTls() {
+      try {
+        const data = await api.getTlsStats();
+        if (!cancelled) setTlsStats(data);
+      } catch { /* TLS endpoint unavailable — ignore */ }
+    }
+    void fetchTls();
+    const id = setInterval(() => { void fetchTls(); }, 30_000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
@@ -145,6 +159,36 @@ export function DashboardView() {
           {!latest.length && <p className={styles.emptyState}>Нет данных. Ожидание сетевых потоков...</p>}
         </div>
       </div>
+
+      {/* ── TLS Fingerprinting widget ── */}
+      {tlsStats && (
+        <div className={styles.streamPreview}>
+          <div className={styles.subhead}>
+            <h3>TLS Fingerprinting</h3>
+            <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8 }}>
+              {tlsStats.available ? "● активен" : "○ нет данных (требуется linux_live)"}
+            </span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem", padding: "0.5rem 0" }}>
+            {[
+              { label: "Fingerprints",   value: tlsStats.monitor.fingerprints_seen,   title: "Всего обработано ClientHello" },
+              { label: "Новых алертов",  value: tlsStats.monitor.alerts_new,          title: "NEW_TLS_FINGERPRINT — первое появление JA4 у IP" },
+              { label: "TOO_MANY",       value: tlsStats.monitor.alerts_too_many,     title: "TOO_MANY_TLS_FINGERPRINTS — возможное сканирование" },
+              { label: "IP отслеживается", value: tlsStats.monitor.ips_tracked,       title: "Уникальных IP с активными профилями" },
+              { label: "Scapy парсинг",  value: tlsStats.parser.scapy_ok,            title: "Успешно распознано через Scapy TLSClientHello" },
+              { label: "Raw парсинг",    value: tlsStats.parser.raw_ok,              title: "Успешно распознано из сырых байт TCP" },
+              { label: "Ошибки парсера", value: tlsStats.parser.failed,              title: "Пакеты, которые не удалось разобрать" },
+            ].map(({ label, value, title }) => (
+              <div key={label} className={styles.metricCard} title={title} style={{ cursor: "default" }}>
+                <span>{label}</span>
+                <strong style={{ color: label === "TOO_MANY" && value > 0 ? "var(--warn)" : label === "Ошибки парсера" && value > 0 ? "var(--text-muted)" : undefined }}>
+                  {value}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {topRiskDevices.length > 0 && (
         <div className={styles.streamPreview}>

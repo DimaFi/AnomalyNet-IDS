@@ -226,6 +226,43 @@ export interface DebugStats {
   active_model_id: string;
 }
 
+export interface TlsMonitorStats {
+  fingerprints_seen: number;
+  alerts_new: number;
+  alerts_too_many: number;
+  ips_tracked: number;
+  profiles_total: number;
+  cooldown_entries: number;
+  profile_expirations: number;
+}
+
+export interface TlsParserStats {
+  scapy_ok: number;
+  raw_ok: number;
+  failed: number;
+  not_client_hello: number;
+  truncated: number;
+  malformed: number;
+  import_error: number;
+}
+
+export interface TlsAdapterStats {
+  tls_ports_seen: number;
+  raw_tls_like_seen: number;
+  tls_fingerprint_seen: number;
+  tls_parse_success_scapy: number;
+  tls_parse_success_raw: number;
+  tls_parse_failed: number;
+  tls_alerts_emitted: number;
+}
+
+export interface TlsStats {
+  available: boolean;
+  monitor: TlsMonitorStats;
+  parser: TlsParserStats;
+  adapter: TlsAdapterStats;
+}
+
 // Update
 export interface RepoUpdateInfo {
   current: string;

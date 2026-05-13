@@ -9,6 +9,7 @@ import type {
   NetworkInterface,
   PipelineEvent,
   StreamSnapshot,
+  TlsStats,
   UpdateApplyResult,
   UpdateCheckResult,
 } from "../app/types";
@@ -172,6 +173,13 @@ export const api = {
   probeDevice: (mac: string) =>
     request<{ ip: string; reachable: boolean; latency_ms: number | null; open_ports: number[] }>(
       `/api/devices/${encodeURIComponent(mac)}/probe`, { method: "POST" }
+    ),
+
+  // ── TLS Monitoring ────────────────────────────────────────────────────────
+  getTlsStats: () => request<TlsStats>("/api/tls/stats"),
+  getTlsProfiles: (srcIp?: string) =>
+    request<{ available: boolean; profiles: Record<string, Record<string, { count: number; first_seen: string; last_seen: string }>>; total_ips?: number }>(
+      `/api/tls/profiles${srcIp ? `?src_ip=${encodeURIComponent(srcIp)}` : ""}`
     ),
 
   // ── DNS Monitoring ─────────────────────────────────────────────────────────

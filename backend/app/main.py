@@ -17,6 +17,7 @@ from app.api.dns import dns_router
 from app.api.models_manager import models_manager_router
 from app.api.plugins import plugins_router
 from app.api.routes import router
+from app.api.tls import tls_router
 from app.api.update import update_router
 from app.api.block import _detect_best_interface_by_traffic
 from app.core import APP_ROOT
@@ -129,6 +130,7 @@ app.include_router(autostart_router)
 app.include_router(block_router)
 app.include_router(devices_router)
 app.include_router(dns_router)
+app.include_router(tls_router)
 app.include_router(update_router)
 app.include_router(plugins_router)
 app.include_router(models_manager_router)
