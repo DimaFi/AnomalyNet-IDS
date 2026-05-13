@@ -57,7 +57,7 @@ export const api = {
       body: JSON.stringify({ model_id: modelId })
     }),
   getSnapshot: () => request<StreamSnapshot>("/api/stream/snapshot"),
-  getHistory: () => request<PipelineEvent[]>("/api/history?limit=30"),
+  getHistory: () => request<{ total: number; items: PipelineEvent[] }>("/api/history?limit=200").then(r => r.items),
   blockIp: (ip: string, eventId?: string) =>
     request<BlockResponse>("/api/block", {
       method: "POST",

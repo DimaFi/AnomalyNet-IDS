@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { PipelineEvent } from "../../app/types";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
@@ -273,9 +273,8 @@ export function AlertsView() {
                 const domain = meta["domain"] as string | undefined;
                 const mitreUrl = (item.mitre as (typeof item.mitre & { url?: string }) | null | undefined)?.url;
                 return (
-                  <>
+                  <Fragment key={eid}>
                     <tr
-                      key={eid}
                       className={[
                         s.row,
                         item.inference.label === "anomaly" ? s.rowAnomaly : item.inference.label === "warning" ? s.rowWarning : "",
@@ -353,7 +352,7 @@ export function AlertsView() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
