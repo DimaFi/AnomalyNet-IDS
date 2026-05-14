@@ -8,6 +8,7 @@
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)
 ![CatBoost](https://img.shields.io/badge/CatBoost-ML-yellow)
+![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 🇷🇺 [Русская версия](README_RU.md)
@@ -16,9 +17,27 @@
 
 ## Overview
 
-AnomalyNet captures live network traffic, extracts 71 CICFlowMeter-compatible features per flow, and classifies each flow with a CatBoost cascade — from a fast binary gate to a detailed 8-class attack classifier. Everything runs locally; no cloud, no telemetry.
+AnomalyNet captures live network traffic, extracts CICFlowMeter-compatible features per flow, and classifies each flow with a CatBoost cascade — from a fast binary gate to a detailed 8-class attack classifier. Everything runs locally; no cloud, no telemetry.
+
+**v2.0.0** adds full cross-platform support: Windows live capture via Npcap, Windows firewall integration (netsh), cross-platform ARP device discovery, and capability-aware UI.
 
 The ML models live in a separate repository: [AnomalyNet-ml](https://github.com/DimaFi/AnomalyNet-ml).
+
+---
+
+## Platform Support
+
+| Feature | Linux | Windows |
+|---|---|---|
+| Live packet capture | Scapy AsyncSniffer (root) | Npcap adapter (Admin) |
+| IP blocking | iptables ANOMALYNET chains | netsh advfirewall |
+| Firewall rollback | iptables-save/restore | — |
+| Active ARP scan | Scapy srp (root) | Scapy + Npcap (Admin) |
+| Passive ARP discovery | — | `arp -a` cache fallback |
+| Autostart | systemd service | Task Scheduler |
+| Demo mode | ✓ (no root) | ✓ (no Admin) |
+
+The UI automatically detects and displays platform capabilities. Features that are unavailable on the current platform are greyed out with an explanation.
 
 ---
 
@@ -26,39 +45,41 @@ The ML models live in a separate repository: [AnomalyNet-ml](https://github.com/
 
 | Feature | Details |
 |---|---|
-| **Live capture** | Scapy AsyncSniffer on any Linux interface; mock simulation on Windows/demo |
+| **Live capture** | Scapy on Linux; Npcap adapter on Windows; mock simulation in demo mode |
 | **Flow aggregation** | 5-tuple tracking, 60 s idle timeout, FIN/RST instant close |
-| **71 CICFlowMeter features** | Duration, IAT stats, flag counts, window sizes, active/idle periods |
+| **CICFlowMeter features** | 71 features: duration, IAT stats, flag counts, window sizes, active/idle periods |
 | **Cascade detection** | Stage 1 binary gate → Stage 2/3 multiclass (protocol-routed) |
 | **Attack classes** | Benign · DoS · DDoS · Recon · BruteForce · WebAttack · Bot · Spoofing |
-| **IP blocking** | One-click or auto-block via iptables; configurable whitelist |
+| **IP blocking** | One-click or auto-block; iptables (Linux) or netsh (Windows); configurable whitelist |
+| **DNS monitoring** | Passive sniffer with DGA detection, domain reputation, behavioral alerts |
+| **TLS fingerprinting** | JA4-compatible fingerprints with behavioral profiling and reputation scoring |
+| **Network Map** | ARP device discovery, OUI vendor lookup, device type classification, D3 force graph |
+| **Device-aware routing** | IoT devices → IoT pipeline; PCs/phones → General Network pipeline |
 | **Toast alerts** | Warning / anomaly notifications with source IP and attack class |
 | **History** | Per-day NDJSON log with configurable retention (1–30 days) |
-| **Export** | Download full report (summary + event list) as JSON |
+| **Export** | EVE JSON and CSV export with time range and priority filters |
 | **Theme & i18n** | Dark / light theme · Russian / English UI |
-| **Custom model plugins** | Drop any compatible model into `plugins/` — it appears in the UI without code changes |
-| **Remote management** | Full REST API — manage settings, switch models, block IPs and export reports from any device on the network |
+| **Custom model plugins** | Drop any compatible adapter into `plugins/` — no code changes needed |
+| **Remote management** | Full REST API for settings, models, blocking, and reports |
 
 ---
 
 ## Detection Modes
 
-AnomalyNet supports four presets selectable from the UI:
-
 | Preset | Pipeline | Use case |
 |---|---|---|
-| **Binary** | Stage 1 only | Fastest; "attack or not", no class label |
-| **Simple Cascade** | Stage 1 → Stage 2 | Standard; 8-class labelling, same 71 features |
+| **Binary** | Stage 1 only | Fastest; attack/normal, no class label |
+| **Simple Cascade** | Stage 1 → Stage 2 | Standard; 8-class labelling, 71 features |
 | **Advanced Cascade** | Stage 1 → Stage 3 | IoT-optimised; 46 CIC-IoT-2023 features, Macro F1 = 0.82 |
 | **Cascade Routed** | Stage 1 → Stage 2 or Stage 3 | Best coverage; routes by protocol (TCP→S2, UDP/ICMP→S3) |
+| **General Network** | General Stage 1 → Stage 2 | PC/server traffic; trained on CICIDS 2017 |
+| **Auto** | Device-aware routing | Selects pipeline based on source device type |
 
 ---
 
 ## Network Map & Device Discovery
 
-AnomalyNet automatically builds a live map of devices on the local network and uses it to route each traffic flow to the appropriate detection model.
-
-### How it works
+AnomalyNet builds a live map of all devices on the local network and uses it to route traffic to the appropriate detection model.
 
 ```
 Network
@@ -69,90 +90,28 @@ Network
  └─ 🌐 Router  192.168.1.1   (TP-Link)     → IoT pipeline    → Advanced Cascade
 ```
 
-**1. ARP scanning** — `NetworkScanner` periodically broadcasts ARP requests across the subnet, collecting MAC addresses and IPs of all active devices.
+### ARP discovery — cross-platform
 
-**2. Device classification** — the MAC prefix (OUI database) identifies the vendor, which combined with the hostname and open ports determines the device type: `iot_camera`, `iot_sensor`, `pc_windows`, `phone`, `router`, etc.
-
-**3. DeviceTracker** — maintains a live registry: IP, MAC, type, hostname, first/last seen timestamps, online status, alert count, and 5-minute traffic bytes.
-
-**4. Device-aware routing (`auto` preset)** — when "Auto" mode is selected, each flow is routed based on the source device type:
-
-| Device type | Pipeline |
-|---|---|
-| IoT cameras, sensors, bulbs, routers | Advanced Cascade (Stage 1 → Stage 3, 46 IoT features) |
-| PCs, laptops, smartphones, servers | General Network (Stage 1 → Stage 2, CICIDS 2017) |
-| Unknown devices | Advanced Cascade (conservative fallback) |
-
-This uses specialised models for each traffic type, reducing false positives in mixed home networks.
-
-### Traffic profiles
-
-Each device type generates predictable traffic patterns that the corresponding model was trained on:
-
-| Device | Typical flows | Model trained on |
-|---|---|---|
-| IoT camera | RTSP/RTP streaming, NTP, ICMP | CIC IoT Dataset 2024 |
-| PC / laptop | HTTP/S browsing, SSH, FTP, DNS | CICIDS 2017 |
-| Smartphone | HTTPS APIs, push notifications | CICIDS 2017 |
-
-### Threat model: what the system detects
-
-AnomalyNet operates in **host-based IDS** mode — it captures traffic on the network interface of the machine it runs on. This means it sees:
-
-- **Inbound attacks** targeting the IDS machine (PortScan, BruteForce, DoS from devices on the same network)
-- **Outbound anomalies** from infected devices (Mirai-style scanning, botnet C2 traffic)
-- **Lateral attacks** from inside the network — a compromised IoT gadget, infected PC, or rogue device on the guest WiFi
-
-To monitor **all** network traffic (not just the host's own), deploy the IDS on the gateway (OpenWrt router, Raspberry Pi in bridge mode) or configure port mirroring on a managed switch.
-
-### Network Map UI
-
-The **Network Map** tab shows:
-- Interactive D3 force-graph of all devices with type icons
-- Side panel with device details: vendor, type, traffic, alert history
-- Status indicators: online / offline / suspicious (red highlight on anomalous activity)
-- Actions: rename, whitelist, reset alert counter
-
-In mock mode the tab displays 7 test devices (router, 2 cameras, sensor, PC, phone, smart bulb) without ARP scanning.
-
-### Module structure
-
-```
-backend/app/discovery/
-├── models.py       — DeviceInfo dataclass, 14 device types table
-├── oui.py          — OUI lookup: MAC prefix → vendor (from config/oui.json)
-├── classifier.py   — guess_device_type(vendor, hostname, ports) → type
-├── scanner.py      — NetworkScanner: ARP scan (Scapy) + mock mode
-└── tracker.py      — DeviceTracker: registry, alert history, 5-min traffic
-```
+| Platform | Condition | Method | Tag |
+|---|---|---|---|
+| Linux | root | Scapy `srp()` active scan | `scapy` |
+| Windows | Admin + Npcap | Scapy `srp()` active scan | `npcap` |
+| Windows | Admin, no Npcap | `arp -a` cache (fallback) | `arp_cache` |
+| Windows | No Admin | `arp -a` cache | `arp_cache` |
 
 ---
 
-## Architecture
+## Scoring Logic
 
 ```
-AppCode/
-├── backend/                FastAPI + Uvicorn
-│   └── app/
-│       ├── api/            REST endpoints + SSE stream
-│       ├── capture/        Scapy adapter, FlowAggregator, feature computers
-│       ├── model/          CatBoost adapter, cascade adapters, factory
-│       ├── preprocess/     Feature pipeline, scaler, artifact loader
-│       ├── pipeline/       Orchestration service, auto-block logic
-│       └── storage/        JSON file store (settings, history, registry)
-├── frontend/               Vite + React 18 + Zustand + i18next
-│   └── src/
-│       ├── app/            App shell, store, router, types
-│       ├── features/       Dashboard · Stream · Plugins · Settings · About
-│       └── components/     Toast, TopBar, shared UI
-├── config/
-│   ├── settings.json       Runtime configuration
-│   ├── models_registry.json  Available models metadata
-│   └── model_presets.json  One-click detection presets
-├── shared/contracts/       Feature contract JSON files
-├── plugins/                Drop-in plugin directory
-└── install.sh              One-command installer (multi-distro Linux)
+predict_proba(flow) → p
+
+p ≥ 0.85  →  anomaly   (red alert)
+p ≥ 0.70  →  warning   (orange alert)
+p <  0.70  →  normal    (no alert)
 ```
+
+In cascade mode, Stage 1 acts as a binary gate. Flows classified as attacks are forwarded to Stage 2/3 for attack class labelling.
 
 ---
 
@@ -178,181 +137,197 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173** — starts in `mock` mode, no root or models required.
+Open **http://localhost:5173** — starts in `mock` mode, no root/Admin or models required.
 
 ---
 
-## Installation on Linux (Production)
+## Installation
 
-One-command installer with automatic distro detection:
+### Linux (one command)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/DimaFi/AnomalyNet-gui/main/install.sh | sudo bash
 ```
 
-The installer clones both repos automatically. To update an existing installation, just run the same command again.
-
-**Supported distributions:** Ubuntu/Debian · Alt Linux (Sisyphus/p10) · Fedora · RHEL/CentOS/Rocky/AlmaLinux · Arch/Manjaro · openSUSE
-
-The installer:
-- Installs system dependencies (Python 3, libpcap, Node.js via NVM fallback)
-- Creates a Python venv and installs backend requirements
-- Builds the frontend production bundle
-- Configures and enables a **systemd service** (`anomalynet.service`)
-
-After install, place ML model artifacts in `/opt/anomalynet-ml/` (see [AnomalyNet-ml](https://github.com/DimaFi/AnomalyNet-ml) for structure), then:
-
+Or clone and run locally:
 ```bash
-sudo systemctl restart anomalynet
+sudo bash scripts/install-linux.sh
+# Options: INTERFACE=eth0 PORT=8000 DETECTION_MODE=simple AUTO_BLOCK=false
 ```
 
-Access the UI at **http://\<server-ip\>:8000**
+**Supported distributions:** Ubuntu/Debian · Alt Linux · Fedora · RHEL/CentOS/Rocky/AlmaLinux · Arch/Manjaro · openSUSE
 
-> **Note:** Live capture requires root or `CAP_NET_RAW`. The systemd service runs as root by default.
+The installer:
+- Installs Python 3, libpcap, Node.js (NVM fallback for unsupported distros)
+- Creates a Python venv and installs backend requirements
+- Builds the frontend production bundle
+- Writes `config/settings.json` with detected interface and model paths
+- Configures and enables a **systemd service** (`anomalynet.service`)
+
+### Windows (PowerShell, as Administrator)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
+# Options: -InstallDir C:\AnomalyNet -Port 8000 -InstallNpcap -AutoBlock
+```
+
+The installer:
+- Verifies Python 3.10+, Git, Node.js 18+
+- Clones both repos into `C:\AnomalyNet\`
+- Creates Python venv + installs dependencies
+- Builds the React frontend
+- Checks for Npcap; optionally installs it (`-InstallNpcap`)
+- Sets machine-level `ANOMALYNET_APP_ROOT` environment variable
+- Creates a **Task Scheduler** task (runs at logon with highest privileges)
+
+### Uninstall
+
+```bash
+# Linux — keep data:
+sudo bash scripts/uninstall-linux.sh
+# Linux — full wipe:
+sudo bash scripts/uninstall-linux.sh --purge
+```
+
+```powershell
+# Windows — keep data:
+powershell -File scripts\uninstall-windows.ps1
+# Windows — full wipe:
+powershell -File scripts\uninstall-windows.ps1 -Purge
+```
+
+---
+
+## Updating
+
+### Via UI (recommended)
+Go to the **About** tab → click **Check for updates** → **Apply updates**.
+
+The backend will:
+1. `git pull` both repos
+2. `pip install -r requirements.txt` (if dependencies changed)
+3. `npm run build` (if frontend sources changed)
+4. Restart the service automatically if the backend changed
+
+### Via re-install script
+```bash
+sudo bash scripts/install-linux.sh   # idempotent — safe to run again
+```
+
+---
+
+## Architecture
+
+```
+AppCode/
+├── backend/                FastAPI + Uvicorn
+│   └── app/
+│       ├── api/            REST endpoints + SSE stream + update/reinstall/uninstall
+│       ├── capture/        Scapy adapter (Linux), Npcap adapter (Windows), FlowAggregator
+│       ├── discovery/      ARP scanner, OUI lookup, device classifier, DeviceTracker
+│       │   └── backends/   ArpBackend ABC, LinuxArpBackend, WindowsArpBackend
+│       ├── dns/            DNS monitor, DGA detection, domain reputation
+│       ├── tls/            JA4 fingerprinting, TLS behavioral monitor, reputation
+│       ├── model/          CatBoost adapter, cascade adapters, factory
+│       ├── platform/       Platform abstraction layer
+│       │   ├── base/       PlatformCapabilities, AbstractServiceManager, BaseFirewall
+│       │   ├── linux/      SystemdManager, LinuxFirewall, linux_capabilities()
+│       │   └── windows/    WindowsTaskSchedulerManager, WindowsNetshFirewall, windows_capabilities()
+│       ├── security/       IP blocker (iptables / netsh), GeoIP, JA4 reputation
+│       └── pipeline/       Orchestration service, auto-block, auto-unblock
+├── frontend/               Vite + React 18 + Zustand + i18next
+│   └── src/
+│       ├── app/            App shell, store (capabilities), router, types
+│       ├── features/       Dashboard · Stream · Network Map · Plugins · Settings · About
+│       └── components/     Toast, TopBar, ModelPresetPicker
+├── config/
+│   ├── settings.json       Runtime configuration
+│   ├── models_registry.json  Available models
+│   └── model_presets.json  Detection presets
+├── scripts/
+│   ├── install-linux.sh    Full Linux installer
+│   ├── uninstall-linux.sh  Linux uninstaller (--purge flag)
+│   ├── install-windows.ps1 Windows installer
+│   ├── uninstall-windows.ps1 Windows uninstaller (-Purge flag)
+│   └── README-INSTALL.md   Installation documentation
+└── install.sh              Compatibility wrapper → scripts/install-linux.sh
+```
 
 ---
 
 ## Configuration
 
-Edit `config/settings.json` (or use the Settings view in the UI):
+Edit `config/settings.json` or use the **Settings** tab in the UI:
 
 | Key | Default | Description |
 |---|---|---|
-| `run_mode` | `"mock"` | `"mock"` · `"linux_live"` |
+| `run_mode` | `"mock"` | `"mock"` · `"linux_live"` · `"windows_live"` |
 | `active_model_id` | `"mock-default"` | Model ID from `models_registry.json` |
 | `detection_mode` | `"simple"` | `"simple"` · `"advanced"` |
-| `catboost_threshold` | `0.70` | Anomaly score threshold (0.70 = warning, 0.85 = anomaly) |
-| `catboost_model_dir` | `""` | Path to Stage 1 `model.cbm` directory |
-| `preprocessing_artifacts_dir` | `""` | Path to Stage 1 artifacts (scaler, contract) |
-| `catboost_secondary_model_dir` | `""` | Path to Stage 2 or Stage 3 model directory |
-| `catboost_stage3_model_dir` | `""` | Path to Stage 3 model (Cascade Routed only) |
-| `interface_name` | `"eth0"` | Capture interface (`linux_live` only) |
-| `interface_names` | `[]` | Multi-interface list (overrides `interface_name`) |
-| `auto_block` | `false` | Auto-block anomaly IPs via iptables |
+| `catboost_threshold` | `0.70` | Anomaly score threshold |
+| `catboost_model_dir` | `""` | Path to Stage 1 `model.cbm` |
+| `preprocessing_artifacts_dir` | `""` | Path to Stage 1 artifacts |
+| `catboost_secondary_model_dir` | `""` | Path to Stage 2 or Stage 3 model |
+| `catboost_stage3_model_dir` | `""` | Path to Stage 3 model (Cascade Routed) |
+| `interface_name` | `""` | Capture interface |
+| `auto_block` | `false` | Auto-block anomaly IPs |
 | `auto_block_level` | `"anomaly"` | Block threshold: `"anomaly"` or `"warning"` |
-| `auto_unblock` | `false` | Auto-unblock after cooldown |
-| `auto_unblock_cooldown_min` | `10` | Cooldown before auto-unblock (minutes) |
-| `whitelist_ips` | `[]` | IPs that are never auto-blocked |
+| `whitelist_ips` | `[]` | IPs never auto-blocked |
 | `retention_days` | `7` | History log retention (days) |
 
 ---
 
-## REST API
+## REST API (key endpoints)
 
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/api/health` | Service health and active mode |
-| `GET` | `/api/stream/snapshot` | Current detection buffer (last N events) |
+| `GET` | `/api/capabilities` | Platform capabilities (admin, npcap, firewall, etc.) |
+| `GET` | `/api/stream/snapshot` | Current detection buffer |
 | `GET` | `/api/history` | Paginated event history |
-| `GET` | `/api/export` | Download full report as JSON |
-| `GET` | `/api/debug/stats` | Uptime stats, label/protocol breakdown, top IPs |
-| `POST` | `/api/debug/infer` | Batch offline inference on pre-computed features |
+| `GET` | `/api/export` | Download report as EVE JSON or CSV |
 | `GET` | `/api/settings` | Current settings |
 | `PUT` | `/api/settings` | Update settings |
-| `GET` | `/api/models` | Models registry |
-| `POST` | `/api/models/select` | Switch active model |
 | `GET` | `/api/model-presets` | Detection presets |
 | `POST` | `/api/model-presets/apply/{id}` | Apply a preset |
-| `POST` | `/api/block` | Block an IP via iptables |
-| `GET` | `/api/interfaces` | List available network interfaces |
-| `GET` | `/api/fs/ls` | Directory browser (for model path selection) |
+| `POST` | `/api/block` | Block an IP |
+| `GET` | `/api/devices` | Device map (all discovered devices) |
+| `POST` | `/api/devices/scan` | Trigger ARP scan |
+| `GET` | `/api/dns/alerts` | DNS anomaly alerts |
+| `GET` | `/api/tls/alerts` | TLS fingerprint alerts |
+| `GET` | `/api/update/check` | Check for updates (git) |
+| `POST` | `/api/update/apply` | Apply updates (git pull + rebuild) |
+| `POST` | `/api/update/restart` | Restart the service |
+| `POST` | `/api/update/reinstall` | Full reinstall (pull + pip + npm) |
+| `POST` | `/api/update/uninstall` | Remove the application |
 
 ---
 
 ## Project Structure (ML)
 
-ML models and training scripts are maintained separately:
-
-**[AnomalyNet-ml](https://github.com/DimaFi/AnomalyNet-ml)**
+ML models and training scripts: **[AnomalyNet-ml](https://github.com/DimaFi/AnomalyNet-ml)**
 
 ```
 AnomalyNet-ml/
-├── stage1/          Binary detector — CIC IoT 2024, 71 features, F1 = 99.4%
-├── stage2/          8-class multiclass — same 71 features
-├── stage3/          IoT multiclass — 46 CIC-IoT-2023 features, Macro F1 = 0.82
-└── stage4/          Extended cascade experiments
+├── model/                   Stage 1 binary detector — CIC IoT 2024, 71 features, F1 = 99.4%
+├── artifacts/               Stage 1 scaler + feature contract
+├── stage2_multiclass/       8-class classifier — same 71 features, augmented with CICIDS 2017/2018
+├── stage3_cic2023/          IoT multiclass — 46 CIC-IoT-2023 features, Macro F1 = 0.82
+└── general_network/         General Network — trained on CICIDS 2017 (PC/server traffic)
 ```
-
-Expected layout on the production server:
-
-```
-/opt/anomalynet-ml/
-├── model/           stage1 model.cbm
-├── artifacts/       stage1 scaler + feature contract
-├── stage2_multiclass/models/catboost/   stage2 model.cbm + class_mapping.json
-└── stage3_cic2023/
-    ├── models/catboost/   stage3 model.cbm
-    └── artifacts/         stage3 scaler + feature contract
-```
-
----
-
-## Scoring Logic
-
-```
-predict_proba(flow) → p
-
-p ≥ 0.85  →  anomaly   (red alert)
-p ≥ 0.70  →  warning   (orange alert)
-p <  0.70  →  normal    (no alert)
-```
-
-In cascade mode, Stage 1 acts as a binary gate. Flows classified as attacks are forwarded to Stage 2/3 for attack class labelling (DoS, DDoS, Recon, BruteForce, WebAttack, Bot, Spoofing).
 
 ---
 
 ## Custom Model Plugins
 
-AnomalyNet supports drop-in model plugins without any code changes:
-
-1. Place your model adapter in the `plugins/` directory following the standard interface
-2. Restart the service — the model appears automatically in the **Models** registry and Settings UI
+1. Place your adapter in `plugins/` following the standard interface
+2. Restart — the model appears in the **Models** registry and Settings UI
 3. Select it from the UI or via `POST /api/models/select`
 
-This allows connecting third-party or self-trained models (scikit-learn, PyTorch, ONNX, etc.) alongside the built-in CatBoost pipeline.
-
----
-
-## Remote Management
-
-The backend exposes a full REST API, so you can manage the system from any device on the same network — no SSH required:
-
-```bash
-# Check status
-curl http://<server-ip>:8000/api/health
-
-# Switch to a different detection preset
-curl -X POST http://<server-ip>:8000/api/model-presets/apply/cascade-routed
-
-# Block a suspicious IP
-curl -X POST http://<server-ip>:8000/api/block \
-     -H "Content-Type: application/json" \
-     -d '{"ip_address": "10.0.0.5"}'
-
-# Download full report
-curl http://<server-ip>:8000/api/export -o report.json
-```
-
-The web UI itself is also fully remote — open `http://<server-ip>:8000` in any browser.
-
----
-
-## Tech Stack
-
-**Backend**
-- [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn — async REST API
-- [Scapy](https://scapy.net/) — raw packet capture
-- [CatBoost](https://catboost.ai/) — gradient boosting inference
-- NumPy · Pandas · Joblib · psutil
-
-**Frontend**
-- [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- [Zustand](https://zustand-demo.pmnd.rs/) — state management
-- [Vite](https://vitejs.dev/) — build tool
-- [i18next](https://www.i18next.com/) — i18n (RU/EN)
+Supported formats: CatBoost `.cbm`, scikit-learn `.pkl`/`.joblib`, PyTorch `.pt`, ONNX `.onnx`, Keras `.h5`.
 
 ---
 
 ## License
 
-[MIT](LICENSE)
+MIT — see `LICENSE` file.
