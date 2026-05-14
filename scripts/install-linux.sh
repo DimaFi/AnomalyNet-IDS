@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
-# Compatibility wrapper — delegates to scripts/install-linux.sh
-# Full installer moved to scripts/install-linux.sh (Phase 6 refactor)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/scripts/install-linux.sh" "$@"
-
-# ============================================================
-# DEPRECATED CONTENT BELOW — kept for reference only
 # ============================================================
 #  AnomalyNet IDS — Linux Install Script
 #  Tested on: Ubuntu 22.04/24.04, Debian 12, Alt Linux p10,
 #             CentOS/RHEL 8+, Rocky Linux, Arch Linux
 #
 #  Usage:
-#    sudo bash install.sh
+#    sudo bash scripts/install-linux.sh
+#    sudo bash install.sh                   # compatibility wrapper
 #
 #  Options (env vars):
 #    INTERFACE=eth0          сетевой интерфейс для захвата
