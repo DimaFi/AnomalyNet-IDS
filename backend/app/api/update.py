@@ -17,8 +17,15 @@ from fastapi import APIRouter
 update_router = APIRouter(prefix="/api/update")
 
 import os as _os
-# ANOMALYNET_APP_ROOT is set by systemd (install.sh writes it into the service file)
-GUI_DIR  = Path(_os.environ.get("ANOMALYNET_APP_ROOT", "/opt/anomalynet/AnomalyNet-gui"))
+import platform as _platform_sys
+
+def _default_app_root() -> str:
+    if _platform_sys.system() == "Windows":
+        return r"C:\AnomalyNet\AnomalyNet-gui"
+    return "/opt/anomalynet/AnomalyNet-gui"
+
+# ANOMALYNET_APP_ROOT is set by the installer (systemd on Linux, machine env var on Windows)
+GUI_DIR  = Path(_os.environ.get("ANOMALYNET_APP_ROOT", _default_app_root()))
 ML_DIR   = GUI_DIR.parent / "AnomalyNet-ml"
 DIST_DIR = GUI_DIR / "frontend" / "dist"
 
@@ -85,21 +92,27 @@ def _rebuild_dist() -> tuple[bool, str]:
         # npm not available — skip rebuild, use pre-built dist from git
         return True, "npm not found — skipped frontend rebuild (using pre-built dist)"
     frontend_dir = GUI_DIR / "frontend"
+    import os as _os
+    build_env = dict(_os.environ)
+    # Ensure npm's own directory is in PATH (cross-platform, no hardcoded Linux paths)
+    from pathlib import Path as _Path
+    npm_dir = str(_Path(npm).parent)
+    existing_path = build_env.get("PATH", "")
+    if npm_dir not in existing_path:
+        build_env["PATH"] = npm_dir + _os.pathsep + existing_path
     r = subprocess.run(
         [npm, "run", "build"],
         cwd=str(frontend_dir),
         capture_output=True, text=True, timeout=180,
-        env={**__import__("os").environ, "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/lib/nodejs/bin"}
+        env=build_env,
     )
     return r.returncode == 0, (r.stdout + r.stderr)[-600:]
 
 
 def _schedule_restart() -> None:
-    def _do():
-        import time
-        time.sleep(2)
-        subprocess.run(["systemctl", "restart", "anomalynet"], capture_output=True)
-    threading.Thread(target=_do, daemon=True).start()
+    from app.platform import get_service_manager
+    mgr = get_service_manager()
+    mgr.restart_service()
 
 
 @update_router.get("/check")
@@ -168,7 +181,7 @@ def apply_updates() -> dict:
 
 @update_router.post("/restart")
 def restart_service() -> dict:
-    """Перезапускает сервис anomalynet через systemctl (только Linux)."""
+    """Перезапускает сервис (systemd на Linux, re-exec на Windows)."""
     _schedule_restart()
     return {"message": "Сервис перезапускается...", "restart_scheduled": True}
 
@@ -195,22 +208,21 @@ def uninstall(keep_settings: bool = True) -> dict:
         if not ok:
             result["errors"].append(f"{name}: {detail}")
 
-    # 1. Stop and disable service
+    # 1. Stop and disable service (platform-aware)
     try:
-        r = subprocess.run(["systemctl", "stop", "anomalynet"], capture_output=True, text=True, timeout=15)
-        step("systemctl stop", r.returncode == 0, (r.stdout + r.stderr).strip())
-        r2 = subprocess.run(["systemctl", "disable", "anomalynet"], capture_output=True, text=True, timeout=15)
-        step("systemctl disable", r2.returncode == 0, (r2.stdout + r2.stderr).strip())
+        from app.platform import get_service_manager
+        svc_mgr = get_service_manager()
+        ok, detail = svc_mgr.disable_and_stop()
+        step("service stop+disable", ok, detail)
     except Exception as e:
-        step("systemctl stop/disable", False, str(e))
+        step("service stop+disable", False, str(e))
 
-    # 2. Remove systemd service file
-    service_file = Path("/etc/systemd/system/anomalynet.service")
+    # 2. Remove service file (platform-aware)
     try:
-        if service_file.exists():
-            service_file.unlink()
-            subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=10)
-        step("remove service file", True, str(service_file))
+        from app.platform import get_service_manager
+        svc_mgr = get_service_manager()
+        ok, detail = svc_mgr.remove_service_file()
+        step("remove service file", ok, detail)
     except Exception as e:
         step("remove service file", False, str(e))
 
@@ -297,8 +309,13 @@ def reinstall(wipe_settings: bool = False) -> dict:
     # 3. pip install dependencies
     try:
         req = GUI_DIR / "backend" / "requirements.txt"
-        pip = shutil.which("pip3") or shutil.which("pip") or sys.executable + " -m pip"
-        pip_cmd = pip.split() + ["install", "-q", "-r", str(req)]
+        # Prefer the venv pip co-located with sys.executable (works on Linux and Windows)
+        _pip_suffix = "pip.exe" if sys.platform == "win32" else "pip"
+        _venv_pip = Path(sys.executable).parent / _pip_suffix
+        if _venv_pip.exists():
+            pip_cmd = [str(_venv_pip), "install", "-q", "-r", str(req)]
+        else:
+            pip_cmd = [sys.executable, "-m", "pip", "install", "-q", "-r", str(req)]
         r = subprocess.run(pip_cmd, capture_output=True, text=True, timeout=120)
         step("pip install", r.returncode == 0, (r.stdout + r.stderr)[-300:] if r.returncode != 0 else "ok")
     except Exception as e:

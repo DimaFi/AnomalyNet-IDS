@@ -223,4 +223,8 @@ export const api = {
     request<{ ip: string; is_private: boolean; country: string; flag: string; hint: string }>(
       `/api/geoip/${encodeURIComponent(ip)}`
     ),
+
+  // ── Platform Capabilities ─────────────────────────────────────────────────
+  getCapabilities: () =>
+    request<import("../app/types").PlatformCapabilities>("/api/capabilities"),
 };

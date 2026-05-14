@@ -573,7 +573,21 @@ class PipelineService:
 
         def _ip_forward() -> bool:
             try:
-                return _Path("/proc/sys/net/ipv4/ip_forward").read_text().strip() == "1"
+                # Platform-aware: use platform layer instead of /proc directly
+                import platform as _plat
+                if _plat.system() == "Linux":
+                    from app.platform.linux.capabilities import get_ip_forward
+                    return get_ip_forward()
+                elif _plat.system() == "Windows":
+                    try:
+                        import winreg
+                        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SYSTEM\CurrentControlSet\Services\Tcpip\Parameters")
+                        val, _ = winreg.QueryValueEx(key, "IPEnableRouter")
+                        return val == 1
+                    except Exception:
+                        return False
+                return False
             except Exception:
                 return False
 

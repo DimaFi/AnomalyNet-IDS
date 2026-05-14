@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import psutil
 
+from app.discovery.backends.base import ArpBackend
 from app.discovery.classifier import guess_device_type
 from app.discovery.models import DeviceInfo
 from app.discovery.oui import get_oui_lookup
@@ -20,6 +21,15 @@ if TYPE_CHECKING:
     from app.discovery.tracker import DeviceTracker
 
 logger = logging.getLogger(__name__)
+
+
+def _create_arp_backend(interface: str | None = None) -> ArpBackend:
+    """Return platform-appropriate ARP discovery backend."""
+    if platform.system() == "Windows":
+        from app.discovery.backends.windows_arp import WindowsArpBackend
+        return WindowsArpBackend(interface=interface)
+    from app.discovery.backends.linux_arp import LinuxArpBackend
+    return LinuxArpBackend()
 
 
 def detect_local_networks(interface: str | None = None) -> list[str]:
@@ -100,17 +110,9 @@ def probe_host(ip: str, ports: list[int] | None = None) -> dict:
 
 
 def arp_single_ip(ip: str) -> str | None:
-    """ARP-lookup a single IP → return MAC or None."""
-    try:
-        from scapy.layers.l2 import ARP, Ether  # type: ignore
-        from scapy.sendrecv import srp  # type: ignore
-        pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=ip)
-        answered, _ = srp(pkt, timeout=2, retry=1, verbose=False)
-        if answered:
-            return answered[0][1].hwsrc.upper()
-    except Exception:
-        pass
-    return None
+    """ARP-lookup a single IP → return MAC or None. Platform-aware."""
+    backend = _create_arp_backend()
+    return backend.scan_single(ip)
 
 
 def _resolve_hostname(ip: str) -> str:
@@ -121,37 +123,19 @@ def _resolve_hostname(ip: str) -> str:
 
 
 def _scan_arp(network: str) -> list[DeviceInfo]:
-    try:
-        from scapy.layers.l2 import ARP, Ether  # type: ignore
-        from scapy.sendrecv import srp  # type: ignore
-    except ImportError:
-        raise RuntimeError("scapy is not installed — ARP scan unavailable")
-
-    oui = get_oui_lookup()
-    devices: list[DeviceInfo] = []
-    now = datetime.now()
-
-    pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=network)
-    answered, _ = srp(pkt, timeout=3, retry=2, verbose=False)
-
-    for _, rcv in answered:
-        mac: str = rcv.hwsrc.upper()
-        ip: str = rcv.psrc
-        vendor = oui.lookup(mac)
-        hostname = _resolve_hostname(ip)
-        device_type = guess_device_type(vendor=vendor, hostname=hostname)
-        devices.append(DeviceInfo(
-            mac=mac, ip=ip, vendor=vendor, device_type=device_type,
-            hostname=hostname, first_seen=now, last_seen=now,
-            is_online=True,
-        ))
-
-    return devices
+    """Scan a CIDR network using platform-appropriate backend."""
+    backend = _create_arp_backend()
+    return backend.scan_network(network)
 
 
 class NetworkScanner:
     def __init__(self, interface: str | None = None) -> None:
         self._interface = interface  # None = auto-detect
+        self._backend: ArpBackend = _create_arp_backend(interface)
+        logger.info(
+            "NetworkScanner: platform=%s backend=%s",
+            platform.system(), self._backend.source_tag,
+        )
 
     def _get_networks(self) -> list[str]:
         networks = detect_local_networks(self._interface)
@@ -168,7 +152,7 @@ class NetworkScanner:
         all_devices: list[DeviceInfo] = []
         for net in networks:
             try:
-                all_devices.extend(_scan_arp(net))
+                all_devices.extend(self._backend.scan_network(net))
             except Exception as exc:
                 logger.warning("ARP scan failed for %s: %s", net, exc)
         return all_devices

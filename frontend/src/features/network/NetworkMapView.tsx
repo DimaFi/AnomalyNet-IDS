@@ -98,8 +98,8 @@ function DeviceCard({ device, selected, onClick }: {
 
 // ── Device Panel ─────────────────────────────────────────────────────────────
 
-function DevicePanel({ device, onClose, onUpdate }: {
-  device: Device; onClose: () => void; onUpdate: () => void;
+function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
+  device: Device; onClose: () => void; onUpdate: () => void; canBlock?: boolean;
 }) {
   const [history, setHistory] = useState<DeviceAlert[]>([]);
   const [dnsSummary, setDnsSummary] = useState<DeviceDnsSummary | null>(null);
@@ -330,9 +330,11 @@ function DevicePanel({ device, onClose, onUpdate }: {
       </div>
 
       <div className={s.panelActions}>
-        <button className={`${s.actionBtn} ${s.actionBtnDanger}`} onClick={handleBlock} disabled={loading}>
-          🚫 Заблокировать IP
-        </button>
+        {canBlock && (
+          <button className={`${s.actionBtn} ${s.actionBtnDanger}`} onClick={handleBlock} disabled={loading}>
+            🚫 Заблокировать IP
+          </button>
+        )}
         <button className={`${s.actionBtn} ${s.actionBtnOk}`} onClick={handleWhitelist} disabled={loading}>
           {device.is_whitelisted ? "✕ Убрать из белого списка" : "✓ В белый список"}
         </button>
@@ -410,6 +412,8 @@ function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
 
 export default function NetworkMapView() {
   const { devices, selectedMac, deviceStats, setDevices, setSelectedMac, setDeviceStats } = useAppStore();
+  const capabilities = useAppStore((state) => state.capabilities);
+  const canBlock = capabilities == null || capabilities.firewall_blocking;
   const [scanning, setScanning] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -452,6 +456,19 @@ export default function NetworkMapView() {
     finally { setScanning(false); }
   };
 
+  // Discovery mode banner text
+  const discoveryBanner = (() => {
+    if (!capabilities) return null;
+    if (capabilities.platform === "windows") {
+      if (!capabilities.arp_scan) {
+        return capabilities.current_elevated
+          ? "Активное сканирование сети недоступно — Npcap не установлен. Карта строится по ARP-кэшу и наблюдаемому трафику."
+          : "Активное сканирование сети недоступно (нет прав администратора). Карта строится по ARP-кэшу и наблюдаемому трафику.";
+      }
+    }
+    return null;
+  })();
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Toolbar */}
@@ -474,6 +491,18 @@ export default function NetworkMapView() {
         </button>
       </div>
 
+      {/* Discovery capability warning */}
+      {discoveryBanner && (
+        <div style={{
+          padding: "7px 16px", fontSize: 12, lineHeight: 1.5,
+          background: "rgba(var(--warning-rgb,234,179,8),0.08)",
+          borderBottom: "1px solid rgba(234,179,8,0.2)",
+          color: "var(--warning, #eab308)",
+        }}>
+          ⚠ {discoveryBanner}
+        </div>
+      )}
+
       {/* Content */}
       <div className={s.root}>
         <div className={s.main}>
@@ -489,6 +518,7 @@ export default function NetworkMapView() {
             device={selected}
             onClose={() => setSelectedMac(null)}
             onUpdate={loadDevices}
+            canBlock={canBlock}
           />
         )}
       </div>
@@ -509,8 +539,13 @@ function DeviceGrid({ devices, selectedMac, onSelect }: {
 }) {
   if (devices.length === 0) {
     return (
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>
-        Нет данных — нажмите «Сканировать» для обнаружения устройств
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--text-muted)", fontSize: 13, padding: 24 }}>
+        <span style={{ fontSize: 32 }}>🔍</span>
+        <span>Устройства не обнаружены</span>
+        <span style={{ fontSize: 11, opacity: 0.65, textAlign: "center", maxWidth: 340 }}>
+          Нажмите «⟳ Сканировать» для поиска устройств в сети.<br/>
+          Если сканирование недоступно, устройства появятся по мере наблюдения трафика.
+        </span>
       </div>
     );
   }

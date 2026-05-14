@@ -1,6 +1,6 @@
 export type ThemeMode = "dark" | "light" | "gray";
 export type LanguageCode = "ru" | "en";
-export type RunMode = "mock" | "windows_stub" | "linux_stub" | "linux_live";
+export type RunMode = "mock" | "windows_stub" | "linux_stub" | "linux_live" | "windows_live";
 export type StatusLevel = "idle" | "active" | "warning" | "error";
 export type VerdictLabel = "normal" | "warning" | "anomaly";
 export type AppView = "dashboard" | "stream" | "alerts" | "network" | "plugins" | "settings" | "about";
@@ -322,6 +322,38 @@ export interface UninstallResult {
   errors: string[];
   keep_settings: boolean;
   message: string;
+}
+
+// Platform capabilities (GET /api/capabilities)
+export interface PlatformCapabilities {
+  platform: string;
+  // Capture
+  packet_capture: boolean;
+  raw_capture: boolean;
+  tls_inspection: boolean;
+  dns_capture: boolean;
+  quic_capture: boolean;
+  wifi_capture: boolean;
+  loopback_capture: boolean;
+  // Firewall
+  firewall_blocking: boolean;
+  firewall_gateway_mode: boolean;
+  firewall_rollback: boolean;
+  // Service
+  autostart_available: boolean;
+  service_restart: boolean;
+  self_update: boolean;
+  // Elevation
+  requires_elevation: boolean;
+  current_elevated: boolean;
+  // Discovery
+  arp_scan: boolean;
+  // Backends
+  capture_backend: string;
+  firewall_backend: string;
+  service_backend: string;
+  // Warnings
+  warnings: string[];
 }
 
 // Toast notification

@@ -7,6 +7,7 @@ import type {
   ModelPreset,
   ModelsRegistry,
   PipelineEvent,
+  PlatformCapabilities,
   ThemeMode,
   ToastItem
 } from "./types";
@@ -42,6 +43,9 @@ interface AppState {
   setDevices: (devices: Device[]) => void;
   setSelectedMac: (mac: string | null) => void;
   setDeviceStats: (stats: DeviceStats) => void;
+  // Platform capabilities
+  capabilities: PlatformCapabilities | null;
+  setCapabilities: (caps: PlatformCapabilities) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -56,6 +60,7 @@ export const useAppStore = create<AppState>((set) => ({
   devices: [],
   selectedMac: null,
   deviceStats: null,
+  capabilities: null,
 
   setView: (view) => set({ view }),
   setHealth: (health) => set({ health }),
@@ -115,4 +120,5 @@ export const useAppStore = create<AppState>((set) => ({
   setDevices: (devices) => set({ devices }),
   setSelectedMac: (selectedMac) => set({ selectedMac }),
   setDeviceStats: (deviceStats) => set({ deviceStats }),
+  setCapabilities: (capabilities) => set({ capabilities }),
 }));

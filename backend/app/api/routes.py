@@ -173,6 +173,15 @@ def get_geoip(ip: str):
     return lookup(ip)
 
 
+@router.get("/capabilities")
+def get_capabilities():
+    """Return platform capabilities — what features are available on the current OS.
+    Frontend uses this to hide/show features (blocking, autostart, capture status).
+    """
+    from app.platform import get_capabilities as _get_caps
+    return _get_caps().to_dict()
+
+
 @router.get("/debug/registry")
 def get_registry_state(service: PipelineService = Depends(get_pipeline_service)):
     """Returns the current state of the plugin registry — which pipelines/preprocessors/models

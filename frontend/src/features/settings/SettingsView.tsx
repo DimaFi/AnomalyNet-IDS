@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
-import type { AppSettings, ModelPackageInfo, NetworkInterface, OfficialModelInfo } from "../../app/types";
+import type { AppSettings, ModelPackageInfo, NetworkInterface, OfficialModelInfo, PlatformCapabilities } from "../../app/types";
 import { ModelPresetPicker } from "../../components/ModelPresetPicker";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
@@ -11,6 +11,8 @@ export function SettingsView() {
   const { t, i18n } = useTranslation();
   const settings = useAppStore((state) => state.settings);
   const setSettings = useAppStore((state) => state.setSettings);
+  const capabilities = useAppStore((state) => state.capabilities);
+  const setCapabilities = useAppStore((state) => state.setCapabilities);
   const [interfaces, setInterfaces] = useState<NetworkInterface[]>([]);
   const [blockedIps, setBlockedIps] = useState<{ ip: string; blocked_at: string }[]>([]);
   const [autostartState, setAutostartState] = useState<{ available: boolean; enabled: boolean } | null>(null);
@@ -22,7 +24,8 @@ export function SettingsView() {
   useEffect(() => {
     api.getInterfaces().then(setInterfaces).catch(() => setInterfaces([]));
     api.getAutostart().then(setAutostartState).catch(() => null);
-  }, []);
+    api.getCapabilities().then(setCapabilities).catch(() => null);
+  }, [setCapabilities]);
 
   const refreshBlocked = useCallback(() => {
     api.getBlockedIps().then((res) => setBlockedIps(res.items)).catch(() => setBlockedIps([]));
@@ -106,7 +109,9 @@ export function SettingsView() {
           <label className={styles.field}>
             <span>{t("settings.runMode")}</span>
             <select value={s.run_mode} onChange={(e) => patch({ run_mode: e.target.value as AppSettings["run_mode"] })}>
-              <option value="linux_live">Linux Live (scapy)</option>
+              <option value="mock">Demo (mock) — без захвата трафика</option>
+              <option value="linux_live">Linux Live — Scapy + iptables</option>
+              <option value="windows_live">Windows Live — Npcap + netsh</option>
             </select>
           </label>
           <label className={styles.field}>
@@ -133,11 +138,14 @@ export function SettingsView() {
                   catch { /* ignore */ }
                   finally { setAutostartLoading(false); }
                 }} />
-              <span>Запускать при старте системы (systemctl)</span>
+              <span>Запускать при старте системы{capabilities?.service_backend ? ` (${capabilities.service_backend})` : ""}</span>
             </label>
           )}
         </div>
       </div>
+
+      {/* ── Platform capabilities ── */}
+      {capabilities && <PlatformStatusPanel caps={capabilities} />}
 
       {/* ── Network capture ── */}
       <div className={selfStyles.group}>
@@ -569,4 +577,48 @@ function fmtTraffic(b: number): string {
   if (b >= 1_000_000)     return `${(b / 1_000_000).toFixed(0)} MB`;
   if (b >= 1_000)         return `${(b / 1_000).toFixed(0)} KB`;
   return `${b} B`;
+}
+
+// ── Platform Status Panel ─────────────────────────────────────────────────────
+
+function StatusDot({ ok, na }: { ok: boolean; na?: boolean }) {
+  const color = na ? "var(--text-muted)" : ok ? "var(--ok)" : "var(--danger)";
+  return <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />;
+}
+
+function PlatformStatusPanel({ caps }: { caps: PlatformCapabilities }) {
+  const platformLabel = caps.platform === "windows" ? "Windows" : caps.platform === "linux" ? "Linux" : caps.platform;
+  const rows: { label: string; ok: boolean; note?: string }[] = [
+    { label: "Права администратора", ok: caps.current_elevated, note: caps.current_elevated ? "да" : "нет — перезапустите от имени администратора" },
+    { label: "Захват пакетов", ok: caps.packet_capture, note: caps.capture_backend !== "mock" ? caps.capture_backend : "недоступен" },
+    { label: "Блокировка IP", ok: caps.firewall_blocking, note: caps.firewall_backend !== "mock" ? caps.firewall_backend : "недоступна" },
+    { label: "Откат правил (snapshot)", ok: caps.firewall_rollback, note: caps.firewall_rollback ? "доступен" : "нет" },
+    { label: "ARP-сканирование", ok: caps.arp_scan, note: caps.arp_scan ? "доступно" : "нет" },
+  ];
+  return (
+    <div className={selfStyles.group}>
+      <div className={selfStyles.groupTitle}>
+        Платформа: {platformLabel}
+        {caps.platform === "windows" && <span style={{ marginLeft: 6, fontSize: 11, opacity: 0.55 }}>({caps.capture_backend} / {caps.firewall_backend})</span>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12.5 }}>
+        {rows.map((r) => (
+          <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <StatusDot ok={r.ok} />
+            <span style={{ color: "var(--text-secondary)", minWidth: 210 }}>{r.label}</span>
+            <span style={{ color: r.ok ? "var(--text-primary)" : "var(--danger)", opacity: r.ok ? 0.75 : 1 }}>{r.note}</span>
+          </div>
+        ))}
+      </div>
+      {caps.warnings.length > 0 && (
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+          {caps.warnings.map((w, i) => (
+            <div key={i} style={{ fontSize: 11.5, color: "var(--warning)", background: "rgba(var(--warning-rgb,255,165,0),0.08)", borderRadius: 6, padding: "5px 10px", lineHeight: 1.5 }}>
+              ⚠ {w}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

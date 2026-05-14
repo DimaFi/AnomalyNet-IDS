@@ -177,15 +177,17 @@ function ActiveModelBadge({ settings, presets }: { settings: AppSettings; preset
 
 export function App() {
   const { i18n } = useTranslation();
-  const view       = useAppStore((state) => state.view);
-  const setView    = useAppStore((state) => state.setView);
-  const health     = useAppStore((state) => state.health);
-  const settings   = useAppStore((state) => state.settings);
-  const setHealth  = useAppStore((state) => state.setHealth);
-  const setSettings = useAppStore((state) => state.setSettings);
-  const setModels   = useAppStore((state) => state.setModels);
-  const presets     = useAppStore((state) => state.presets);
-  const setPresets  = useAppStore((state) => state.setPresets);
+  const view           = useAppStore((state) => state.view);
+  const setView        = useAppStore((state) => state.setView);
+  const health         = useAppStore((state) => state.health);
+  const settings       = useAppStore((state) => state.settings);
+  const setHealth      = useAppStore((state) => state.setHealth);
+  const setSettings    = useAppStore((state) => state.setSettings);
+  const setModels      = useAppStore((state) => state.setModels);
+  const presets        = useAppStore((state) => state.presets);
+  const setPresets     = useAppStore((state) => state.setPresets);
+  const capabilities   = useAppStore((state) => state.capabilities);
+  const setCapabilities = useAppStore((state) => state.setCapabilities);
 
   useRealtimeStream();
 
@@ -194,16 +196,18 @@ export function App() {
   const bootstrap = useCallback(async () => {
     setRefreshing(true);
     try {
-      const [healthRes, settingsRes, modelsRes, presetsRes] = await Promise.all([
+      const [healthRes, settingsRes, modelsRes, presetsRes, capsRes] = await Promise.all([
         api.getHealth(),
         api.getSettings(),
         api.getModels(),
         api.getModelPresets(),
+        api.getCapabilities().catch(() => null),
       ]);
       setHealth(healthRes);
       setSettings(settingsRes);
       setModels(modelsRes);
       setPresets(presetsRes.presets);
+      if (capsRes) setCapabilities(capsRes);
       document.documentElement.dataset.theme = settingsRes.theme;
       await i18n.changeLanguage(settingsRes.language);
     } catch {
@@ -211,7 +215,7 @@ export function App() {
     } finally {
       setRefreshing(false);
     }
-  }, [i18n, setHealth, setModels, setPresets, setSettings]);
+  }, [i18n, setCapabilities, setHealth, setModels, setPresets, setSettings]);
 
   useEffect(() => { void bootstrap(); }, [bootstrap]);
 
@@ -320,23 +324,37 @@ export function App() {
           <div className={styles.topbarMeta}>
             {settings?.run_mode && (
               <span className={styles.modeBadge}>
-                {settings.run_mode === "mock" ? "Demo" : settings.run_mode === "linux_live" ? "Live" : settings.run_mode}
+                {settings.run_mode === "mock"         ? "Demo"
+                : settings.run_mode === "linux_live"  ? "Live (Linux)"
+                : settings.run_mode === "windows_live"? "Live (Windows)"
+                : settings.run_mode}
               </span>
             )}
             {settings && (
               <ActiveModelBadge settings={settings} presets={presets} />
             )}
-            {/* Warning: linux_live + mock model */}
-            {settings?.run_mode === "linux_live" && settings?.active_model_id === "mock-default" && (
+            {/* Warning: live mode + mock model */}
+            {(settings?.run_mode === "linux_live" || settings?.run_mode === "windows_live") && settings?.active_model_id === "mock-default" && (
               <span className={styles.mockWarningBadge} title="Активирована demo-модель — выберите реальный детектор">
                 ⚠ Demo-модель
               </span>
             )}
+            {/* Warning: no firewall available */}
+            {capabilities && !capabilities.firewall_blocking && settings?.run_mode !== "mock" && (
+              <span className={styles.mockWarningBadge} title={capabilities.warnings[0] ?? "Блокировка IP недоступна"}>
+                ⚠ Нет фаервола
+              </span>
+            )}
             {settings && (
               <button
-                className={[styles.shieldBtn, settings.auto_block ? styles.shieldActive : ""].filter(Boolean).join(" ")}
+                className={[styles.shieldBtn, settings.auto_block ? styles.shieldActive : "", capabilities && !capabilities.firewall_blocking ? styles.shieldDisabled : ""].filter(Boolean).join(" ")}
                 onClick={toggleProtection}
-                title={settings.auto_block ? "Защита включена — нажми чтобы выключить" : "Включить авто-блокировку атак"}
+                disabled={capabilities != null && !capabilities.firewall_blocking}
+                title={
+                  capabilities && !capabilities.firewall_blocking
+                    ? (capabilities.warnings[0] ?? "Блокировка IP недоступна на этой платформе")
+                    : settings.auto_block ? "Защита включена — нажми чтобы выключить" : "Включить авто-блокировку атак"
+                }
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />

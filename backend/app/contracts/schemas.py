@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 ThemeMode = Literal["dark", "light", "gray"]
 LanguageCode = Literal["ru", "en"]
-RunMode = Literal["mock", "windows_stub", "linux_stub", "linux_live"]
+RunMode = Literal["mock", "windows_stub", "linux_stub", "linux_live", "windows_live"]
 StatusLevel = Literal["idle", "active", "warning", "error"]
 VerdictLabel = Literal["normal", "warning", "anomaly"]
 DetectionMode = Literal["simple", "advanced"]

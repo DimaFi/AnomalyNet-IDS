@@ -329,6 +329,8 @@ export function StreamView() {
   const blockedIps    = useAppStore((state) => state.blockedIps);
   const replaceStream = useAppStore((state) => state.replaceStream);
   const markUnblocked = useAppStore((state) => state.markUnblocked);
+  const capabilities  = useAppStore((state) => state.capabilities);
+  const canBlock      = capabilities == null || capabilities.firewall_blocking;
   const blockIp       = useBlockIp();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -724,14 +726,14 @@ export function StreamView() {
                     </td>
                     <td>
                       <div className={s.actionsCell}>
-                        {isAttack && !isBlocked && (
+                        {canBlock && isAttack && !isBlocked && (
                           <button className={s.blockBtn}
                             onClick={() => blockIp(item.event.src_ip, item.event.event_id)}
                             title={`Заблокировать ${item.event.src_ip}`}>
                             Блок
                           </button>
                         )}
-                        {isBlocked && (
+                        {canBlock && isBlocked && (
                           <button className={s.unblockBtn}
                             onClick={() => void handleUnblock(item.event.src_ip)}>
                             Разблок
@@ -794,7 +796,7 @@ export function StreamView() {
                 <span className={s.cardMetaText}>{item.event.packet_count} pkt · {formatBytes(item.event.byte_count)}</span>
                 <ScoreBar score={item.inference.score} />
               </div>
-              {(isAttack || isBlocked) && (
+              {canBlock && (isAttack || isBlocked) && (
                 <div className={s.cardAction}>
                   {isAttack && !isBlocked && (
                     <button className={s.blockBtn}
