@@ -117,6 +117,14 @@ export function SettingsView() {
               )}
             </select>
           </label>
+          {capabilities && !capabilities.packet_capture &&
+           (s.run_mode === "linux_live" || s.run_mode === "windows_live") && (
+            <p className={styles.warnNote}>
+              ⚠{" "}
+              {capabilities.warnings.find(w => /npcap|admin|rights|privilege|scapy/i.test(w))
+               ?? "Захват трафика недоступен. Убедитесь что приложение запущено с правами администратора."}
+            </p>
+          )}
           <label className={styles.field}>
             <span>{t("settings.retention")}</span>
             <input type="number" min={1} max={30} value={s.retention_days}

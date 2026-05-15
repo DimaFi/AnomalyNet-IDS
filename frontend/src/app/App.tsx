@@ -336,6 +336,16 @@ export function App() {
                 ⚠ Demo-модель
               </span>
             )}
+            {/* Warning: packet capture unavailable in live mode */}
+            {capabilities && !capabilities.packet_capture &&
+             (settings?.run_mode === "linux_live" || settings?.run_mode === "windows_live") && (
+              <span className={styles.mockWarningBadge} title={
+                capabilities.warnings.find(w => /npcap|admin|rights|privilege|scapy/i.test(w))
+                ?? "Захват трафика недоступен"
+              }>
+                ⚠ Нет захвата
+              </span>
+            )}
             {/* Warning: no firewall available */}
             {capabilities && !capabilities.firewall_blocking && (
               <span className={styles.mockWarningBadge} title={capabilities.warnings[0] ?? "Блокировка IP недоступна"}>

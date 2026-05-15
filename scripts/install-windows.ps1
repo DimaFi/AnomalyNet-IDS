@@ -235,6 +235,19 @@ Ok "Node.js: $(node --version)"
 
 Write-Host ""
 
+# ── Остановка запущенного сервиса (если есть) ────────────────
+Log "Остановка AnomalyNet (если запущен)..."
+$ErrorActionPreference = "SilentlyContinue"
+schtasks /end /tn "AnomalyNet" 2>&1 | Out-Null
+# Kill uvicorn/python processes holding files in the install dir
+Get-Process -Name "python", "python3", "uvicorn" -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -like "$InstallDir\*" } |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+# Give OS a moment to release file handles
+Start-Sleep -Seconds 2
+$ErrorActionPreference = "Stop"
+Ok "Сервис остановлен"
+
 # ── Клонирование / обновление репозиториев ───────────────────
 $guiRepo = "https://github.com/DimaFi/AnomalyNet-gui.git"
 $mlRepo  = "https://github.com/DimaFi/AnomalyNet-ml.git"
@@ -243,29 +256,87 @@ $mlDir   = "$InstallDir\AnomalyNet-ml"
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-if ($script:gitAvailable) {
-    if (Test-Path "$guiDir\.git") {
-        Log "Обновляем AnomalyNet-gui..."
-        git -C $guiDir stash 2>$null
-        git -C $guiDir pull --quiet
-    } elseif (-not (Test-Path $guiDir)) {
-        Log "Клонируем AnomalyNet-gui..."
-        git clone --quiet --depth 1 $guiRepo $guiDir
-    } else {
-        Log "AnomalyNet-gui уже распакован (не .git-репозиторий) — пропускаем клонирование"
+function Remove-DirRetry($path) {
+    for ($i = 0; $i -lt 3; $i++) {
+        Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $path)) { return $true }
+        Start-Sleep -Seconds 2
     }
-    Ok "AnomalyNet-gui готов"
+    return (Test-Path $path) -eq $false
+}
 
-    if (Test-Path "$mlDir\.git") {
-        Log "Обновляем AnomalyNet-ml..."
-        git -C $mlDir pull --quiet
-    } elseif (-not (Test-Path $mlDir)) {
-        Log "Клонируем AnomalyNet-ml (модели, ~120 МБ, 1-2 мин)..."
-        git clone --quiet --depth 1 $mlRepo $mlDir
-    } else {
-        Log "AnomalyNet-ml уже распакован (не .git-репозиторий) — пропускаем клонирование"
+function Save-UserConfig($dir) {
+    $saved = @{}
+    foreach ($fname in @("settings.json", "models_registry.json", "model_presets.json")) {
+        $p = "$dir\config\$fname"
+        if (Test-Path $p) { $saved[$fname] = [System.IO.File]::ReadAllText($p) }
     }
-    Ok "AnomalyNet-ml готов"
+    return $saved
+}
+
+function Restore-UserConfig($dir, $saved) {
+    if ($saved.Count -eq 0) { return }
+    New-Item -ItemType Directory -Force -Path "$dir\config" | Out-Null
+    foreach ($kv in $saved.GetEnumerator()) {
+        [System.IO.File]::WriteAllText("$dir\config\$($kv.Key)", $kv.Value)
+    }
+}
+
+function Clone-Fresh($label, $dir, $url) {
+    $saved = Save-UserConfig $dir
+    Remove-DirRetry $dir | Out-Null
+    if (Test-Path $dir) {
+        Warn "${label} - не удалось удалить старую папку, клонирование может не пройти"
+    }
+    git clone --quiet --depth 1 $url $dir
+    if ($LASTEXITCODE -ne 0) {
+        Err "${label} - git clone завершился с ошибкой"
+    }
+    Restore-UserConfig $dir $saved
+    Ok "${label} клонирован"
+}
+
+function Update-Repo($label, $dir, $url) {
+    if (Test-Path "$dir\.git") {
+        # Verify the repo is functional
+        $ErrorActionPreference = "SilentlyContinue"
+        git -C $dir rev-parse HEAD 2>&1 | Out-Null
+        $healthy = ($LASTEXITCODE -eq 0)
+        $ErrorActionPreference = "Stop"
+        if (-not $healthy) {
+            Warn "${label} - повреждённый репозиторий, переклонируем..."
+            Clone-Fresh $label $dir $url
+            return
+        }
+        Log "Обновляем ${label}..."
+        $ErrorActionPreference = "SilentlyContinue"
+        git -C $dir stash 2>&1 | Out-Null
+        git -C $dir pull --quiet 2>&1 | Out-Null
+        $pullOk = ($LASTEXITCODE -eq 0)
+        $ErrorActionPreference = "Stop"
+        if (-not $pullOk) {
+            Warn "${label} - git pull не удался, переклонируем..."
+            Clone-Fresh $label $dir $url
+            return
+        }
+    } elseif (Test-Path $dir) {
+        # Directory exists without .git (ZIP install) — replace with proper git clone
+        Log "${label} - ZIP-установка обнаружена, заменяем на git-клон..."
+        Clone-Fresh $label $dir $url
+        return
+    } else {
+        Log "Клонируем ${label}..."
+        git clone --quiet --depth 1 $url $dir
+        if ($LASTEXITCODE -ne 0) {
+            Err "${label} - git clone завершился с ошибкой"
+        }
+    }
+    Ok "${label} готов"
+}
+
+if ($script:gitAvailable) {
+    Update-Repo "AnomalyNet-gui" $guiDir $guiRepo
+    Update-Repo "AnomalyNet-ml (модели ~120 МБ, 1-2 мин)" $mlDir $mlRepo
 } else {
     if (-not (Test-Path $guiDir)) {
         Err "Git не установлен и $guiDir не найден — невозможно продолжить. Установите Git и запустите заново."
@@ -303,9 +374,21 @@ Copy-ModelDir "$mlDir\stage3_cic2023\artifacts"           "$modelsDir\stage3\art
 Log "Настройка Python venv..."
 $venvDir  = "$guiDir\backend\.venv"
 $venvPy   = "$venvDir\Scripts\python.exe"
-$venvPip  = "$venvDir\Scripts\pip.exe"
+
+# Remove broken/old venv if it exists
+if (Test-Path $venvDir) {
+    Log "Удаляем старый venv..."
+    Remove-DirRetry $venvDir | Out-Null
+}
+
+if (-not (Test-Path "$guiDir\backend\requirements.txt")) {
+    Err "requirements.txt не найден в $guiDir\backend — проверьте что репозиторий склонирован корректно"
+}
 
 & $pythonCmd -m venv $venvDir
+if (-not (Test-Path $venvPy)) {
+    Err "Не удалось создать виртуальное окружение в $venvDir"
+}
 & $venvPy -m pip install --quiet --upgrade pip setuptools wheel
 & $venvPy -m pip install --quiet -r "$guiDir\backend\requirements.txt"
 Ok "Python-зависимости установлены"
@@ -324,38 +407,36 @@ try {
 }
 Ok "Фронтенд собран"
 
-# ── Проверка Npcap ───────────────────────────────────────────
+# ── Установка Npcap (нужен для захвата трафика на Windows) ──
 Log "Проверка Npcap..."
 $npcapInstalled = Test-Path "C:\Windows\System32\Npcap\wpcap.dll"
 if ($npcapInstalled) {
-    Ok "Npcap установлен — активный ARP-сканер доступен"
+    Ok "Npcap установлен"
 } else {
-    Warn "Npcap не найден — ARP-сканер будет использовать fallback (arp -a)"
-    if ($InstallNpcap) {
-        Log "Скачиваем Npcap..."
-        $npcapUrl  = "https://npcap.com/dist/npcap-1.79.exe"
-        $npcapPath = "$env:TEMP\npcap-install.exe"
-        try {
-            Invoke-WebRequest -Uri $npcapUrl -OutFile $npcapPath -UseBasicParsing
-            Log "Запускаем установщик Npcap (потребуется подтверждение)..."
-            Start-Process -FilePath $npcapPath -ArgumentList "/S" -Wait
+    Log "Npcap не найден — необходим для захвата трафика. Устанавливаем..."
+    $npcapUrl  = "https://npcap.com/dist/npcap-1.79.exe"
+    $npcapPath = "$env:TEMP\npcap-install.exe"
+    try {
+        Invoke-WebRequest -Uri $npcapUrl -OutFile $npcapPath -UseBasicParsing
+        Log "Запускаем установщик Npcap (пройдите визард, нажмите Next/Install)..."
+        Start-Process -FilePath $npcapPath -Wait
+        if (Test-Path "C:\Windows\System32\Npcap\wpcap.dll") {
             Ok "Npcap установлен"
-        } catch {
-            Warn "Не удалось скачать Npcap: $_"
-            Warn "Скачайте вручную: https://npcap.com/"
+        } else {
+            Warn "Npcap установлен, но файл ещё не виден — перезагрузка может потребоваться"
         }
-    } else {
-        Warn "Для активного ARP-сканирования установите Npcap: https://npcap.com/"
-        Warn "Или повторите установку с флагом -InstallNpcap"
+    } catch {
+        Warn "Не удалось автоматически установить Npcap: $_"
+        Warn "Скачайте вручную: https://npcap.com/ (нужен для захвата трафика)"
     }
 }
 
 # ── Определение режима ───────────────────────────────────────
-$stage1Cbm = Get-ChildItem "$modelsDir\stage1\catboost\*.cbm" -ErrorAction SilentlyContinue
-$runMode     = if ($stage1Cbm) { "windows_live" } else { "mock" }
-$activeModel = if ($stage1Cbm) { "catboost-cascade-simple" } else { "mock-default" }
+$stage1Cbm   = Get-ChildItem "$modelsDir\stage1\catboost\*.cbm" -ErrorAction SilentlyContinue
+$runMode     = "windows_live"
+$activeModel = "catboost-cascade-simple"
 if (-not $stage1Cbm) {
-    Warn "Модели stage1 не найдены — запускаем в Demo-режиме"
+    Warn "Модели stage1 не найдены — детектор запустится без ML (выберите модель в настройках)"
 }
 
 # ── Запись settings.json ─────────────────────────────────────
