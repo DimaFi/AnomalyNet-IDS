@@ -405,8 +405,10 @@ $taskName   = "AnomalyNet"
 $workingDir = "$guiDir\backend"
 $uvicornArgs = "-m uvicorn app.main:app --host 0.0.0.0 --port $Port --log-level info --timeout-graceful-shutdown 3"
 
-# Удаляем старую задачу если есть
-schtasks /delete /tn $taskName /f 2>$null
+# Удаляем старую задачу если есть (игнорируем ошибку если задачи нет)
+$ErrorActionPreference = "SilentlyContinue"
+schtasks /delete /tn $taskName /f 2>&1 | Out-Null
+$ErrorActionPreference = "Stop"
 
 # Создаём через XML — позволяет задать рабочую директорию и переменные окружения
 $taskXml = @"
