@@ -95,7 +95,7 @@ export function DashboardView() {
         </article>
         <article className={styles.metricCard}>
           <span>{t("dashboard.mode")}</span>
-          <strong>{settings?.run_mode ?? "mock"}</strong>
+          <strong>{settings?.run_mode ?? "—"}</strong>
         </article>
         <article className={styles.metricCard}>
           <span>{t("dashboard.activeModel")}</span>

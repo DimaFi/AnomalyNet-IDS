@@ -132,7 +132,6 @@ function nextTheme(current: string | undefined): ThemeName {
 }
 
 const KNOWN_MODEL_LABELS: Record<string, string> = {
-  "mock-default":             "Demo",
   "catboost-iot-v1":          "Быстрый",
   "catboost-cascade-simple":  "Simple",
   "catboost-cascade-advanced":"Advanced",
@@ -163,7 +162,6 @@ function getActiveModelLabel(settings: AppSettings, presets: ModelPreset[]): { l
 }
 
 function ActiveModelBadge({ settings, presets }: { settings: AppSettings; presets: ModelPreset[] }) {
-  if (settings.run_mode === "mock") return null;
   const { label, full } = getActiveModelLabel(settings, presets);
   const isAdvanced = settings.detection_mode === "advanced" || label.toLowerCase() === "advanced";
   const isPlugin = settings.active_model_id?.startsWith("plugin:");
@@ -324,9 +322,8 @@ export function App() {
           <div className={styles.topbarMeta}>
             {settings?.run_mode && (
               <span className={styles.modeBadge}>
-                {settings.run_mode === "mock"         ? "Demo"
-                : settings.run_mode === "linux_live"  ? "Live (Linux)"
-                : settings.run_mode === "windows_live"? "Live (Windows)"
+                {settings.run_mode === "linux_live"   ? "Live (Linux)"
+                : settings.run_mode === "windows_live" ? "Live (Windows)"
                 : settings.run_mode}
               </span>
             )}
@@ -340,7 +337,7 @@ export function App() {
               </span>
             )}
             {/* Warning: no firewall available */}
-            {capabilities && !capabilities.firewall_blocking && settings?.run_mode !== "mock" && (
+            {capabilities && !capabilities.firewall_blocking && (
               <span className={styles.mockWarningBadge} title={capabilities.warnings[0] ?? "Блокировка IP недоступна"}>
                 ⚠ Нет фаервола
               </span>

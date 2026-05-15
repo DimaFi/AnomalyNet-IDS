@@ -109,9 +109,12 @@ export function SettingsView() {
           <label className={styles.field}>
             <span>{t("settings.runMode")}</span>
             <select value={s.run_mode} onChange={(e) => patch({ run_mode: e.target.value as AppSettings["run_mode"] })}>
-              <option value="mock">Demo (mock) — без захвата трафика</option>
-              <option value="linux_live">Linux Live — Scapy + iptables</option>
-              <option value="windows_live">Windows Live — Npcap + netsh</option>
+              {(!capabilities || capabilities.platform === "linux") && (
+                <option value="linux_live">Linux Live — Scapy + iptables</option>
+              )}
+              {(!capabilities || capabilities.platform === "windows") && (
+                <option value="windows_live">Windows Live — Npcap + netsh</option>
+              )}
             </select>
           </label>
           <label className={styles.field}>
