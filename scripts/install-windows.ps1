@@ -1,16 +1,16 @@
-# ============================================================
-#  AnomalyNet IDS — Windows Install Script
+﻿# ============================================================
+#  AnomalyNet IDS вЂ” Windows Install Script
 #  Requires: Windows 10/11, PowerShell 5.1+, Admin rights
 #
 #  Usage:
-#    # Запустить как Администратор:
+#    # Р—Р°РїСѓСЃС‚РёС‚СЊ РєР°Рє РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ:
 #    powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
 #
-#  Параметры:
-#    -InstallDir    Куда установить (по умолчанию C:\AnomalyNet)
-#    -Port          Порт веб-интерфейса (по умолчанию 8000)
-#    -InstallNpcap  Предложить установить Npcap если не найден
-#    -AutoBlock     Включить автоматическую блокировку атак
+#  РџР°СЂР°РјРµС‚СЂС‹:
+#    -InstallDir    РљСѓРґР° СѓСЃС‚Р°РЅРѕРІРёС‚СЊ (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ C:\AnomalyNet)
+#    -Port          РџРѕСЂС‚ РІРµР±-РёРЅС‚РµСЂС„РµР№СЃР° (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ 8000)
+#    -InstallNpcap  РџСЂРµРґР»РѕР¶РёС‚СЊ СѓСЃС‚Р°РЅРѕРІРёС‚СЊ Npcap РµСЃР»Рё РЅРµ РЅР°Р№РґРµРЅ
+#    -AutoBlock     Р’РєР»СЋС‡РёС‚СЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєСѓСЋ Р±Р»РѕРєРёСЂРѕРІРєСѓ Р°С‚Р°Рє
 # ============================================================
 
 param(
@@ -22,7 +22,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# ── Цвета и логирование ──────────────────────────────────────
+# в”Ђв”Ђ Р¦РІРµС‚Р° Рё Р»РѕРіРёСЂРѕРІР°РЅРёРµ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 function Log  ($msg) { Write-Host "  $([char]0x25B6)  $msg" -ForegroundColor Cyan }
 function Ok   ($msg) { Write-Host "  $([char]0x2713)  $msg" -ForegroundColor Green }
 function Warn ($msg) { Write-Host "  $([char]0x26A0)  $msg" -ForegroundColor Yellow }
@@ -30,61 +30,61 @@ function Err  ($msg) { Write-Host "  $([char]0x2717)  $msg" -ForegroundColor Red
 
 Write-Host ""
 Write-Host "  +=======================================+" -ForegroundColor White
-Write-Host "  |   AnomalyNet IDS — Установка Windows  |" -ForegroundColor White
+Write-Host "  |   AnomalyNet IDS вЂ” РЈСЃС‚Р°РЅРѕРІРєР° Windows  |" -ForegroundColor White
 Write-Host "  +=======================================+" -ForegroundColor White
 Write-Host ""
 
-# ── Проверка прав администратора ────────────────────────────
+# в”Ђв”Ђ РџСЂРѕРІРµСЂРєР° РїСЂР°РІ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
     [Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Err "Запустите скрипт от имени Администратора."
+    Err "Р—Р°РїСѓСЃС‚РёС‚Рµ СЃРєСЂРёРїС‚ РѕС‚ РёРјРµРЅРё РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°."
 }
-Ok "Права администратора: OK"
+Ok "РџСЂР°РІР° Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°: OK"
 
-Log "Каталог установки : $InstallDir"
-Log "Порт              : $Port"
+Log "РљР°С‚Р°Р»РѕРі СѓСЃС‚Р°РЅРѕРІРєРё : $InstallDir"
+Log "РџРѕСЂС‚              : $Port"
 Write-Host ""
 
-# ── Автоустановка зависимостей ───────────────────────────────
+# в”Ђв”Ђ РђРІС‚РѕСѓСЃС‚Р°РЅРѕРІРєР° Р·Р°РІРёСЃРёРјРѕСЃС‚РµР№ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-# Попытка установить пакет через winget (встроен в Windows 10/11)
+# РџРѕРїС‹С‚РєР° СѓСЃС‚Р°РЅРѕРІРёС‚СЊ РїР°РєРµС‚ С‡РµСЂРµР· winget (РІСЃС‚СЂРѕРµРЅ РІ Windows 10/11)
 function Install-Via-Winget($packageId, $label) {
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Warn "winget не найден — установите $label вручную"
+        Warn "winget РЅРµ РЅР°Р№РґРµРЅ вЂ” СѓСЃС‚Р°РЅРѕРІРёС‚Рµ $label РІСЂСѓС‡РЅСѓСЋ"
         return $false
     }
-    Log "Устанавливаем $label через winget..."
+    Log "РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј $label С‡РµСЂРµР· winget..."
     winget install --id $packageId --silent --accept-package-agreements --accept-source-agreements 2>$null
-    # Обновляем PATH текущей сессии (winget меняет PATH только для новых процессов)
+    # РћР±РЅРѕРІР»СЏРµРј PATH С‚РµРєСѓС‰РµР№ СЃРµСЃСЃРёРё (winget РјРµРЅСЏРµС‚ PATH С‚РѕР»СЊРєРѕ РґР»СЏ РЅРѕРІС‹С… РїСЂРѕС†РµСЃСЃРѕРІ)
     $machinePath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
     $userPath    = [System.Environment]::GetEnvironmentVariable("PATH", "User")
     $env:PATH    = "$machinePath;$userPath"
     return $LASTEXITCODE -eq 0
 }
 
-# Скачать и запустить установщик через HTTP (fallback без winget)
+# РЎРєР°С‡Р°С‚СЊ Рё Р·Р°РїСѓСЃС‚РёС‚СЊ СѓСЃС‚Р°РЅРѕРІС‰РёРє С‡РµСЂРµР· HTTP (fallback Р±РµР· winget)
 function Install-Via-Download($url, $label, $installArgs) {
-    Log "Скачиваем $label..."
+    Log "РЎРєР°С‡РёРІР°РµРј $label..."
     $tmp = "$env:TEMP\anomalynet_dep_install.exe"
     try {
         Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
-        Log "Запускаем установщик $label..."
+        Log "Р—Р°РїСѓСЃРєР°РµРј СѓСЃС‚Р°РЅРѕРІС‰РёРє $label..."
         Start-Process -FilePath $tmp -ArgumentList $installArgs -Wait
         Remove-Item $tmp -ErrorAction SilentlyContinue
-        # Обновляем PATH
+        # РћР±РЅРѕРІР»СЏРµРј PATH
         $machinePath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
         $userPath    = [System.Environment]::GetEnvironmentVariable("PATH", "User")
         $env:PATH    = "$machinePath;$userPath"
         return $true
     } catch {
-        Warn "Не удалось скачать $label`: $_"
+        Warn "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРєР°С‡Р°С‚СЊ $label`: $_"
         return $false
     }
 }
 
-# ── Python 3.11 ──────────────────────────────────────────────
-Log "Проверка Python..."
+# в”Ђв”Ђ Python 3.11 в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РџСЂРѕРІРµСЂРєР° Python..."
 $pythonCmd = $null
 foreach ($candidate in @("python", "python3", "py")) {
     try {
@@ -96,9 +96,9 @@ foreach ($candidate in @("python", "python3", "py")) {
     } catch {}
 }
 if (-not $pythonCmd) {
-    Warn "Python 3.10+ не найден."
-    $ans = Read-Host "  Установить автоматически? [Y/n]"
-    if ($ans -eq '' -or $ans -match '^[YyДд]') {
+    Warn "Python 3.10+ РЅРµ РЅР°Р№РґРµРЅ."
+    $ans = Read-Host "  РЈСЃС‚Р°РЅРѕРІРёС‚СЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё? [Y/n]"
+    if ($ans -eq '' -or $ans -match '^[YyР”Рґ]') {
         $ok = Install-Via-Winget "Python.Python.3.11" "Python 3.11"
         if (-not $ok) {
             Install-Via-Download `
@@ -106,7 +106,7 @@ if (-not $pythonCmd) {
                 "Python 3.11" `
                 "/quiet InstallAllUsers=1 PrependPath=1 Include_pip=1" | Out-Null
         }
-        # Перепроверка
+        # РџРµСЂРµРїСЂРѕРІРµСЂРєР°
         foreach ($candidate in @("python", "python3", "py")) {
             try {
                 $ver = & $candidate --version 2>&1
@@ -118,17 +118,17 @@ if (-not $pythonCmd) {
         }
     }
     if (-not $pythonCmd) {
-        Err "Python не установлен. Скачайте вручную: https://www.python.org/downloads/"
+        Err "Python РЅРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅ. РЎРєР°С‡Р°Р№С‚Рµ РІСЂСѓС‡РЅСѓСЋ: https://www.python.org/downloads/"
     }
 }
 Ok "Python: $(& $pythonCmd --version 2>&1)"
 
-# ── Git ───────────────────────────────────────────────────────
-Log "Проверка Git..."
+# в”Ђв”Ђ Git в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РџСЂРѕРІРµСЂРєР° Git..."
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Warn "Git не найден."
-    $ans = Read-Host "  Установить автоматически? [Y/n]"
-    if ($ans -eq '' -or $ans -match '^[YyДд]') {
+    Warn "Git РЅРµ РЅР°Р№РґРµРЅ."
+    $ans = Read-Host "  РЈСЃС‚Р°РЅРѕРІРёС‚СЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё? [Y/n]"
+    if ($ans -eq '' -or $ans -match '^[YyР”Рґ]') {
         $ok = Install-Via-Winget "Git.Git" "Git"
         if (-not $ok) {
             Install-Via-Download `
@@ -138,8 +138,8 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         }
     }
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Warn "Git не установлен. Приложение будет работать, но обновления через UI недоступны."
-        Warn "Для обновлений установите Git: https://git-scm.com/"
+        Warn "Git РЅРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅ. РџСЂРёР»РѕР¶РµРЅРёРµ Р±СѓРґРµС‚ СЂР°Р±РѕС‚Р°С‚СЊ, РЅРѕ РѕР±РЅРѕРІР»РµРЅРёСЏ С‡РµСЂРµР· UI РЅРµРґРѕСЃС‚СѓРїРЅС‹."
+        Warn "Р”Р»СЏ РѕР±РЅРѕРІР»РµРЅРёР№ СѓСЃС‚Р°РЅРѕРІРёС‚Рµ Git: https://git-scm.com/"
         $script:gitAvailable = $false
     } else {
         $script:gitAvailable = $true
@@ -149,8 +149,8 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 }
 if ($script:gitAvailable) { Ok "Git: $(git --version)" }
 
-# ── Node.js 20 LTS ────────────────────────────────────────────
-Log "Проверка Node.js..."
+# в”Ђв”Ђ Node.js 20 LTS в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РџСЂРѕРІРµСЂРєР° Node.js..."
 $nodeOk = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
     $nodeVer = (node --version) -replace 'v', ''
@@ -158,9 +158,9 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
     if ($nodeMaj -ge 18) { $nodeOk = $true }
 }
 if (-not $nodeOk) {
-    Warn "Node.js 18+ не найден."
-    $ans = Read-Host "  Установить автоматически? [Y/n]"
-    if ($ans -eq '' -or $ans -match '^[YyДд]') {
+    Warn "Node.js 18+ РЅРµ РЅР°Р№РґРµРЅ."
+    $ans = Read-Host "  РЈСЃС‚Р°РЅРѕРІРёС‚СЊ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё? [Y/n]"
+    if ($ans -eq '' -or $ans -match '^[YyР”Рґ]') {
         $ok = Install-Via-Winget "OpenJS.NodeJS.LTS" "Node.js 20 LTS"
         if (-not $ok) {
             Install-Via-Download `
@@ -168,7 +168,7 @@ if (-not $nodeOk) {
                 "Node.js 20 LTS" `
                 "/quiet /norestart" | Out-Null
         }
-        # Перепроверка
+        # РџРµСЂРµРїСЂРѕРІРµСЂРєР°
         if (Get-Command node -ErrorAction SilentlyContinue) {
             $nodeVer = (node --version) -replace 'v', ''
             $nodeMaj = [int]($nodeVer.Split('.')[0])
@@ -176,14 +176,14 @@ if (-not $nodeOk) {
         }
     }
     if (-not $nodeOk) {
-        Err "Node.js не установлен. Скачайте вручную: https://nodejs.org/"
+        Err "Node.js РЅРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅ. РЎРєР°С‡Р°Р№С‚Рµ РІСЂСѓС‡РЅСѓСЋ: https://nodejs.org/"
     }
 }
 Ok "Node.js: $(node --version)"
 
 Write-Host ""
 
-# ── Клонирование / обновление репозиториев ───────────────────
+# в”Ђв”Ђ РљР»РѕРЅРёСЂРѕРІР°РЅРёРµ / РѕР±РЅРѕРІР»РµРЅРёРµ СЂРµРїРѕР·РёС‚РѕСЂРёРµРІ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 $guiRepo = "https://github.com/DimaFi/AnomalyNet-gui.git"
 $mlRepo  = "https://github.com/DimaFi/AnomalyNet-ml.git"
 $guiDir  = "$InstallDir\AnomalyNet-gui"
@@ -193,35 +193,35 @@ New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
 if ($script:gitAvailable) {
     if (Test-Path "$guiDir\.git") {
-        Log "Обновляем AnomalyNet-gui..."
+        Log "РћР±РЅРѕРІР»СЏРµРј AnomalyNet-gui..."
         git -C $guiDir stash 2>$null
         git -C $guiDir pull --quiet
     } elseif (-not (Test-Path $guiDir)) {
-        Log "Клонируем AnomalyNet-gui..."
+        Log "РљР»РѕРЅРёСЂСѓРµРј AnomalyNet-gui..."
         git clone --quiet --depth 1 $guiRepo $guiDir
     } else {
-        Log "AnomalyNet-gui уже распакован (не .git-репозиторий) — пропускаем клонирование"
+        Log "AnomalyNet-gui СѓР¶Рµ СЂР°СЃРїР°РєРѕРІР°РЅ (РЅРµ .git-СЂРµРїРѕР·РёС‚РѕСЂРёР№) вЂ” РїСЂРѕРїСѓСЃРєР°РµРј РєР»РѕРЅРёСЂРѕРІР°РЅРёРµ"
     }
-    Ok "AnomalyNet-gui готов"
+    Ok "AnomalyNet-gui РіРѕС‚РѕРІ"
 
     if (Test-Path "$mlDir\.git") {
-        Log "Обновляем AnomalyNet-ml..."
+        Log "РћР±РЅРѕРІР»СЏРµРј AnomalyNet-ml..."
         git -C $mlDir pull --quiet
     } elseif (-not (Test-Path $mlDir)) {
-        Log "Клонируем AnomalyNet-ml (модели, ~120 МБ, 1-2 мин)..."
+        Log "РљР»РѕРЅРёСЂСѓРµРј AnomalyNet-ml (РјРѕРґРµР»Рё, ~120 РњР‘, 1-2 РјРёРЅ)..."
         git clone --quiet --depth 1 $mlRepo $mlDir
     } else {
-        Log "AnomalyNet-ml уже распакован (не .git-репозиторий) — пропускаем клонирование"
+        Log "AnomalyNet-ml СѓР¶Рµ СЂР°СЃРїР°РєРѕРІР°РЅ (РЅРµ .git-СЂРµРїРѕР·РёС‚РѕСЂРёР№) вЂ” РїСЂРѕРїСѓСЃРєР°РµРј РєР»РѕРЅРёСЂРѕРІР°РЅРёРµ"
     }
-    Ok "AnomalyNet-ml готов"
+    Ok "AnomalyNet-ml РіРѕС‚РѕРІ"
 } else {
     if (-not (Test-Path $guiDir)) {
-        Err "Git не установлен и $guiDir не найден — невозможно продолжить. Установите Git и запустите заново."
+        Err "Git РЅРµ СѓСЃС‚Р°РЅРѕРІР»РµРЅ Рё $guiDir РЅРµ РЅР°Р№РґРµРЅ вЂ” РЅРµРІРѕР·РјРѕР¶РЅРѕ РїСЂРѕРґРѕР»Р¶РёС‚СЊ. РЈСЃС‚Р°РЅРѕРІРёС‚Рµ Git Рё Р·Р°РїСѓСЃС‚РёС‚Рµ Р·Р°РЅРѕРІРѕ."
     }
-    Warn "Git недоступен — репозитории не обновлены, используются существующие файлы"
+    Warn "Git РЅРµРґРѕСЃС‚СѓРїРµРЅ вЂ” СЂРµРїРѕР·РёС‚РѕСЂРёРё РЅРµ РѕР±РЅРѕРІР»РµРЅС‹, РёСЃРїРѕР»СЊР·СѓСЋС‚СЃСЏ СЃСѓС‰РµСЃС‚РІСѓСЋС‰РёРµ С„Р°Р№Р»С‹"
 }
 
-# ── Структура моделей ────────────────────────────────────────
+# в”Ђв”Ђ РЎС‚СЂСѓРєС‚СѓСЂР° РјРѕРґРµР»РµР№ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 $modelsDir = "$InstallDir\models"
 $modelPaths = @(
     "$modelsDir\stage1\catboost",
@@ -237,18 +237,18 @@ function Copy-ModelDir($src, $dst, $label) {
         Copy-Item "$src\*" -Destination $dst -Recurse -Force -ErrorAction SilentlyContinue
         Ok "$label"
     } else {
-        Warn "$label — не найдено в $src"
+        Warn "$label вЂ” РЅРµ РЅР°Р№РґРµРЅРѕ РІ $src"
     }
 }
 
-Copy-ModelDir "$mlDir\model"                              "$modelsDir\stage1\catboost"  "Stage1 модель (binary)"
-Copy-ModelDir "$mlDir\artifacts"                          "$modelsDir\stage1\artifacts" "Stage1 артефакты"
-Copy-ModelDir "$mlDir\stage2_multiclass\models\catboost"  "$modelsDir\stage2\catboost"  "Stage2 модель (simple)"
-Copy-ModelDir "$mlDir\stage3_cic2023\models\catboost"     "$modelsDir\stage3\catboost"  "Stage3 модель (advanced)"
-Copy-ModelDir "$mlDir\stage3_cic2023\artifacts"           "$modelsDir\stage3\artifacts" "Stage3 артефакты"
+Copy-ModelDir "$mlDir\model"                              "$modelsDir\stage1\catboost"  "Stage1 РјРѕРґРµР»СЊ (binary)"
+Copy-ModelDir "$mlDir\artifacts"                          "$modelsDir\stage1\artifacts" "Stage1 Р°СЂС‚РµС„Р°РєС‚С‹"
+Copy-ModelDir "$mlDir\stage2_multiclass\models\catboost"  "$modelsDir\stage2\catboost"  "Stage2 РјРѕРґРµР»СЊ (simple)"
+Copy-ModelDir "$mlDir\stage3_cic2023\models\catboost"     "$modelsDir\stage3\catboost"  "Stage3 РјРѕРґРµР»СЊ (advanced)"
+Copy-ModelDir "$mlDir\stage3_cic2023\artifacts"           "$modelsDir\stage3\artifacts" "Stage3 Р°СЂС‚РµС„Р°РєС‚С‹"
 
-# ── Python venv + зависимости ────────────────────────────────
-Log "Настройка Python venv..."
+# в”Ђв”Ђ Python venv + Р·Р°РІРёСЃРёРјРѕСЃС‚Рё в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РќР°СЃС‚СЂРѕР№РєР° Python venv..."
 $venvDir  = "$guiDir\backend\.venv"
 $venvPy   = "$venvDir\Scripts\python.exe"
 $venvPip  = "$venvDir\Scripts\pip.exe"
@@ -256,10 +256,10 @@ $venvPip  = "$venvDir\Scripts\pip.exe"
 & $pythonCmd -m venv $venvDir
 & $venvPip install --quiet --upgrade pip setuptools wheel
 & $venvPip install --quiet -r "$guiDir\backend\requirements.txt"
-Ok "Python-зависимости установлены"
+Ok "Python-Р·Р°РІРёСЃРёРјРѕСЃС‚Рё СѓСЃС‚Р°РЅРѕРІР»РµРЅС‹"
 
-# ── Сборка фронтенда ─────────────────────────────────────────
-Log "Сборка React-фронтенда (2-4 мин)..."
+# в”Ђв”Ђ РЎР±РѕСЂРєР° С„СЂРѕРЅС‚РµРЅРґР° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РЎР±РѕСЂРєР° React-С„СЂРѕРЅС‚РµРЅРґР° (2-4 РјРёРЅ)..."
 Push-Location "$guiDir\frontend"
 try {
     if (Test-Path "node_modules") { Remove-Item -Recurse -Force "node_modules" }
@@ -270,44 +270,44 @@ try {
 } finally {
     Pop-Location
 }
-Ok "Фронтенд собран"
+Ok "Р¤СЂРѕРЅС‚РµРЅРґ СЃРѕР±СЂР°РЅ"
 
-# ── Проверка Npcap ───────────────────────────────────────────
-Log "Проверка Npcap..."
+# в”Ђв”Ђ РџСЂРѕРІРµСЂРєР° Npcap в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РџСЂРѕРІРµСЂРєР° Npcap..."
 $npcapInstalled = Test-Path "C:\Windows\System32\Npcap\wpcap.dll"
 if ($npcapInstalled) {
-    Ok "Npcap установлен — активный ARP-сканер доступен"
+    Ok "Npcap СѓСЃС‚Р°РЅРѕРІР»РµРЅ вЂ” Р°РєС‚РёРІРЅС‹Р№ ARP-СЃРєР°РЅРµСЂ РґРѕСЃС‚СѓРїРµРЅ"
 } else {
-    Warn "Npcap не найден — ARP-сканер будет использовать fallback (arp -a)"
+    Warn "Npcap РЅРµ РЅР°Р№РґРµРЅ вЂ” ARP-СЃРєР°РЅРµСЂ Р±СѓРґРµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ fallback (arp -a)"
     if ($InstallNpcap) {
-        Log "Скачиваем Npcap..."
+        Log "РЎРєР°С‡РёРІР°РµРј Npcap..."
         $npcapUrl  = "https://npcap.com/dist/npcap-1.79.exe"
         $npcapPath = "$env:TEMP\npcap-install.exe"
         try {
             Invoke-WebRequest -Uri $npcapUrl -OutFile $npcapPath -UseBasicParsing
-            Log "Запускаем установщик Npcap (потребуется подтверждение)..."
+            Log "Р—Р°РїСѓСЃРєР°РµРј СѓСЃС‚Р°РЅРѕРІС‰РёРє Npcap (РїРѕС‚СЂРµР±СѓРµС‚СЃСЏ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ)..."
             Start-Process -FilePath $npcapPath -ArgumentList "/S" -Wait
-            Ok "Npcap установлен"
+            Ok "Npcap СѓСЃС‚Р°РЅРѕРІР»РµРЅ"
         } catch {
-            Warn "Не удалось скачать Npcap: $_"
-            Warn "Скачайте вручную: https://npcap.com/"
+            Warn "РќРµ СѓРґР°Р»РѕСЃСЊ СЃРєР°С‡Р°С‚СЊ Npcap: $_"
+            Warn "РЎРєР°С‡Р°Р№С‚Рµ РІСЂСѓС‡РЅСѓСЋ: https://npcap.com/"
         }
     } else {
-        Warn "Для активного ARP-сканирования установите Npcap: https://npcap.com/"
-        Warn "Или повторите установку с флагом -InstallNpcap"
+        Warn "Р”Р»СЏ Р°РєС‚РёРІРЅРѕРіРѕ ARP-СЃРєР°РЅРёСЂРѕРІР°РЅРёСЏ СѓСЃС‚Р°РЅРѕРІРёС‚Рµ Npcap: https://npcap.com/"
+        Warn "РР»Рё РїРѕРІС‚РѕСЂРёС‚Рµ СѓСЃС‚Р°РЅРѕРІРєСѓ СЃ С„Р»Р°РіРѕРј -InstallNpcap"
     }
 }
 
-# ── Определение режима ───────────────────────────────────────
+# в”Ђв”Ђ РћРїСЂРµРґРµР»РµРЅРёРµ СЂРµР¶РёРјР° в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 $stage1Cbm = Get-ChildItem "$modelsDir\stage1\catboost\*.cbm" -ErrorAction SilentlyContinue
 $runMode     = if ($stage1Cbm) { "windows_live" } else { "mock" }
 $activeModel = if ($stage1Cbm) { "catboost-cascade-simple" } else { "mock-default" }
 if (-not $stage1Cbm) {
-    Warn "Модели stage1 не найдены — запускаем в Demo-режиме"
+    Warn "РњРѕРґРµР»Рё stage1 РЅРµ РЅР°Р№РґРµРЅС‹ вЂ” Р·Р°РїСѓСЃРєР°РµРј РІ Demo-СЂРµР¶РёРјРµ"
 }
 
-# ── Запись settings.json ─────────────────────────────────────
-Log "Запись config\settings.json..."
+# в”Ђв”Ђ Р—Р°РїРёСЃСЊ settings.json в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "Р—Р°РїРёСЃСЊ config\settings.json..."
 $autoBlockVal = if ($AutoBlock) { "true" } else { "false" }
 $settingsJson = @"
 {
@@ -335,33 +335,33 @@ $settingsJson = @"
 "@
 New-Item -ItemType Directory -Force -Path "$guiDir\config" | Out-Null
 $settingsJson | Out-File -Encoding utf8 -FilePath "$guiDir\config\settings.json"
-Ok "settings.json записан"
+Ok "settings.json Р·Р°РїРёСЃР°РЅ"
 
-# ── Переменная окружения ANOMALYNET_APP_ROOT ─────────────────
-Log "Установка системной переменной ANOMALYNET_APP_ROOT..."
+# в”Ђв”Ђ РџРµСЂРµРјРµРЅРЅР°СЏ РѕРєСЂСѓР¶РµРЅРёСЏ ANOMALYNET_APP_ROOT в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РЈСЃС‚Р°РЅРѕРІРєР° СЃРёСЃС‚РµРјРЅРѕР№ РїРµСЂРµРјРµРЅРЅРѕР№ ANOMALYNET_APP_ROOT..."
 [System.Environment]::SetEnvironmentVariable(
     "ANOMALYNET_APP_ROOT", $guiDir,
     [System.EnvironmentVariableTarget]::Machine)
 [System.Environment]::SetEnvironmentVariable(
     "ANOMALYNET_MODELS_ROOT", $modelsDir,
     [System.EnvironmentVariableTarget]::Machine)
-Ok "Системные переменные установлены"
+Ok "РЎРёСЃС‚РµРјРЅС‹Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ СѓСЃС‚Р°РЅРѕРІР»РµРЅС‹"
 
-# ── Создание задачи в Task Scheduler ─────────────────────────
-Log "Настройка автозапуска через Task Scheduler..."
+# в”Ђв”Ђ РЎРѕР·РґР°РЅРёРµ Р·Р°РґР°С‡Рё РІ Task Scheduler в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РќР°СЃС‚СЂРѕР№РєР° Р°РІС‚РѕР·Р°РїСѓСЃРєР° С‡РµСЂРµР· Task Scheduler..."
 $taskName   = "AnomalyNet"
 $workingDir = "$guiDir\backend"
 $uvicornArgs = "-m uvicorn app.main:app --host 0.0.0.0 --port $Port --log-level info --timeout-graceful-shutdown 3"
 
-# Удаляем старую задачу если есть
+# РЈРґР°Р»СЏРµРј СЃС‚Р°СЂСѓСЋ Р·Р°РґР°С‡Сѓ РµСЃР»Рё РµСЃС‚СЊ
 schtasks /delete /tn $taskName /f 2>$null
 
-# Создаём через XML — позволяет задать рабочую директорию и переменные окружения
+# РЎРѕР·РґР°С‘Рј С‡РµСЂРµР· XML вЂ” РїРѕР·РІРѕР»СЏРµС‚ Р·Р°РґР°С‚СЊ СЂР°Р±РѕС‡СѓСЋ РґРёСЂРµРєС‚РѕСЂРёСЋ Рё РїРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ
 $taskXml = @"
 <?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>AnomalyNet IDS — сетевой мониторинг и обнаружение вторжений</Description>
+    <Description>AnomalyNet IDS вЂ” СЃРµС‚РµРІРѕР№ РјРѕРЅРёС‚РѕСЂРёРЅРі Рё РѕР±РЅР°СЂСѓР¶РµРЅРёРµ РІС‚РѕСЂР¶РµРЅРёР№</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>
@@ -395,20 +395,20 @@ $taskXml = @"
 $xmlPath = "$env:TEMP\anomalynet-task.xml"
 $taskXml | Out-File -Encoding Unicode -FilePath $xmlPath
 
-$cred = Get-Credential -UserName $env:USERNAME -Message "Введите пароль пользователя для задачи планировщика (нужен для работы с высокими привилегиями)"
+$cred = Get-Credential -UserName $env:USERNAME -Message "Р’РІРµРґРёС‚Рµ РїР°СЂРѕР»СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ РґР»СЏ Р·Р°РґР°С‡Рё РїР»Р°РЅРёСЂРѕРІС‰РёРєР° (РЅСѓР¶РµРЅ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ РІС‹СЃРѕРєРёРјРё РїСЂРёРІРёР»РµРіРёСЏРјРё)"
 if ($cred) {
     $pass = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
         [Runtime.InteropServices.Marshal]::SecureStringToBSTR($cred.Password))
     schtasks /create /tn $taskName /xml $xmlPath /ru $env:USERNAME /rp $pass /f 2>$null
     Remove-Variable pass -ErrorAction SilentlyContinue
-    Ok "Задача '$taskName' создана в Task Scheduler"
+    Ok "Р—Р°РґР°С‡Р° '$taskName' СЃРѕР·РґР°РЅР° РІ Task Scheduler"
 } else {
-    Warn "Пароль не введён — задача не создана. Используйте: schtasks /create /tn AnomalyNet ..."
+    Warn "РџР°СЂРѕР»СЊ РЅРµ РІРІРµРґС‘РЅ вЂ” Р·Р°РґР°С‡Р° РЅРµ СЃРѕР·РґР°РЅР°. РСЃРїРѕР»СЊР·СѓР№С‚Рµ: schtasks /create /tn AnomalyNet ..."
 }
 Remove-Item $xmlPath -ErrorAction SilentlyContinue
 
-# ── Запуск сервиса прямо сейчас ─────────────────────────────
-Log "Запуск AnomalyNet..."
+# в”Ђв”Ђ Р—Р°РїСѓСЃРє СЃРµСЂРІРёСЃР° РїСЂСЏРјРѕ СЃРµР№С‡Р°СЃ в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "Р—Р°РїСѓСЃРє AnomalyNet..."
 $proc = Start-Process -FilePath $venvPy `
     -ArgumentList $uvicornArgs `
     -WorkingDirectory $workingDir `
@@ -416,18 +416,18 @@ $proc = Start-Process -FilePath $venvPy `
     -PassThru
 Start-Sleep -Seconds 3
 
-# Проверяем что запустился
+# РџСЂРѕРІРµСЂСЏРµРј С‡С‚Рѕ Р·Р°РїСѓСЃС‚РёР»СЃСЏ
 try {
     $resp = Invoke-WebRequest -Uri "http://localhost:$Port/api/health" -UseBasicParsing -TimeoutSec 5
     if ($resp.StatusCode -eq 200) {
-        Ok "Сервис запущен и отвечает на http://localhost:$Port"
+        Ok "РЎРµСЂРІРёСЃ Р·Р°РїСѓС‰РµРЅ Рё РѕС‚РІРµС‡Р°РµС‚ РЅР° http://localhost:$Port"
     }
 } catch {
-    Warn "Сервис запущен, но не отвечает пока — подождите 10-15 сек"
+    Warn "РЎРµСЂРІРёСЃ Р·Р°РїСѓС‰РµРЅ, РЅРѕ РЅРµ РѕС‚РІРµС‡Р°РµС‚ РїРѕРєР° вЂ” РїРѕРґРѕР¶РґРёС‚Рµ 10-15 СЃРµРє"
 }
 
-# ── Ярлыки на рабочем столе и в меню Пуск ───────────────────
-Log "Создаём ярлыки..."
+# в”Ђв”Ђ РЇСЂР»С‹РєРё РЅР° СЂР°Р±РѕС‡РµРј СЃС‚РѕР»Рµ Рё РІ РјРµРЅСЋ РџСѓСЃРє в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+Log "РЎРѕР·РґР°С‘Рј СЏСЂР»С‹РєРё..."
 $appUrl = "http://localhost:$Port"
 
 function New-UrlShortcut($path, $url, $iconSrc) {
@@ -441,39 +441,39 @@ function New-UrlShortcut($path, $url, $iconSrc) {
 $iconPath = "$guiDir\frontend\public\favicon.ico"
 $shortcutName = "AnomalyNet IDS.url"
 
-# Рабочий стол текущего пользователя
+# Р Р°Р±РѕС‡РёР№ СЃС‚РѕР» С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
 $desktopPath = [System.Environment]::GetFolderPath("Desktop")
 New-UrlShortcut "$desktopPath\$shortcutName" $appUrl $iconPath
-Ok "Ярлык на рабочем столе: $desktopPath\$shortcutName"
+Ok "РЇСЂР»С‹Рє РЅР° СЂР°Р±РѕС‡РµРј СЃС‚РѕР»Рµ: $desktopPath\$shortcutName"
 
-# Меню Пуск — Programs
+# РњРµРЅСЋ РџСѓСЃРє вЂ” Programs
 $startMenuPath = [System.Environment]::GetFolderPath("Programs")
 $startMenuDir  = "$startMenuPath\AnomalyNet"
 New-Item -ItemType Directory -Force -Path $startMenuDir | Out-Null
 New-UrlShortcut "$startMenuDir\$shortcutName" $appUrl $iconPath
-Ok "Ярлык в меню Пуск: $startMenuDir\$shortcutName"
+Ok "РЇСЂР»С‹Рє РІ РјРµРЅСЋ РџСѓСЃРє: $startMenuDir\$shortcutName"
 
-# ── Итог ─────────────────────────────────────────────────────
+# в”Ђв”Ђ РС‚РѕРі в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 Write-Host ""
 Write-Host "  +=======================================+" -ForegroundColor Green
-Write-Host "  |       Установка завершена!            |" -ForegroundColor Green
+Write-Host "  |       РЈСЃС‚Р°РЅРѕРІРєР° Р·Р°РІРµСЂС€РµРЅР°!            |" -ForegroundColor Green
 Write-Host "  +=======================================+" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Веб-интерфейс  : " -NoNewline; Write-Host $appUrl -ForegroundColor Green
+Write-Host "  Р’РµР±-РёРЅС‚РµСЂС„РµР№СЃ  : " -NoNewline; Write-Host $appUrl -ForegroundColor Green
 Write-Host "  API health     : $appUrl/api/health"
-Write-Host "  Каталог        : $InstallDir"
-Write-Host "  Режим          : $runMode / $activeModel"
+Write-Host "  РљР°С‚Р°Р»РѕРі        : $InstallDir"
+Write-Host "  Р РµР¶РёРј          : $runMode / $activeModel"
 Write-Host ""
-Write-Host "  Ярлык создан на Рабочем столе и в меню Пуск." -ForegroundColor Cyan
-Write-Host "  Двойной клик — откроет браузер на $appUrl" -ForegroundColor Cyan
+Write-Host "  РЇСЂР»С‹Рє СЃРѕР·РґР°РЅ РЅР° Р Р°Р±РѕС‡РµРј СЃС‚РѕР»Рµ Рё РІ РјРµРЅСЋ РџСѓСЃРє." -ForegroundColor Cyan
+Write-Host "  Р”РІРѕР№РЅРѕР№ РєР»РёРє вЂ” РѕС‚РєСЂРѕРµС‚ Р±СЂР°СѓР·РµСЂ РЅР° $appUrl" -ForegroundColor Cyan
 Write-Host ""
 if (-not $stage1Cbm) {
-    Write-Host "  ВНИМАНИЕ: Модели не найдены — работает Demo-режим." -ForegroundColor Yellow
-    Write-Host "  Положите модели в $modelsDir и перейдите в Settings." -ForegroundColor Yellow
+    Write-Host "  Р’РќРРњРђРќРР•: РњРѕРґРµР»Рё РЅРµ РЅР°Р№РґРµРЅС‹ вЂ” СЂР°Р±РѕС‚Р°РµС‚ Demo-СЂРµР¶РёРј." -ForegroundColor Yellow
+    Write-Host "  РџРѕР»РѕР¶РёС‚Рµ РјРѕРґРµР»Рё РІ $modelsDir Рё РїРµСЂРµР№РґРёС‚Рµ РІ Settings." -ForegroundColor Yellow
 }
 Write-Host ""
-Write-Host "  Управление:"
-Write-Host "    Запустить     : schtasks /run /tn AnomalyNet"
-Write-Host "    Остановить    : taskkill /f /im python.exe  (осторожно!)"
-Write-Host "    Удалить       : powershell -File scripts\uninstall-windows.ps1"
+Write-Host "  РЈРїСЂР°РІР»РµРЅРёРµ:"
+Write-Host "    Р—Р°РїСѓСЃС‚РёС‚СЊ     : schtasks /run /tn AnomalyNet"
+Write-Host "    РћСЃС‚Р°РЅРѕРІРёС‚СЊ    : taskkill /f /im python.exe  (РѕСЃС‚РѕСЂРѕР¶РЅРѕ!)"
+Write-Host "    РЈРґР°Р»РёС‚СЊ       : powershell -File scripts\uninstall-windows.ps1"
 Write-Host ""
