@@ -306,8 +306,8 @@ $venvPy   = "$venvDir\Scripts\python.exe"
 $venvPip  = "$venvDir\Scripts\pip.exe"
 
 & $pythonCmd -m venv $venvDir
-& $venvPip install --quiet --upgrade pip setuptools wheel
-& $venvPip install --quiet -r "$guiDir\backend\requirements.txt"
+& $venvPy -m pip install --quiet --upgrade pip setuptools wheel
+& $venvPy -m pip install --quiet -r "$guiDir\backend\requirements.txt"
 Ok "Python-зависимости установлены"
 
 # ── Сборка фронтенда ─────────────────────────────────────────
