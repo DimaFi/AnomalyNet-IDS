@@ -1,40 +1,28 @@
 @echo off
-chcp 65001 >nul 2>&1
-setlocal EnableDelayedExpansion
+setlocal
 
-title AnomalyNet IDS — Установка Windows
+title AnomalyNet IDS - Windows Installer
 
-echo.
-echo  ╔═══════════════════════════════════════════╗
-echo  ║    AnomalyNet IDS — Установка Windows     ║
-echo  ╚═══════════════════════════════════════════╝
-echo.
-
-:: ── Проверка прав администратора ─────────────────────────────
+:: ── Require admin rights (UAC prompt) ───────────────────────
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo  Требуются права администратора.
-    echo  Сейчас откроется запрос UAC — нажмите "Да".
-    echo.
+    echo Requesting administrator rights...
     powershell -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"%~f0\"' -Verb RunAs"
     exit /b
 )
 
-:: ── Проверка наличия установщика ─────────────────────────────
+:: ── Check installer script exists ───────────────────────────
 if not exist "%~dp0scripts\install-windows.ps1" (
-    echo  ОШИБКА: файл scripts\install-windows.ps1 не найден.
-    echo  Убедитесь, что вы распаковали полный архив AnomalyNet.
+    echo ERROR: scripts\install-windows.ps1 not found.
+    echo Make sure you extracted the full AnomalyNet archive.
     echo.
     pause
     exit /b 1
 )
 
-:: ── Запуск PowerShell-установщика ────────────────────────────
+:: ── Run PowerShell installer ─────────────────────────────────
 cd /d "%~dp0"
-echo  Запускаем установщик...
-echo.
 powershell -ExecutionPolicy Bypass -NoProfile -File "scripts\install-windows.ps1" %*
 
 echo.
-echo  Нажмите любую клавишу для закрытия...
-pause >nul
+pause
