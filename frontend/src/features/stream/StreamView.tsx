@@ -264,7 +264,8 @@ function TlsView({ stream }: { stream: PipelineEvent[] }) {
   if (!tlsEvents.length) {
     return (
       <p className={styles.emptyState}>
-        Нет TLS событий. TLS fingerprinting активен только в режиме linux_live.
+        Нет TLS событий — алерт появляется только при первом обнаружении нового JA4-fingerprint с IP-адреса.
+        Откройте любой HTTPS-сайт в браузере чтобы проверить работу.
       </p>
     );
   }

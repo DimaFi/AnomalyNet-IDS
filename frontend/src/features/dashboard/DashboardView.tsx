@@ -167,7 +167,7 @@ export function DashboardView() {
           <div className={styles.subhead}>
             <h3>TLS Fingerprinting</h3>
             <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 8 }}>
-              {tlsStats.available ? "● активен" : "○ нет данных (требуется linux_live)"}
+              {tlsStats.available ? "● активен" : "○ монитор не инициализирован"}
             </span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "0.75rem", padding: "0.5rem 0" }}>

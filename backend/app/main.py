@@ -2,8 +2,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+
+def _get_version() -> str:
+    """Read version from git tag, fallback to pyproject.toml or hardcoded."""
+    try:
+        r = subprocess.run(
+            ["git", "describe", "--tags", "--always", "--dirty"],
+            cwd=Path(__file__).parent.parent.parent,
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return "dev"
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -117,7 +133,7 @@ async def lifespan(app: FastAPI):
         await service.shutdown()
 
 
-app = FastAPI(title="AnomalyNet API", version="1.3.0", lifespan=lifespan)
+app = FastAPI(title="AnomalyNet API", version=_get_version(), lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:8000", "http://localhost:8000"],

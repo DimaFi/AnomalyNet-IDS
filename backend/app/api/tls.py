@@ -10,11 +10,11 @@ def _monitor(request: Request):
 
 
 def _adapter(request: Request):
-    """Return the capture adapter if it exposes TLS stats (linux_live only)."""
+    """Return the capture adapter if it exposes TLS stats."""
     svc = getattr(request.app.state, "pipeline_service", None)
     if svc is None:
         return None
-    return getattr(svc, "_adapter", None)
+    return getattr(svc, "_capture_adapter", None)
 
 
 @tls_router.get("/stats")
