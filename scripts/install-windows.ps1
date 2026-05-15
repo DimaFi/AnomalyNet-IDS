@@ -138,10 +138,16 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         }
     }
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Err "Git не установлен. Скачайте вручную: https://git-scm.com/"
+        Warn "Git не установлен. Приложение будет работать, но обновления через UI недоступны."
+        Warn "Для обновлений установите Git: https://git-scm.com/"
+        $script:gitAvailable = $false
+    } else {
+        $script:gitAvailable = $true
     }
+} else {
+    $script:gitAvailable = $true
 }
-Ok "Git: $(git --version)"
+if ($script:gitAvailable) { Ok "Git: $(git --version)" }
 
 # ── Node.js 20 LTS ────────────────────────────────────────────
 Log "Проверка Node.js..."
@@ -185,24 +191,35 @@ $mlDir   = "$InstallDir\AnomalyNet-ml"
 
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-if (Test-Path "$guiDir\.git") {
-    Log "Обновляем AnomalyNet-gui..."
-    git -C $guiDir stash 2>$null
-    git -C $guiDir pull --quiet
-} else {
-    Log "Клонируем AnomalyNet-gui..."
-    git clone --quiet --depth 1 $guiRepo $guiDir
-}
-Ok "AnomalyNet-gui готов"
+if ($script:gitAvailable) {
+    if (Test-Path "$guiDir\.git") {
+        Log "Обновляем AnomalyNet-gui..."
+        git -C $guiDir stash 2>$null
+        git -C $guiDir pull --quiet
+    } elseif (-not (Test-Path $guiDir)) {
+        Log "Клонируем AnomalyNet-gui..."
+        git clone --quiet --depth 1 $guiRepo $guiDir
+    } else {
+        Log "AnomalyNet-gui уже распакован (не .git-репозиторий) — пропускаем клонирование"
+    }
+    Ok "AnomalyNet-gui готов"
 
-if (Test-Path "$mlDir\.git") {
-    Log "Обновляем AnomalyNet-ml..."
-    git -C $mlDir pull --quiet
+    if (Test-Path "$mlDir\.git") {
+        Log "Обновляем AnomalyNet-ml..."
+        git -C $mlDir pull --quiet
+    } elseif (-not (Test-Path $mlDir)) {
+        Log "Клонируем AnomalyNet-ml (модели, ~120 МБ, 1-2 мин)..."
+        git clone --quiet --depth 1 $mlRepo $mlDir
+    } else {
+        Log "AnomalyNet-ml уже распакован (не .git-репозиторий) — пропускаем клонирование"
+    }
+    Ok "AnomalyNet-ml готов"
 } else {
-    Log "Клонируем AnomalyNet-ml (модели, ~120 МБ, 1-2 мин)..."
-    git clone --quiet --depth 1 $mlRepo $mlDir
+    if (-not (Test-Path $guiDir)) {
+        Err "Git не установлен и $guiDir не найден — невозможно продолжить. Установите Git и запустите заново."
+    }
+    Warn "Git недоступен — репозитории не обновлены, используются существующие файлы"
 }
-Ok "AnomalyNet-ml готов"
 
 # ── Структура моделей ────────────────────────────────────────
 $modelsDir = "$InstallDir\models"

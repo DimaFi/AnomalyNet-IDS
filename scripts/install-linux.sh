@@ -232,21 +232,33 @@ fi
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
-if [ -d "AnomalyNet-gui/.git" ]; then
-    log "Обновляем AnomalyNet-gui..."
-    git -C AnomalyNet-gui stash 2>/dev/null || true
-    git -C AnomalyNet-gui pull --quiet
+if ! command -v git &>/dev/null; then
+    if [ ! -d "AnomalyNet-gui" ]; then
+        err "git не установлен и $INSTALL_DIR/AnomalyNet-gui не найден — невозможно продолжить. Установите git и запустите снова."
+    fi
+    warn "git не установлен — репозитории не обновляются, используем существующие файлы"
+    warn "Обновления через кнопку в UI будут недоступны. Для обновлений установите git."
 else
-    log "Клонируем AnomalyNet-gui..."
-    git clone --quiet --depth 1 "$GUI_REPO" AnomalyNet-gui
-fi
+    if [ -d "AnomalyNet-gui/.git" ]; then
+        log "Обновляем AnomalyNet-gui..."
+        git -C AnomalyNet-gui stash 2>/dev/null || true
+        git -C AnomalyNet-gui pull --quiet
+    elif [ -d "AnomalyNet-gui" ]; then
+        warn "AnomalyNet-gui распакован без git (ZIP). Обновление через UI недоступно — запустите установщик заново после установки git."
+    else
+        log "Клонируем AnomalyNet-gui..."
+        git clone --quiet --depth 1 "$GUI_REPO" AnomalyNet-gui
+    fi
 
-if [ -d "$ML_DIR/.git" ]; then
-    log "Обновляем AnomalyNet-ml..."
-    git -C "$ML_DIR" pull --quiet
-else
-    log "Клонируем AnomalyNet-ml (модели, ~120MB, 1-2 мин)..."
-    git clone --quiet --depth 1 "$ML_REPO" "$ML_DIR"
+    if [ -d "$ML_DIR/.git" ]; then
+        log "Обновляем AnomalyNet-ml..."
+        git -C "$ML_DIR" pull --quiet
+    elif [ -d "$ML_DIR" ]; then
+        warn "AnomalyNet-ml распакован без git (ZIP). Используем существующие файлы моделей."
+    else
+        log "Клонируем AnomalyNet-ml (модели, ~120MB, 1-2 мин)..."
+        git clone --quiet --depth 1 "$ML_REPO" "$ML_DIR"
+    fi
 fi
 ok "Репозитории готовы"
 

@@ -39,9 +39,29 @@ def _npm_path() -> str | None:
     return shutil.which("npm")
 
 
+def _git_available() -> bool:
+    return shutil.which("git") is not None
+
+
+def _is_git_repo(repo_dir: Path) -> bool:
+    return (repo_dir / ".git").exists()
+
+
 def _git_info(repo_dir: Path) -> dict:
     if not repo_dir.exists():
         return {"available": False, "error": f"{repo_dir} не найден"}
+    if not _git_available():
+        return {
+            "available": False,
+            "no_git": True,
+            "error": "git не установлен — обновление через UI недоступно. Установите Git и запустите установщик заново.",
+        }
+    if not _is_git_repo(repo_dir):
+        return {
+            "available": False,
+            "no_git_dir": True,
+            "error": "Каталог не является git-репозиторием (установка через ZIP). Используйте кнопку «Переустановить» для обновления.",
+        }
     try:
         _run(["git", "fetch", "--quiet"], repo_dir)
         current = _run(["git", "rev-parse", "HEAD"], repo_dir).stdout.strip()
@@ -66,19 +86,50 @@ def _changed_files_after_pull(repo_dir: Path) -> list[str]:
     return [f.strip() for f in r.stdout.splitlines() if f.strip()]
 
 
-ML_REPO_URL = "https://github.com/DimaFi/AnomalyNet-ml.git"
+GUI_REPO_URL = "https://github.com/DimaFi/AnomalyNet-gui.git"
+ML_REPO_URL  = "https://github.com/DimaFi/AnomalyNet-ml.git"
 
 
 def _git_pull_hard(repo_dir: Path, clone_url: str | None = None) -> tuple[bool, str]:
-    """Fetch + reset to origin/main. If repo missing and clone_url given — clones first."""
-    if not repo_dir.exists() and clone_url:
+    """Fetch + reset to origin/main.
+
+    Handles three cases:
+    - Directory missing + clone_url → git clone
+    - Directory exists, no .git + clone_url → git init + remote add + fetch + reset
+    - Directory exists with .git → git fetch + reset --hard origin/main
+    """
+    if not _git_available():
+        return False, "git не установлен — обновление через git невозможно"
+
+    # Case 1: directory does not exist → clone fresh
+    if not repo_dir.exists():
+        if not clone_url:
+            return False, f"{repo_dir} не найден и clone_url не указан"
         r = subprocess.run(
             ["git", "clone", "--depth=1", clone_url, str(repo_dir)],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, timeout=300,
         )
         if r.returncode != 0:
             return False, f"clone failed: {r.stderr[:300]}"
         return True, f"cloned {clone_url}"
+
+    # Case 2: directory exists but no .git (ZIP install) → init + connect + fetch
+    if not _is_git_repo(repo_dir):
+        if not clone_url:
+            return False, "Нет .git-репозитория и clone_url не указан — невозможно обновить"
+        cmds = [
+            ["git", "init"],
+            ["git", "remote", "add", "origin", clone_url],
+            ["git", "fetch", "--depth=1", "origin", "main"],
+            ["git", "reset", "--hard", "FETCH_HEAD"],
+        ]
+        for cmd in cmds:
+            r = _run(cmd, repo_dir, timeout=300)
+            if r.returncode != 0:
+                return False, f"{' '.join(cmd)} failed: {r.stderr[:300]}"
+        return True, f"инициализирован и синхронизирован с {clone_url}"
+
+    # Case 3: normal git repo → fetch + reset
     r1 = _run(["git", "fetch", "--quiet"], repo_dir)
     if r1.returncode != 0:
         return False, r1.stderr[:200]
@@ -139,7 +190,7 @@ def apply_updates() -> dict:
     # Pull GUI repo
     gui_changed: list[str] = []
     try:
-        ok, out = _git_pull_hard(GUI_DIR)
+        ok, out = _git_pull_hard(GUI_DIR, clone_url=GUI_REPO_URL)
         result["gui"]["ok"]     = ok
         result["gui"]["output"] = out or "Already up to date"
         gui_changed = _changed_files_after_pull(GUI_DIR)
@@ -288,7 +339,7 @@ def reinstall(wipe_settings: bool = False) -> dict:
 
     # 1. git pull GUI repo
     try:
-        ok, out = _git_pull_hard(GUI_DIR)
+        ok, out = _git_pull_hard(GUI_DIR, clone_url=GUI_REPO_URL)
         step("git pull GUI", ok, out)
     except Exception as e:
         step("git pull GUI", False, str(e))
