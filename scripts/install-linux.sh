@@ -52,7 +52,20 @@ log "Режим детекции    : $DETECTION_MODE"
 log "Порт              : $PORT"
 echo ""
 
-[ $EUID -eq 0 ] || err "Запустите с правами root: sudo bash install.sh"
+# ── Проверка root / предложение sudo ────────────────────────
+if [ $EUID -ne 0 ]; then
+    warn "Скрипт запущен без прав root."
+    if command -v sudo &>/dev/null; then
+        printf "  Перезапустить с sudo? [Y/n]: "
+        read -r _ans </dev/tty
+        case "$_ans" in
+            ''|[Yy]|[Дд]) exec sudo bash "$0" "$@" ;;
+            *) err "Запустите вручную: sudo bash $0" ;;
+        esac
+    else
+        err "sudo не найден. Войдите как root и запустите: bash $0"
+    fi
+fi
 
 # ── Определение дистрибутива ─────────────────────────────────
 detect_distro() {
@@ -68,6 +81,32 @@ detect_distro() {
 }
 DISTRO=$(detect_distro)
 log "Дистрибутив: $DISTRO"
+
+# ── Проверка наличия зависимостей ────────────────────────────
+# Перечисляем что нужно установить, чтобы пользователь видел список до начала
+_missing=""
+command -v python3      &>/dev/null || _missing="$_missing python3/pip"
+command -v git          &>/dev/null || _missing="$_missing git"
+command -v curl         &>/dev/null || _missing="$_missing curl"
+# Node.js: проверяем версию (нужна 18+)
+_node_ok=false
+if command -v node &>/dev/null; then
+    _nver=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1)
+    [ "${_nver:-0}" -ge 18 ] 2>/dev/null && _node_ok=true
+fi
+$_node_ok || _missing="$_missing nodejs(18+)"
+
+if [ -n "$_missing" ]; then
+    warn "Отсутствующие зависимости:${_missing}"
+    printf "  Установить автоматически? [Y/n]: "
+    read -r _dep_ans </dev/tty
+    case "$_dep_ans" in
+        ''|[Yy]|[Дд]) log "Продолжаем — зависимости будут установлены..." ;;
+        *) err "Установите вручную и запустите скрипт снова." ;;
+    esac
+else
+    ok "Все зависимости уже установлены"
+fi
 
 # ── 0. Swap (для VPS с 2GB RAM — npm build требует ~1.5GB) ───
 SWAP_FILE="/swapfile"

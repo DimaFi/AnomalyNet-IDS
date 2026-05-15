@@ -46,10 +46,45 @@ Log "Каталог установки : $InstallDir"
 Log "Порт              : $Port"
 Write-Host ""
 
-# ── Проверка зависимостей ────────────────────────────────────
-Log "Проверка зависимостей..."
+# ── Автоустановка зависимостей ───────────────────────────────
 
-# Python 3.10+
+# Попытка установить пакет через winget (встроен в Windows 10/11)
+function Install-Via-Winget($packageId, $label) {
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Warn "winget не найден — установите $label вручную"
+        return $false
+    }
+    Log "Устанавливаем $label через winget..."
+    winget install --id $packageId --silent --accept-package-agreements --accept-source-agreements 2>$null
+    # Обновляем PATH текущей сессии (winget меняет PATH только для новых процессов)
+    $machinePath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+    $userPath    = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+    $env:PATH    = "$machinePath;$userPath"
+    return $LASTEXITCODE -eq 0
+}
+
+# Скачать и запустить установщик через HTTP (fallback без winget)
+function Install-Via-Download($url, $label, $args) {
+    Log "Скачиваем $label..."
+    $tmp = "$env:TEMP\anomalynet_dep_install.exe"
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+        Log "Запускаем установщик $label..."
+        Start-Process -FilePath $tmp -ArgumentList $args -Wait
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+        # Обновляем PATH
+        $machinePath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
+        $userPath    = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        $env:PATH    = "$machinePath;$userPath"
+        return $true
+    } catch {
+        Warn "Не удалось скачать $label`: $_"
+        return $false
+    }
+}
+
+# ── Python 3.11 ──────────────────────────────────────────────
+Log "Проверка Python..."
 $pythonCmd = $null
 foreach ($candidate in @("python", "python3", "py")) {
     try {
@@ -61,18 +96,55 @@ foreach ($candidate in @("python", "python3", "py")) {
     } catch {}
 }
 if (-not $pythonCmd) {
-    Err "Python 3.10+ не найден. Скачайте с https://www.python.org/downloads/ и добавьте в PATH."
+    Warn "Python 3.10+ не найден."
+    $ans = Read-Host "  Установить автоматически? [Y/n]"
+    if ($ans -eq '' -or $ans -match '^[YyДд]') {
+        $ok = Install-Via-Winget "Python.Python.3.11" "Python 3.11"
+        if (-not $ok) {
+            Install-Via-Download `
+                "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe" `
+                "Python 3.11" `
+                "/quiet InstallAllUsers=1 PrependPath=1 Include_pip=1" | Out-Null
+        }
+        # Перепроверка
+        foreach ($candidate in @("python", "python3", "py")) {
+            try {
+                $ver = & $candidate --version 2>&1
+                if ($ver -match "Python (\d+)\.(\d+)") {
+                    $maj = [int]$Matches[1]; $min = [int]$Matches[2]
+                    if ($maj -ge 3 -and $min -ge 10) { $pythonCmd = $candidate; break }
+                }
+            } catch {}
+        }
+    }
+    if (-not $pythonCmd) {
+        Err "Python не установлен. Скачайте вручную: https://www.python.org/downloads/"
+    }
 }
-$pyVer = & $pythonCmd --version 2>&1
-Ok "Python: $pyVer"
+Ok "Python: $(& $pythonCmd --version 2>&1)"
 
-# Git
+# ── Git ───────────────────────────────────────────────────────
+Log "Проверка Git..."
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-    Err "Git не найден. Скачайте с https://git-scm.com/ и добавьте в PATH."
+    Warn "Git не найден."
+    $ans = Read-Host "  Установить автоматически? [Y/n]"
+    if ($ans -eq '' -or $ans -match '^[YyДд]') {
+        $ok = Install-Via-Winget "Git.Git" "Git"
+        if (-not $ok) {
+            Install-Via-Download `
+                "https://github.com/git-for-windows/git/releases/download/v2.45.2.windows.1/Git-2.45.2-64-bit.exe" `
+                "Git" `
+                "/VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /NOICONS" | Out-Null
+        }
+    }
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Err "Git не установлен. Скачайте вручную: https://git-scm.com/"
+    }
 }
 Ok "Git: $(git --version)"
 
-# Node.js 18+
+# ── Node.js 20 LTS ────────────────────────────────────────────
+Log "Проверка Node.js..."
 $nodeOk = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
     $nodeVer = (node --version) -replace 'v', ''
@@ -80,15 +152,28 @@ if (Get-Command node -ErrorAction SilentlyContinue) {
     if ($nodeMaj -ge 18) { $nodeOk = $true }
 }
 if (-not $nodeOk) {
-    Err "Node.js 18+ не найден. Скачайте с https://nodejs.org/ и добавьте в PATH."
+    Warn "Node.js 18+ не найден."
+    $ans = Read-Host "  Установить автоматически? [Y/n]"
+    if ($ans -eq '' -or $ans -match '^[YyДд]') {
+        $ok = Install-Via-Winget "OpenJS.NodeJS.LTS" "Node.js 20 LTS"
+        if (-not $ok) {
+            Install-Via-Download `
+                "https://nodejs.org/dist/v20.14.0/node-v20.14.0-x64.msi" `
+                "Node.js 20 LTS" `
+                "/quiet /norestart" | Out-Null
+        }
+        # Перепроверка
+        if (Get-Command node -ErrorAction SilentlyContinue) {
+            $nodeVer = (node --version) -replace 'v', ''
+            $nodeMaj = [int]($nodeVer.Split('.')[0])
+            if ($nodeMaj -ge 18) { $nodeOk = $true }
+        }
+    }
+    if (-not $nodeOk) {
+        Err "Node.js не установлен. Скачайте вручную: https://nodejs.org/"
+    }
 }
 Ok "Node.js: $(node --version)"
-
-# npm
-if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Err "npm не найден. Входит в состав Node.js — переустановите Node.js."
-}
-Ok "npm: $(npm --version)"
 
 Write-Host ""
 
