@@ -64,13 +64,13 @@ function Install-Via-Winget($packageId, $label) {
 }
 
 # Скачать и запустить установщик через HTTP (fallback без winget)
-function Install-Via-Download($url, $label, $args) {
+function Install-Via-Download($url, $label, $installArgs) {
     Log "Скачиваем $label..."
     $tmp = "$env:TEMP\anomalynet_dep_install.exe"
     try {
         Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
         Log "Запускаем установщик $label..."
-        Start-Process -FilePath $tmp -ArgumentList $args -Wait
+        Start-Process -FilePath $tmp -ArgumentList $installArgs -Wait
         Remove-Item $tmp -ErrorAction SilentlyContinue
         # Обновляем PATH
         $machinePath = [System.Environment]::GetEnvironmentVariable("PATH", "Machine")
@@ -426,16 +426,46 @@ try {
     Warn "Сервис запущен, но не отвечает пока — подождите 10-15 сек"
 }
 
+# ── Ярлыки на рабочем столе и в меню Пуск ───────────────────
+Log "Создаём ярлыки..."
+$appUrl = "http://localhost:$Port"
+
+function New-UrlShortcut($path, $url, $iconSrc) {
+    $content = "[InternetShortcut]`r`nURL=$url`r`n"
+    if ($iconSrc -and (Test-Path $iconSrc)) {
+        $content += "IconFile=$iconSrc`r`nIconIndex=0`r`n"
+    }
+    [System.IO.File]::WriteAllText($path, $content, [System.Text.Encoding]::ASCII)
+}
+
+$iconPath = "$guiDir\frontend\public\favicon.ico"
+$shortcutName = "AnomalyNet IDS.url"
+
+# Рабочий стол текущего пользователя
+$desktopPath = [System.Environment]::GetFolderPath("Desktop")
+New-UrlShortcut "$desktopPath\$shortcutName" $appUrl $iconPath
+Ok "Ярлык на рабочем столе: $desktopPath\$shortcutName"
+
+# Меню Пуск — Programs
+$startMenuPath = [System.Environment]::GetFolderPath("Programs")
+$startMenuDir  = "$startMenuPath\AnomalyNet"
+New-Item -ItemType Directory -Force -Path $startMenuDir | Out-Null
+New-UrlShortcut "$startMenuDir\$shortcutName" $appUrl $iconPath
+Ok "Ярлык в меню Пуск: $startMenuDir\$shortcutName"
+
 # ── Итог ─────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  +=======================================+" -ForegroundColor Green
 Write-Host "  |       Установка завершена!            |" -ForegroundColor Green
 Write-Host "  +=======================================+" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Веб-интерфейс  : " -NoNewline; Write-Host "http://localhost:$Port" -ForegroundColor Green
-Write-Host "  API health     : http://localhost:$Port/api/health"
+Write-Host "  Веб-интерфейс  : " -NoNewline; Write-Host $appUrl -ForegroundColor Green
+Write-Host "  API health     : $appUrl/api/health"
 Write-Host "  Каталог        : $InstallDir"
 Write-Host "  Режим          : $runMode / $activeModel"
+Write-Host ""
+Write-Host "  Ярлык создан на Рабочем столе и в меню Пуск." -ForegroundColor Cyan
+Write-Host "  Двойной клик — откроет браузер на $appUrl" -ForegroundColor Cyan
 Write-Host ""
 if (-not $stage1Cbm) {
     Write-Host "  ВНИМАНИЕ: Модели не найдены — работает Demo-режим." -ForegroundColor Yellow

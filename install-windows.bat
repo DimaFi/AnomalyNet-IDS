@@ -22,6 +22,8 @@ if not exist "%~dp0scripts\install-windows.ps1" (
 
 :: ── Run PowerShell installer ─────────────────────────────────
 cd /d "%~dp0"
+echo Starting AnomalyNet installer (PowerShell loading, please wait...)
+echo.
 powershell -ExecutionPolicy Bypass -NoProfile -File "scripts\install-windows.ps1" %*
 
 echo.
