@@ -115,6 +115,7 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
     web_urls: string[]; rtsp_url: string | null;
   } | null>(null);
   const [inspecting, setInspecting] = useState(false);
+  const [inspectError, setInspectError] = useState<string | null>(null);
 
   useEffect(() => {
     api.getDeviceHistory(device.mac).then(setHistory).catch(() => {});
@@ -171,11 +172,13 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
   const handleInspect = async () => {
     setInspecting(true);
     setInspectResult(null);
+    setInspectError(null);
     try {
       const r = await api.inspectDevice(device.mac);
       setInspectResult(r);
-    } catch { /* ignore */ }
-    finally { setInspecting(false); }
+    } catch (e) {
+      setInspectError(e instanceof Error ? e.message : "Ошибка подключения к устройству");
+    } finally { setInspecting(false); }
   };
 
   return (
@@ -322,6 +325,9 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
           <button className={s.actionBtn} onClick={handleInspect} disabled={inspecting}>
             {inspecting ? "⟳ Сканирую..." : "🔍 Инспекция сервисов"}
           </button>
+          {inspectError && (
+            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>✗ {inspectError}</div>
+          )}
           {inspectResult && (
             <div style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
               {inspectResult.os_guess && (

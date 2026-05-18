@@ -189,11 +189,11 @@ function RestartButton() {
       className={styles.btnRestart}
       onClick={() => void handleRestart()}
       disabled={state === "pending" || state === "done"}
-      title="Перезапустить сервис (systemctl restart anomalynet)"
+      title="Перезапустить сервис (Linux: systemctl, Windows: re-launch)"
     >
       {state === "pending" ? <><span className={styles.spinner} /> Перезапускаем...</>
        : state === "done"  ? "Перезапускается..."
-       : state === "error" ? "Ошибка — только Linux"
+       : state === "error" ? "Ошибка перезапуска"
        : "↺ Перезапустить"}
     </button>
   );
