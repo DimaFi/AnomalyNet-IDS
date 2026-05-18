@@ -17,7 +17,8 @@ def build_capture_adapter(mode: RunMode, settings: AppSettings | None = None) ->
         else:
             interfaces = ["eth0"]
         detection_mode = settings.detection_mode if settings else "simple"
-        return LinuxScapyAdapter(interfaces=interfaces, detection_mode=detection_mode)
+        bpf_filter = settings.bpf_filter if settings else ""
+        return LinuxScapyAdapter(interfaces=interfaces, detection_mode=detection_mode, bpf_filter=bpf_filter)
 
     if mode == "windows_live":
         from app.capture.adapters.windows.npcap_adapter import WindowsNpcapCapture
@@ -28,7 +29,8 @@ def build_capture_adapter(mode: RunMode, settings: AppSettings | None = None) ->
         else:
             interfaces = ["Ethernet"]
         detection_mode = settings.detection_mode if settings else "simple"
-        return WindowsNpcapCapture(interfaces=interfaces, detection_mode=detection_mode)
+        bpf_filter = settings.bpf_filter if settings else ""
+        return WindowsNpcapCapture(interfaces=interfaces, detection_mode=detection_mode, bpf_filter=bpf_filter)
 
     adapters: dict[RunMode, CaptureAdapter] = {
         "mock": MockCaptureAdapter(),

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
-import type { DebugStats, TlsStats } from "../../app/types";
+import type { DebugStats, SystemStats, TlsStats } from "../../app/types";
 import type { Device } from "../../types/device";
 import { StatusPill } from "../../components/StatusPill";
 import { api } from "../../lib/api";
@@ -26,6 +26,7 @@ export function DashboardView() {
   const [stats, setStats] = useState<DebugStats | null>(null);
   const [tlsStats, setTlsStats] = useState<TlsStats | null>(null);
   const [topRiskDevices, setTopRiskDevices] = useState<Device[]>([]);
+  const [sysStats, setSysStats] = useState<SystemStats | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -47,6 +48,14 @@ export function DashboardView() {
     }
     void fetchStats();
     const id = setInterval(() => { void fetchStats(); }, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetch = () => api.getSystemStats().then(d => { if (!cancelled) setSysStats(d); }).catch(() => null);
+    fetch();
+    const id = setInterval(fetch, 10_000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
 
@@ -88,6 +97,11 @@ export function DashboardView() {
           <p>Мониторинг сети в реальном времени. Обнаружение атак на основе CatBoost.</p>
         </div>
       </div>
+      {/* ── Performance quick-nav ── */}
+      {sysStats?.available && (
+        <PerfCard stats={sysStats} />
+      )}
+
       <div className={styles.metricsGrid}>
         <article className={styles.metricCard}>
           <span>{t("dashboard.status")}</span>
@@ -227,5 +241,52 @@ export function DashboardView() {
         </div>
       )}
     </section>
+  );
+}
+
+const LOAD_COLORS: Record<string, string> = {
+  low: "#22c55e", medium: "#eab308", high: "#f97316", critical: "#ef4444",
+};
+const LOAD_LABELS: Record<string, string> = {
+  low: "Норма", medium: "Средняя", high: "Высокая", critical: "Критично",
+};
+
+function PerfCard({ stats }: { stats: SystemStats }) {
+  const setView = useAppStore((s) => s.setView);
+  const level = stats.load_level ?? "low";
+  const color = LOAD_COLORS[level] ?? LOAD_COLORS.low;
+  const label = LOAD_LABELS[level] ?? level;
+  return (
+    <div
+      onClick={() => setView("performance" as import("../../app/types").AppView)}
+      style={{
+        background: "var(--surface-2)",
+        border: `1px solid ${color}44`,
+        borderRadius: "var(--radius-lg)",
+        padding: "0.85rem 1.1rem",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        boxShadow: `0 0 18px ${color}18`,
+        transition: "box-shadow 0.2s, border-color 0.2s",
+      }}
+    >
+      <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+          Производительность
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color, marginTop: 1 }}>{label}</div>
+      </div>
+      <div style={{ display: "flex", gap: 10, fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+        <span title="CPU">CPU {stats.cpu_percent ?? "—"}%</span>
+        <span title="RAM">RAM {stats.ram_percent ?? "—"}%</span>
+        <span title="Процесс AnomalyNet">Proc {stats.process_cpu_percent ?? "—"}%</span>
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </div>
   );
 }

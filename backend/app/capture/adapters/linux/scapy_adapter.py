@@ -34,9 +34,10 @@ class LinuxScapyAdapter(CaptureAdapter):
     mode = "linux_live"
     name = "Linux Scapy Live Capture"
 
-    def __init__(self, interfaces: list[str] | str = "eth0", detection_mode: str = "simple") -> None:
+    def __init__(self, interfaces: list[str] | str = "eth0", detection_mode: str = "simple", bpf_filter: str = "") -> None:
         self._interfaces: list[str] = [interfaces] if isinstance(interfaces, str) else interfaces
         self._detection_mode = detection_mode
+        self._bpf_filter = bpf_filter.strip()
         self._queue: asyncio.Queue[NormalizedFlowEvent] = asyncio.Queue(maxsize=500)
         self._aggregator = FlowAggregator(on_flow_complete=self._on_flow_ready)
         self._sniffer = None
@@ -102,12 +103,14 @@ class LinuxScapyAdapter(CaptureAdapter):
 
         iface_arg = self._interfaces[0] if len(self._interfaces) == 1 else self._interfaces
 
+        _bpf = f"({self._bpf_filter}) and ip" if self._bpf_filter else "ip"
         sniffer_kwargs: dict = dict(
             iface=iface_arg,
-            filter="ip",
+            filter=_bpf,
             prn=self._packet_callback,
             store=False,
         )
+        _log.info("[Linux capture] BPF filter: %s", _bpf)
         if _TLSSession is not None:
             sniffer_kwargs["session"] = _TLSSession
 

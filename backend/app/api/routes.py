@@ -31,7 +31,7 @@ def _get_app_version() -> str:
         try:
             import subprocess
             from pathlib import Path
-            cwd = Path(__file__).parent.parent.parent
+            cwd = Path(__file__).parent.parent.parent.parent
             # Prefer the nearest tag (clean version like v2.1.0)
             r = subprocess.run(
                 ["git", "describe", "--tags", "--abbrev=0"],

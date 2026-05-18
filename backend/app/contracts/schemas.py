@@ -49,6 +49,8 @@ class AppSettings(BaseModel):
     auto_update_models: bool = False
     # Allow access to the web panel from other devices on the network (not just localhost)
     allow_remote_access: bool = False
+    # BPF capture filter (e.g. "host 192.168.1.5") — empty = capture all IP traffic
+    bpf_filter: str = ""
 
 
 class ModelDescriptor(BaseModel):
@@ -172,6 +174,8 @@ class SettingsUpdate(BaseModel):
     models_dir: str = ""
     auto_download_models: bool = True
     auto_update_models: bool = False
+    allow_remote_access: bool = False
+    bpf_filter: str = ""
 
 
 class ModelPreset(BaseModel):

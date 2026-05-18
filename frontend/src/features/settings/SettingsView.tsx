@@ -228,6 +228,25 @@ export function SettingsView() {
         )}
       </div>
 
+      {/* ── BPF Filter ── */}
+      <div className={selfStyles.group}>
+        <div className={selfStyles.groupTitle}>BPF фильтр захвата</div>
+        <div className={styles.formGrid}>
+          <label className={styles.field} style={{ gridColumn: "1 / -1" }}>
+            <span>BPF фильтр (Berkeley Packet Filter)</span>
+            <input type="text" value={s.bpf_filter ?? ""}
+              placeholder="host 192.168.1.5   или   host 192.168.1.5 and tcp   или пусто = весь IP трафик"
+              onChange={(e) => patch({ bpf_filter: e.target.value })} />
+          </label>
+          <p className={styles.dimNote} style={{ gridColumn: "1 / -1" }}>
+            <strong>Важно:</strong> BPF фильтр снижает нагрузку в 10–50 раз в большой сети. Введи{" "}
+            <code>host ВАШ_IP</code> чтобы захватывать только трафик вашего компьютера.
+            Фильтр применяется на уровне ядра — Python видит меньше пакетов.
+            Работает на Windows (Npcap) и Linux (Scapy).
+          </p>
+        </div>
+      </div>
+
       {/* ── Models ── */}
       <div className={selfStyles.group}>
         <div className={selfStyles.groupTitle}>Модели</div>

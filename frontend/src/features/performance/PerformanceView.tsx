@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import type { AppSettings, SystemStats } from "../../app/types";
+import type { AppSettings, NetworkInterface, PlatformCapabilities, SystemStats } from "../../app/types";
 import { useAppStore } from "../../app/store";
 import styles from "../panel.module.css";
 import s from "./PerformanceView.module.css";
@@ -40,7 +40,12 @@ function LoadGauge({ level }: { level?: string }) {
 
 export function PerformanceView() {
   const [stats, setStats] = useState<SystemStats | null>(null);
-  const settings = useAppStore((s) => s.settings);
+  const settings = useAppStore((st) => st.settings);
+  const setSettings = useAppStore((st) => st.setSettings);
+  const capabilities = useAppStore((st) => st.capabilities);
+  const [interfaces, setInterfaces] = useState<NetworkInterface[]>([]);
+  const [bpfInput, setBpfInput] = useState("");
+  const [bpfSaved, setBpfSaved] = useState(false);
 
   useEffect(() => {
     const refresh = () => api.getSystemStats().then(setStats).catch(() => null);
@@ -48,6 +53,24 @@ export function PerformanceView() {
     const iv = setInterval(refresh, 5000);
     return () => clearInterval(iv);
   }, []);
+
+  useEffect(() => {
+    api.getInterfaces().then(setInterfaces).catch(() => []);
+  }, []);
+
+  useEffect(() => {
+    if (settings) setBpfInput(settings.bpf_filter ?? "");
+  }, [settings?.bpf_filter]);
+
+  const saveBpf = async () => {
+    if (!settings) return;
+    try {
+      const saved = await api.updateSettings({ ...settings, bpf_filter: bpfInput.trim() });
+      setSettings(saved);
+      setBpfSaved(true);
+      setTimeout(() => setBpfSaved(false), 2000);
+    } catch { /* ignore */ }
+  };
 
   return (
     <section className={styles.panel}>
@@ -126,6 +149,17 @@ export function PerformanceView() {
       {/* Diagnostics */}
       <DiagnosticsPanel stats={stats} settings={settings} />
 
+      {/* Interface + BPF quick-set */}
+      <InterfacePanel
+        interfaces={interfaces}
+        settings={settings}
+        capabilities={capabilities}
+        bpfInput={bpfInput}
+        setBpfInput={setBpfInput}
+        onSaveBpf={() => void saveBpf()}
+        bpfSaved={bpfSaved}
+      />
+
       {/* Why it crashes */}
       <WhyCrashingPanel />
 
@@ -179,6 +213,133 @@ function WhyCrashingPanel() {
         <p className={s.explainText} style={{ marginTop: 8 }}>
           <strong>Главное решение:</strong> добавь BPF-фильтр ниже — это исключит чужой трафик до того,
           как он попадёт в Python, снизив нагрузку в 10–50 раз в университетской сети.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function InterfacePanel({
+  interfaces, settings, capabilities, bpfInput, setBpfInput, onSaveBpf, bpfSaved,
+}: {
+  interfaces: NetworkInterface[];
+  settings: AppSettings | null;
+  capabilities: PlatformCapabilities | null;
+  bpfInput: string;
+  setBpfInput: (v: string) => void;
+  onSaveBpf: () => void;
+  bpfSaved: boolean;
+}) {
+  const platform = capabilities?.platform ?? "unknown";
+  const captureBackend = capabilities?.capture_backend ?? "—";
+  const activeIfaces = settings?.interface_names?.length
+    ? settings.interface_names
+    : settings?.interface_name
+    ? [settings.interface_name]
+    : [];
+
+  const recommendedIface = interfaces.find(i => i.is_recommended) ?? interfaces.find(i => i.is_default);
+  const activeIfaceObjs = activeIfaces.map(name => interfaces.find(i => i.name === name)).filter(Boolean) as NetworkInterface[];
+  const myIps = activeIfaceObjs.flatMap(i => i.addresses);
+
+  return (
+    <div className={s.section}>
+      <div className={s.sectionTitle}>Диагностика интерфейса и BPF фильтр</div>
+
+      {/* Platform */}
+      <div className={s.diagList} style={{ marginBottom: 12 }}>
+        <div className={s.diagRow}>
+          <span className={s.diagDot} style={{ background: "var(--accent)" }} />
+          <span className={s.diagLabel}>Платформа</span>
+          <span className={s.diagNote} style={{ fontFamily: "monospace" }}>
+            {platform} · {captureBackend}
+          </span>
+        </div>
+        <div className={s.diagRow}>
+          <span className={s.diagDot} style={{ background: capabilities?.packet_capture ? "var(--ok)" : "var(--danger)" }} />
+          <span className={s.diagLabel}>Захват пакетов</span>
+          <span className={s.diagNote} style={{ color: capabilities?.packet_capture ? "var(--ok)" : "var(--danger)" }}>
+            {capabilities?.packet_capture ? "доступен" : "недоступен — нужны права администратора"}
+          </span>
+        </div>
+      </div>
+
+      {/* Active interfaces */}
+      {interfaces.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: 6 }}>
+            Сетевые интерфейсы
+          </div>
+          {interfaces.map(iface => {
+            const isActive = activeIfaces.includes(iface.name);
+            const okColor = isActive ? "var(--ok)" : "var(--text-muted)";
+            return (
+              <div key={iface.name} className={s.diagRow} style={{ marginBottom: 4 }}>
+                <span className={s.diagDot} style={{ background: isActive ? "var(--ok)" : (iface.is_up ? "var(--accent)" : "var(--danger)") }} />
+                <span className={s.diagLabel} style={{ color: okColor, fontFamily: "monospace" }}>
+                  {iface.name}
+                  {isActive && " ✓"}
+                  {iface.is_recommended && !isActive && " (рекомендуется)"}
+                </span>
+                <span className={s.diagNote} style={{ fontFamily: "monospace", fontSize: 11 }}>
+                  {iface.addresses.slice(0, 2).join(", ") || "нет IP"}
+                </span>
+              </div>
+            );
+          })}
+          {recommendedIface && !activeIfaces.includes(recommendedIface.name) && (
+            <p style={{ fontSize: 11, color: "#eab308", marginTop: 6 }}>
+              ⚠ Рекомендуемый интерфейс <code>{recommendedIface.name}</code> не выбран. Перейди в Настройки → Захват трафика.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* BPF Filter quick-set */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: 6 }}>
+          BPF фильтр — быстрая настройка
+        </div>
+        {myIps.length > 0 && (
+          <div style={{ marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {myIps.slice(0, 4).map(ip => (
+              <button key={ip}
+                style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, border: "1px solid var(--border-accent)",
+                  background: "var(--surface-3)", color: "var(--accent)", cursor: "pointer", fontFamily: "monospace" }}
+                onClick={() => setBpfInput(`host ${ip}`)}>
+                host {ip}
+              </button>
+            ))}
+            <button style={{ fontSize: 11, padding: "3px 9px", borderRadius: 12, border: "1px solid var(--border)",
+              background: "var(--surface-3)", color: "var(--text-muted)", cursor: "pointer" }}
+              onClick={() => setBpfInput("")}>
+              Сбросить
+            </button>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+          <input
+            style={{ flex: 1, padding: "6px 10px", borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border-strong)", background: "var(--surface-3)",
+              color: "var(--text-primary)", fontSize: 12, fontFamily: "monospace", outline: "none" }}
+            value={bpfInput}
+            onChange={e => setBpfInput(e.target.value)}
+            placeholder="host 192.168.1.5   или   host 192.168.1.5 and tcp"
+            onKeyDown={e => { if (e.key === "Enter") onSaveBpf(); }}
+          />
+          <button
+            onClick={onSaveBpf}
+            style={{ padding: "6px 14px", borderRadius: "var(--radius-sm)",
+              border: "1px solid var(--border-accent)", background: bpfSaved ? "var(--ok)" : "var(--accent)",
+              color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "background 0.3s", whiteSpace: "nowrap" }}>
+            {bpfSaved ? "✓ Сохранено" : "Применить"}
+          </button>
+        </div>
+        <p style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, lineHeight: 1.5 }}>
+          Фильтр применяется на уровне ядра (BPF/Npcap) — Python видит только нужные пакеты.
+          {platform === "windows" && " На Windows использует Npcap WinPcap API."}
+          {platform === "linux" && " На Linux использует libpcap / BPF ядра."}
+          {" "}Изменения вступают в силу после перезапуска захвата.
         </p>
       </div>
     </div>

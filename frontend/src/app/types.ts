@@ -31,6 +31,7 @@ export interface AppSettings {
   auto_download_models: boolean;
   auto_update_models: boolean;
   allow_remote_access: boolean;
+  bpf_filter: string;
 }
 
 export interface SystemStats {

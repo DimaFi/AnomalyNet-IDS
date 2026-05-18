@@ -88,9 +88,11 @@ class WindowsNpcapCapture(CaptureAdapter):
         self,
         interfaces: list[str] | str = "Ethernet",
         detection_mode: str = "simple",
+        bpf_filter: str = "",
     ) -> None:
         self._interfaces: list[str] = [interfaces] if isinstance(interfaces, str) else interfaces
         self._detection_mode = detection_mode
+        self._bpf_filter = bpf_filter.strip()
         self._queue: asyncio.Queue[NormalizedFlowEvent] = asyncio.Queue(maxsize=500)
         self._aggregator = FlowAggregator(on_flow_complete=self._on_flow_ready)
         self._sniffer = None
@@ -167,12 +169,14 @@ class WindowsNpcapCapture(CaptureAdapter):
 
         iface_arg = resolved[0] if len(resolved) == 1 else resolved
 
+        _bpf = f"({self._bpf_filter}) and (ip or ip6)" if self._bpf_filter else "ip or ip6"
         sniffer_kwargs: dict = dict(
             iface=iface_arg,
-            filter="ip or ip6",
+            filter=_bpf,
             prn=self._packet_callback,
             store=False,
         )
+        _log.info("[Windows capture] BPF filter: %s", _bpf)
         if _TLSSession is not None:
             sniffer_kwargs["session"] = _TLSSession
 
