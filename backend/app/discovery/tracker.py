@@ -28,7 +28,7 @@ class DeviceTracker:
     def merge_scan_results(self, scanned: list[DeviceInfo]) -> None:
         now = datetime.now()
         with self._lock:
-            seen_macs = {d.mac for d in scanned}
+            seen_macs = {d.mac.upper() for d in scanned}
 
             for d in scanned:
                 if d.mac in self._devices:
@@ -68,6 +68,8 @@ class DeviceTracker:
 
         with self._lock:
             mac = self._ip_to_mac.get(src_ip)
+            if mac:
+                mac = mac.upper()
 
             if mac and mac in self._devices:
                 dev = self._devices[mac]
@@ -100,6 +102,77 @@ class DeviceTracker:
             if src_ip not in self._traffic:
                 self._traffic[src_ip] = deque(maxlen=300)
             self._traffic[src_ip].append((now, b_in, b_out))
+
+    # ── Passive L2 discovery ──────────────────────────────────
+
+    def on_passive_arp(self, src_ip: str, src_mac: str) -> None:
+        """Called from capture adapter when an L2 frame reveals IP→MAC mapping.
+
+        Works without active ARP scans — extracts info from ARP broadcasts and
+        unicast frames addressed to this host. Thread-safe.
+        """
+        import ipaddress as _ip
+        try:
+            addr = _ip.ip_address(src_ip)
+            if not addr.is_private or addr.is_loopback or addr.is_link_local:
+                return
+        except ValueError:
+            return
+
+        mac = src_mac.upper()
+        if mac in ("FF:FF:FF:FF:FF:FF", "00:00:00:00:00:00"):
+            return
+        # skip multicast MACs (odd first byte)
+        try:
+            if int(mac.split(":")[0], 16) & 1:
+                return
+        except Exception:
+            return
+
+        now = datetime.now()
+        with self._lock:
+            existing_mac = self._ip_to_mac.get(src_ip)
+            if existing_mac and existing_mac.upper() != mac:
+                old_dev = self._devices.get(existing_mac.upper())
+                if old_dev:
+                    old_dev.is_online = False
+
+            if mac in self._devices:
+                dev = self._devices[mac]
+                dev.ip = src_ip
+                dev.last_seen = now
+                dev.is_online = True
+                self._ip_to_mac[src_ip] = mac
+                return
+
+            try:
+                from app.discovery.oui import get_oui_lookup
+                vendor = get_oui_lookup().lookup(mac)
+            except Exception:
+                vendor = "Unknown"
+            try:
+                from app.discovery.classifier import guess_device_type
+                device_type = guess_device_type(vendor=vendor, hostname="")
+            except Exception:
+                device_type = "unknown"
+            try:
+                import socket as _sock
+                hostname = _sock.gethostbyaddr(src_ip)[0]
+            except Exception:
+                hostname = ""
+
+            dev = DeviceInfo(
+                mac=mac, ip=src_ip, vendor=vendor,
+                device_type=device_type, hostname=hostname,
+                first_seen=now, last_seen=now, is_online=True,
+            )
+            from app.discovery.risk import calculate_risk_score, risk_label as _risk_label
+            score = calculate_risk_score(dev)
+            dev.risk_score = score
+            dev.risk_label = _risk_label(score)
+            self._devices[mac] = dev
+            self._alert_history[mac] = deque(maxlen=50)
+            self._ip_to_mac[src_ip] = mac
 
     # ── DNS integration ──────────────────────────────────────
 
@@ -138,7 +211,7 @@ class DeviceTracker:
 
     def get_alert_history(self, mac: str) -> list[dict]:
         with self._lock:
-            return list(self._alert_history.get(mac, []))
+            return list(self._alert_history.get(mac.upper(), []))
 
     def get_device_by_mac(self, mac: str) -> Optional[DeviceInfo]:
         with self._lock:

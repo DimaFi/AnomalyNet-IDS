@@ -140,6 +140,10 @@ class PipelineService:
                 fn = getattr(adapter, "set_tls_monitor", None)
                 if fn is not None:
                     fn(self._tls_monitor)
+            if self._device_tracker is not None:
+                fn = getattr(adapter, "set_device_tracker", None)
+                if fn is not None:
+                    fn(self._device_tracker)
             start = getattr(adapter, "start", None)
             if start:
                 await start()

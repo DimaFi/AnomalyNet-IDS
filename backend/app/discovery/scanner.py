@@ -73,9 +73,33 @@ def detect_local_networks(interface: str | None = None) -> list[str]:
 
     return candidates
 
+def _parse_ping_rtt(output: bytes, system: str) -> float | None:
+    """Extract RTT from ping stdout. Returns ms or None."""
+    import re
+    text = output.decode(errors="ignore")
+    if system == "windows":
+        # "Average = 3ms" or "Minimum = 1ms, Maximum = 5ms, Average = 3ms"
+        m = re.search(r"Average\s*=\s*(\d+)ms", text)
+        if m:
+            return float(m.group(1))
+        # fallback: "time=3ms"
+        m = re.search(r"time[<=](\d+)ms", text)
+        if m:
+            return float(m.group(1))
+    else:
+        # "rtt min/avg/max/mdev = 0.123/0.456/0.789/0.111 ms"
+        m = re.search(r"rtt .+ = [\d.]+/([\d.]+)/", text)
+        if m:
+            return round(float(m.group(1)), 1)
+        # "time=0.456 ms"
+        m = re.search(r"time=([\d.]+) ms", text)
+        if m:
+            return round(float(m.group(1)), 1)
+    return None
+
+
 def probe_host(ip: str, ports: list[int] | None = None) -> dict:
     """Ping + port scan a host. Returns reachable, latency_ms, open_ports."""
-    t0 = time.monotonic()
     reachable = False
     latency_ms: float | None = None
 
@@ -89,7 +113,7 @@ def probe_host(ip: str, ports: list[int] | None = None) -> dict:
         result = subprocess.run(cmd, capture_output=True, timeout=3)
         if result.returncode == 0:
             reachable = True
-            latency_ms = round((time.monotonic() - t0) * 1000, 1)
+            latency_ms = _parse_ping_rtt(result.stdout, system)
     except Exception:
         pass
 
@@ -98,11 +122,12 @@ def probe_host(ip: str, ports: list[int] | None = None) -> dict:
     open_ports: list[int] = []
     for port in check_ports:
         try:
+            t_port = time.monotonic()
             with socket.create_connection((ip, port), timeout=0.5):
                 open_ports.append(port)
                 if not reachable:
                     reachable = True
-                    latency_ms = round((time.monotonic() - t0) * 1000, 1)
+                    latency_ms = round((time.monotonic() - t_port) * 1000, 1)
         except Exception:
             pass
 

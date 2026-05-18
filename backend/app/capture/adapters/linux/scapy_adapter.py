@@ -41,8 +41,9 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._aggregator = FlowAggregator(on_flow_complete=self._on_flow_ready)
         self._sniffer = None
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._dns_monitor = None  # set via set_dns_monitor() after construction
-        self._tls_monitor = None  # set via set_tls_monitor() after construction
+        self._dns_monitor = None   # set via set_dns_monitor() after construction
+        self._tls_monitor = None   # set via set_tls_monitor() after construction
+        self._device_tracker = None  # set via set_device_tracker() after construction
         self._tls_stats = {
             "tls_ports_seen": 0,        # TCP packets on any TLS port
             "raw_tls_like_seen": 0,     # raw bytes starting with 0x16
@@ -58,6 +59,9 @@ class LinuxScapyAdapter(CaptureAdapter):
 
     def set_tls_monitor(self, monitor) -> None:
         self._tls_monitor = monitor
+
+    def set_device_tracker(self, tracker) -> None:
+        self._device_tracker = tracker
 
     def get_tls_stats(self) -> dict:
         return dict(self._tls_stats)
@@ -137,6 +141,53 @@ class LinuxScapyAdapter(CaptureAdapter):
                 self._process_tls(pkt)
             except Exception:
                 pass
+        if self._device_tracker is not None:
+            try:
+                self._process_passive_discovery(pkt)
+            except Exception:
+                pass
+
+    def _process_passive_discovery(self, pkt) -> None:
+        """Extract IP→MAC mapping from captured L2 frames and notify DeviceTracker.
+
+        Catches two cases:
+        1. ARP request/reply broadcast — sender fields hwsrc/psrc are always set
+        2. Any Ethernet+IP unicast frame from a device communicating with us
+
+        This is the only reliable passive discovery on WiFi networks with
+        client isolation (ARP broadcasts are not filtered by the AP).
+        """
+        src_ip: str | None = None
+        src_mac: str | None = None
+
+        # Case 1: ARP packet — most reliable, works even with client isolation
+        try:
+            from scapy.layers.l2 import ARP
+            if pkt.haslayer(ARP):
+                arp = pkt[ARP]
+                # op=1 request, op=2 reply — sender fields always populated
+                if arp.hwsrc and arp.psrc and arp.psrc != "0.0.0.0":
+                    src_ip = arp.psrc
+                    src_mac = arp.hwsrc
+        except Exception:
+            pass
+
+        # Case 2: Ethernet + IP frame (unicast to us or from us)
+        if src_ip is None:
+            try:
+                if pkt.haslayer("Ether") and pkt.haslayer("IP"):
+                    eth_src = pkt["Ether"].src
+                    ip_src = pkt["IP"].src
+                    # Only capture frames from other devices (not our own traffic)
+                    # Scapy shows our own src MAC on outgoing — skip broadcast
+                    if eth_src and eth_src != "ff:ff:ff:ff:ff:ff":
+                        src_ip = ip_src
+                        src_mac = eth_src
+            except Exception:
+                pass
+
+        if src_ip and src_mac:
+            self._device_tracker.on_passive_arp(src_ip, src_mac)
 
     _QTYPE_MAP = {1: "A", 2: "NS", 5: "CNAME", 15: "MX", 16: "TXT", 28: "AAAA", 255: "ANY"}
 
