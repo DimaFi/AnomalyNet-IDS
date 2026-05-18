@@ -36,10 +36,18 @@ class DeviceTracker:
                     existing.ip = d.ip
                     existing.last_seen = now
                     existing.is_online = d.is_online
-                    if d.hostname:
+                    changed = False
+                    if d.hostname and existing.hostname != d.hostname:
                         existing.hostname = d.hostname
-                    if d.vendor != "Unknown":
+                        changed = True
+                    if d.vendor != "Unknown" and existing.vendor != d.vendor:
                         existing.vendor = d.vendor
+                        changed = True
+                    if existing.device_type == "unknown" and changed:
+                        from app.discovery.classifier import guess_device_type
+                        new_type = guess_device_type(vendor=existing.vendor, hostname=existing.hostname)
+                        if new_type != "unknown":
+                            existing.device_type = new_type
                 else:
                     score = calculate_risk_score(d)
                     d.risk_score = score
@@ -146,6 +154,11 @@ class DeviceTracker:
                 # Update hostname if we got a better one (e.g. from DHCP)
                 if hostname and not dev.hostname and not dev.custom_name:
                     dev.hostname = hostname
+                    if dev.device_type == "unknown":
+                        from app.discovery.classifier import guess_device_type
+                        new_type = guess_device_type(vendor=dev.vendor, hostname=hostname)
+                        if new_type != "unknown":
+                            dev.device_type = new_type
                 return
 
             try:

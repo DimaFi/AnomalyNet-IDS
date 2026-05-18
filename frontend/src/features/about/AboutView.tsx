@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReinstallResult, UninstallResult, UpdateApplyResult, UpdateCheckResult } from "../../app/types";
 import { api } from "../../lib/api";
 import { useAppStore } from "../../app/store";
@@ -134,7 +134,7 @@ export function AboutView() {
                 {applyResult.errors.map((e, i) => <li key={i}>{e}</li>)}
               </ul>
             )}
-            {applyResult.restart_scheduled && <AutoReload delayMs={5000} />}
+            {applyResult.restart_scheduled && <AutoReload delayMs={9000} />}
           </div>
         )}
       </div>
@@ -276,7 +276,7 @@ function ReinstallButton() {
           {!s.ok && <span className={styles.reinstallStepDetail}>{s.detail}</span>}
         </div>
       ))}
-      {result?.restart_scheduled && <AutoReload delayMs={4000} />}
+      {result?.restart_scheduled && <AutoReload delayMs={9000} />}
     </div>
   );
 }
@@ -374,10 +374,10 @@ function UninstallButton() {
 
 function AutoReload({ delayMs }: { delayMs: number }) {
   const [counter, setCounter] = useState(Math.ceil(delayMs / 1000));
-  useState(() => {
+  useEffect(() => {
     const iv = setInterval(() => setCounter((c) => c - 1), 1000);
     const t  = setTimeout(() => { clearInterval(iv); window.location.reload(); }, delayMs);
     return () => { clearInterval(iv); clearTimeout(t); };
-  });
+  }, [delayMs]);
   return <p className={styles.reloadMsg}>Перезагрузка через {counter} сек...</p>;
 }

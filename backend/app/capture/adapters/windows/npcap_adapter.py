@@ -97,6 +97,9 @@ class WindowsNpcapCapture(CaptureAdapter):
         self._loop: asyncio.AbstractEventLoop | None = None
         self._dns_monitor = None   # set via set_dns_monitor() after construction
         self._tls_monitor = None   # set via set_tls_monitor() after construction
+        self._device_tracker = None
+        self._sniffer_kwargs: dict = {}
+        self._watchdog_task: asyncio.Task | None = None
         self._tls_stats = {
             "tls_ports_seen": 0,
             "raw_tls_like_seen": 0,
@@ -112,6 +115,9 @@ class WindowsNpcapCapture(CaptureAdapter):
 
     def set_tls_monitor(self, monitor) -> None:
         self._tls_monitor = monitor
+
+    def set_device_tracker(self, tracker) -> None:
+        self._device_tracker = tracker
 
     def get_tls_stats(self) -> dict:
         return dict(self._tls_stats)
@@ -169,11 +175,29 @@ class WindowsNpcapCapture(CaptureAdapter):
         if _TLSSession is not None:
             sniffer_kwargs["session"] = _TLSSession
 
+        self._sniffer_kwargs = sniffer_kwargs
         self._sniffer = AsyncSniffer(**sniffer_kwargs)
         self._sniffer.start()
         _log.info("[Windows capture] sniffer started on %s", resolved)
+        self._watchdog_task = asyncio.create_task(self._sniffer_watchdog())
+
+    async def _sniffer_watchdog(self) -> None:
+        """Restart sniffer if it stops unexpectedly."""
+        from scapy.all import AsyncSniffer
+        while True:
+            await asyncio.sleep(30)
+            try:
+                if self._sniffer is not None and not self._sniffer.running:
+                    _log.warning("[Windows capture] sniffer stopped unexpectedly — restarting")
+                    self._sniffer = AsyncSniffer(**self._sniffer_kwargs)
+                    self._sniffer.start()
+            except Exception as exc:
+                _log.error("[Windows capture] watchdog restart failed: %s", exc)
 
     async def stop(self) -> None:
+        if self._watchdog_task is not None:
+            self._watchdog_task.cancel()
+            self._watchdog_task = None
         if self._sniffer is not None:
             try:
                 self._sniffer.stop(join=False)
@@ -196,6 +220,34 @@ class WindowsNpcapCapture(CaptureAdapter):
                 self._process_tls(pkt)
             except Exception:
                 pass
+        if self._device_tracker is not None:
+            try:
+                self._process_passive_discovery(pkt)
+            except Exception:
+                pass
+
+    def _process_passive_discovery(self, pkt) -> None:
+        """Extract IP→MAC mapping from any frame for passive device discovery."""
+        try:
+            from scapy.layers.inet import IP
+            from scapy.layers.l2 import ARP, Ether
+        except ImportError:
+            return
+        mac = ""
+        ip = ""
+        hostname = ""
+        if pkt.haslayer(ARP):
+            arp = pkt[ARP]
+            if arp.op in (1, 2) and arp.psrc and arp.psrc != "0.0.0.0":
+                mac = arp.hwsrc
+                ip = arp.psrc
+        elif pkt.haslayer(Ether) and pkt.haslayer(IP):
+            ip = pkt[IP].src
+            mac = pkt[Ether].src
+        if ip and mac:
+            self._loop.call_soon_threadsafe(
+                self._device_tracker.on_passive_arp, ip, mac, hostname
+            )
 
     _QTYPE_MAP = {1: "A", 2: "NS", 5: "CNAME", 15: "MX", 16: "TXT", 28: "AAAA", 255: "ANY"}
 
