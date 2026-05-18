@@ -410,15 +410,42 @@ function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
   );
 }
 
+const TYPE_FILTER_GROUPS: { label: string; types: string[] }[] = [
+  { label: "Все",     types: [] },
+  { label: "ПК",      types: ["pc_windows", "pc_linux", "pc_mac"] },
+  { label: "IoT",     types: ["iot_camera", "iot_sensor", "iot_bulb", "iot_plug"] },
+  { label: "Телефон", types: ["phone"] },
+  { label: "Сеть",    types: ["router", "nas"] },
+  { label: "Другое",  types: ["printer", "game_console", "tv", "unknown"] },
+];
+
 export default function NetworkMapView() {
   const { devices, selectedMac, deviceStats, setDevices, setSelectedMac, setDeviceStats } = useAppStore();
   const capabilities = useAppStore((state) => state.capabilities);
   const canBlock = capabilities == null || capabilities.firewall_blocking;
   const [scanning, setScanning] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState(0); // index into TYPE_FILTER_GROUPS
   const wsRef = useRef<WebSocket | null>(null);
 
   const selected = devices.find((d) => d.mac === selectedMac) ?? null;
+
+  const filteredDevices = devices.filter((d) => {
+    const group = TYPE_FILTER_GROUPS[typeFilter];
+    if (group.types.length > 0 && !group.types.includes(d.device_type)) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        d.ip.includes(q) ||
+        d.mac.toLowerCase().includes(q) ||
+        d.display_name.toLowerCase().includes(q) ||
+        d.hostname.toLowerCase().includes(q) ||
+        d.vendor.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   const loadDevices = useCallback(async () => {
     try {
@@ -483,12 +510,44 @@ export default function NetworkMapView() {
             )}
           </>
         )}
+        <div style={{ flex: 1 }} />
+        <input
+          className={s.searchInput}
+          type="search"
+          placeholder="Поиск по IP, MAC, имени..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
         <button className={s.scanBtn} onClick={handleScan} disabled={scanning}>
           {scanning ? "⟳ Сканирование..." : "⟳ Сканировать"}
         </button>
         <button className={s.scanBtn} onClick={() => setShowAddModal(true)}>
           + Добавить
         </button>
+      </div>
+
+      {/* Type filter bar */}
+      <div className={s.filterBar}>
+        {TYPE_FILTER_GROUPS.map((g, i) => (
+          <button
+            key={i}
+            className={[s.filterBtn, typeFilter === i ? s.filterBtnActive : ""].filter(Boolean).join(" ")}
+            onClick={() => setTypeFilter(i)}
+          >
+            {g.label}
+            {i === 0 && devices.length > 0 && (
+              <span className={s.filterCount}>{devices.length}</span>
+            )}
+            {i > 0 && (
+              <span className={s.filterCount}>
+                {devices.filter(d => g.types.includes(d.device_type)).length}
+              </span>
+            )}
+          </button>
+        ))}
+        {(searchQuery || typeFilter > 0) && filteredDevices.length !== devices.length && (
+          <span className={s.filterResult}>{filteredDevices.length} из {devices.length}</span>
+        )}
       </div>
 
       {/* Discovery capability warning */}
@@ -507,7 +566,7 @@ export default function NetworkMapView() {
       <div className={s.root}>
         <div className={s.main}>
           <DeviceGrid
-            devices={devices}
+            devices={filteredDevices}
             selectedMac={selectedMac}
             onSelect={setSelectedMac}
           />

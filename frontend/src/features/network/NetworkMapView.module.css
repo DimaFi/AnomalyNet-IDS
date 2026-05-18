@@ -64,6 +64,77 @@
 .scanBtn:hover { background: var(--surface-hover); color: var(--text-primary); }
 .scanBtn:disabled { opacity: 0.5; cursor: default; }
 
+/* ── Search input ── */
+.searchInput {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  width: 200px;
+  outline: none;
+  transition: border-color var(--duration-fast);
+}
+.searchInput:focus { border-color: var(--accent); }
+.searchInput::placeholder { color: var(--text-muted); }
+
+/* ── Filter bar ── */
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.filterBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+.filterBtn:hover { background: var(--surface-3); color: var(--text-primary); }
+.filterBtnActive {
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.15);
+  border-color: rgba(var(--accent-rgb, 99, 102, 241), 0.4);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.filterCount {
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+.filterBtnActive .filterCount {
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.2);
+  color: var(--accent);
+}
+
+.filterResult {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 /* ── Main area ── */
 .main {
   flex: 1;

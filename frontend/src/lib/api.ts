@@ -9,6 +9,7 @@ import type {
   NetworkInterface,
   PipelineEvent,
   StreamSnapshot,
+  SystemStats,
   TlsStats,
   UpdateApplyResult,
   UpdateCheckResult,
@@ -42,6 +43,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   getHealth: () => request<HealthResponse>("/api/health"),
+  getSystemStats: () => request<SystemStats>("/api/system/stats"),
   getSettings: () => request<AppSettings>("/api/settings"),
   updateSettings: (payload: AppSettings) =>
     request<AppSettings>("/api/settings", {

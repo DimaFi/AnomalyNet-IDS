@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
-import type { AppSettings, ModelPackageInfo, NetworkInterface, OfficialModelInfo, PlatformCapabilities } from "../../app/types";
+import type { AppSettings, ModelPackageInfo, NetworkInterface, OfficialModelInfo, PlatformCapabilities, SystemStats } from "../../app/types";
 import { ModelPresetPicker } from "../../components/ModelPresetPicker";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
@@ -155,8 +155,33 @@ export function SettingsView() {
         </div>
       </div>
 
+      {/* ── Remote access ── */}
+      <div className={selfStyles.group}>
+        <div className={selfStyles.groupTitle}>Сетевой доступ к панели</div>
+        <div className={styles.formGrid}>
+          <label className={styles.toggleField}>
+            <input type="checkbox" checked={s.allow_remote_access ?? false}
+              onChange={(e) => patch({ allow_remote_access: e.target.checked })} />
+            <span>Разрешить доступ с других устройств в сети (0.0.0.0:8000)</span>
+          </label>
+          {(s.allow_remote_access) && (
+            <p className={styles.warnNote}>
+              ⚠ Требуется перезапуск приложения. После перезапуска панель будет доступна по адресу вашего ПК в сети, например <code>http://172.30.44.X:8000</code>
+            </p>
+          )}
+          {!(s.allow_remote_access) && (
+            <p className={styles.dimNote}>
+              Сейчас панель доступна только на этом ПК (127.0.0.1:8000).
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* ── Platform capabilities ── */}
       {capabilities && <PlatformStatusPanel caps={capabilities} />}
+
+      {/* ── Resource monitor ── */}
+      <ResourceMonitor />
 
       {/* ── Network capture ── */}
       <div className={selfStyles.group}>
@@ -588,6 +613,81 @@ function fmtTraffic(b: number): string {
   if (b >= 1_000_000)     return `${(b / 1_000_000).toFixed(0)} MB`;
   if (b >= 1_000)         return `${(b / 1_000).toFixed(0)} KB`;
   return `${b} B`;
+}
+
+// ── Resource Monitor ──────────────────────────────────────────────────────────
+
+function StatBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = Math.min(100, (value / max) * 100);
+  return (
+    <div style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden", flex: 1 }}>
+      <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3, transition: "width 0.5s" }} />
+    </div>
+  );
+}
+
+function ResourceMonitor() {
+  const [stats, setStats] = useState<SystemStats | null>(null);
+
+  useEffect(() => {
+    const refresh = () => api.getSystemStats().then(setStats).catch(() => null);
+    refresh();
+    const iv = setInterval(refresh, 10000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (!stats || !stats.available) return null;
+
+  const cpuColor = (stats.cpu_percent ?? 0) > 80 ? "var(--danger)" : (stats.cpu_percent ?? 0) > 50 ? "var(--warn, #eab308)" : "var(--ok)";
+  const ramColor = (stats.ram_percent ?? 0) > 85 ? "var(--danger)" : (stats.ram_percent ?? 0) > 65 ? "var(--warn, #eab308)" : "var(--ok)";
+  const procCpuColor = (stats.process_cpu_percent ?? 0) > 30 ? "var(--warn, #eab308)" : "var(--accent)";
+
+  return (
+    <div className={selfStyles.group}>
+      <div className={selfStyles.groupTitle}>Ресурсы сервера (обновляется каждые 10 сек)</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 24px", fontSize: 12 }}>
+        {/* CPU system */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-secondary)" }}>
+            <span>CPU системы</span>
+            <span style={{ color: cpuColor, fontWeight: 600 }}>{stats.cpu_percent}%</span>
+          </div>
+          <StatBar value={stats.cpu_percent ?? 0} max={100} color={cpuColor} />
+        </div>
+        {/* RAM */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-secondary)" }}>
+            <span>RAM ({stats.ram_used_mb} / {stats.ram_total_mb} MB)</span>
+            <span style={{ color: ramColor, fontWeight: 600 }}>{stats.ram_percent}%</span>
+          </div>
+          <StatBar value={stats.ram_percent ?? 0} max={100} color={ramColor} />
+        </div>
+        {/* Process CPU */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-secondary)" }}>
+            <span>AnomalyNet CPU</span>
+            <span style={{ color: procCpuColor, fontWeight: 600 }}>{stats.process_cpu_percent}%</span>
+          </div>
+          <StatBar value={stats.process_cpu_percent ?? 0} max={100} color={procCpuColor} />
+        </div>
+        {/* Process RAM */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text-secondary)" }}>
+            <span>AnomalyNet RAM</span>
+            <span style={{ color: "var(--accent)", fontWeight: 600 }}>{stats.process_ram_mb} MB</span>
+          </div>
+          <StatBar value={stats.process_ram_mb ?? 0} max={Math.max(500, stats.process_ram_mb ?? 0)} color="var(--accent)" />
+        </div>
+        {/* Network */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-secondary)", gridColumn: "span 2" }}>
+          <span>Сеть:</span>
+          <span>↓ {stats.net_recv_kbps} KB/s</span>
+          <span style={{ opacity: 0.4 }}>·</span>
+          <span>↑ {stats.net_sent_kbps} KB/s</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Platform Status Panel ─────────────────────────────────────────────────────

@@ -47,6 +47,8 @@ class AppSettings(BaseModel):
     auto_download_models: bool = True
     # Auto-update models via git pull on startup
     auto_update_models: bool = False
+    # Allow access to the web panel from other devices on the network (not just localhost)
+    allow_remote_access: bool = False
 
 
 class ModelDescriptor(BaseModel):

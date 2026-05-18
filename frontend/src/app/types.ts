@@ -30,6 +30,20 @@ export interface AppSettings {
   models_dir: string;
   auto_download_models: boolean;
   auto_update_models: boolean;
+  allow_remote_access: boolean;
+}
+
+export interface SystemStats {
+  available: boolean;
+  cpu_percent?: number;
+  ram_used_mb?: number;
+  ram_total_mb?: number;
+  ram_percent?: number;
+  net_sent_kbps?: number;
+  net_recv_kbps?: number;
+  process_cpu_percent?: number;
+  process_ram_mb?: number;
+  error?: string;
 }
 
 export interface ModelPackageInfo {

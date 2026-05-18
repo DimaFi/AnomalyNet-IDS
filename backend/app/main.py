@@ -16,7 +16,7 @@ def _get_version() -> str:
             capture_output=True, text=True, timeout=5,
         )
         if r.returncode == 0 and r.stdout.strip():
-            return r.stdout.strip()
+            return r.stdout.strip().lstrip("v")   # "v2.1.1" → "2.1.1"
     except Exception:
         pass
     return "dev"
@@ -59,15 +59,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.api.autostart import autostart_router
-from app.api.block import block_router
+from app.api.block import block_router, _detect_best_interface_by_traffic
 from app.api.devices import devices_router, ws_devices_endpoint
 from app.api.dns import dns_router
 from app.api.models_manager import models_manager_router
 from app.api.plugins import plugins_router
 from app.api.routes import router
+from app.api.system import system_router
 from app.api.tls import tls_router
 from app.api.update import update_router
-from app.api.block import _detect_best_interface_by_traffic
 from app.core import APP_ROOT
 from app.discovery.scanner import NetworkScanner
 from app.discovery.tracker import DeviceTracker
@@ -170,11 +170,28 @@ async def lifespan(app: FastAPI):
         await service.shutdown()
 
 
+def _read_allow_remote() -> bool:
+    """Read allow_remote_access from settings.json at startup (before lifespan)."""
+    try:
+        import json as _json
+        cfg = APP_ROOT / "config" / "settings.json"
+        if cfg.exists():
+            return bool(_json.loads(cfg.read_text(encoding="utf-8")).get("allow_remote_access", False))
+    except Exception:
+        pass
+    return False
+
+
+_allow_remote = _read_allow_remote()
+
 app = FastAPI(title="AnomalyNet API", version=_get_version(), lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173", "http://127.0.0.1:8000", "http://localhost:8000"],
-    allow_credentials=True,
+    allow_origins=["*"] if _allow_remote else [
+        "http://127.0.0.1:5173", "http://localhost:5173",
+        "http://127.0.0.1:8000", "http://localhost:8000",
+    ],
+    allow_credentials=not _allow_remote,   # credentials forbidden when origins=*
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -183,6 +200,7 @@ app.include_router(autostart_router)
 app.include_router(block_router)
 app.include_router(devices_router)
 app.include_router(dns_router)
+app.include_router(system_router)
 app.include_router(tls_router)
 app.include_router(update_router)
 app.include_router(plugins_router)
