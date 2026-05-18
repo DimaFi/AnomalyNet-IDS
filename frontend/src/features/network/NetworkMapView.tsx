@@ -109,6 +109,12 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
   const [loading, setLoading] = useState(false);
   const [probeResult, setProbeResult] = useState<{ reachable: boolean; latency_ms: number | null; open_ports: number[] } | null>(null);
   const [probing, setProbing] = useState(false);
+  const [inspectResult, setInspectResult] = useState<{
+    ip: string; os_guess: string | null;
+    services: { port: number; protocol: string; title?: string; server?: string; banner?: string; status?: number }[];
+    web_urls: string[]; rtsp_url: string | null;
+  } | null>(null);
+  const [inspecting, setInspecting] = useState(false);
 
   useEffect(() => {
     api.getDeviceHistory(device.mac).then(setHistory).catch(() => {});
@@ -160,6 +166,16 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
       setProbeResult(r);
     } catch { setProbeResult({ reachable: false, latency_ms: null, open_ports: [] }); }
     finally { setProbing(false); }
+  };
+
+  const handleInspect = async () => {
+    setInspecting(true);
+    setInspectResult(null);
+    try {
+      const r = await api.inspectDevice(device.mac);
+      setInspectResult(r);
+    } catch { /* ignore */ }
+    finally { setInspecting(false); }
   };
 
   return (
@@ -295,6 +311,59 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
                   <span className={s.infoLabel}>Открытые порты</span>
                   <span className={s.infoValue}>{probeResult.open_ports.join(", ")}</span>
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Full Inspect */}
+        <div className={s.panelSection}>
+          <div className={s.panelSectionTitle}>Разведка устройства</div>
+          <button className={s.actionBtn} onClick={handleInspect} disabled={inspecting}>
+            {inspecting ? "⟳ Сканирую..." : "🔍 Инспекция сервисов"}
+          </button>
+          {inspectResult && (
+            <div style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+              {inspectResult.os_guess && (
+                <div className={s.infoRow}>
+                  <span className={s.infoLabel}>ОС (TTL)</span>
+                  <span className={s.infoValue}>{inspectResult.os_guess}</span>
+                </div>
+              )}
+              {inspectResult.web_urls.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+                  <span className={s.infoLabel} style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>Веб-интерфейсы</span>
+                  {inspectResult.web_urls.map(url => (
+                    <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                      style={{ color: "var(--accent)", fontSize: 11, wordBreak: "break-all", textDecoration: "none" }}>
+                      🌐 {url}
+                    </a>
+                  ))}
+                </div>
+              )}
+              {inspectResult.rtsp_url && (
+                <div className={s.infoRow}>
+                  <span className={s.infoLabel}>RTSP камера</span>
+                  <span className={s.infoValue} style={{ color: "#f97316", fontFamily: "monospace", fontSize: 10 }}>
+                    {inspectResult.rtsp_url}
+                  </span>
+                </div>
+              )}
+              {inspectResult.services.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
+                  <span className={s.infoLabel} style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>Сервисы</span>
+                  {inspectResult.services.map((sv, i) => (
+                    <div key={i} style={{ background: "var(--surface-3)", borderRadius: 4, padding: "3px 6px", fontSize: 11 }}>
+                      <span style={{ color: "var(--accent)", fontFamily: "monospace" }}>:{sv.port}</span>
+                      {" "}<span style={{ color: "var(--text-muted)" }}>{sv.protocol}</span>
+                      {sv.title && <span style={{ color: "var(--text-secondary)", marginLeft: 4 }}>{sv.title}</span>}
+                      {sv.banner && <span style={{ color: "var(--text-muted)", marginLeft: 4, fontFamily: "monospace", fontSize: 10 }}>{sv.banner.slice(0, 60)}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {inspectResult.services.length === 0 && !inspectResult.os_guess && inspectResult.web_urls.length === 0 && (
+                <span style={{ color: "var(--text-muted)" }}>Ничего не найдено — устройство не отвечает</span>
               )}
             </div>
           )}

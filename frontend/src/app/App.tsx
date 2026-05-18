@@ -6,25 +6,27 @@ import { AboutView } from "../features/about/AboutView";
 import { AlertsView } from "../features/alerts/AlertsView";
 import { DashboardView } from "../features/dashboard/DashboardView";
 import NetworkMapView from "../features/network/NetworkMapView";
+import { PerformanceView } from "../features/performance/PerformanceView";
 import { PluginsView } from "../features/plugins/PluginsView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StreamView } from "../features/stream/StreamView";
 import { api } from "../lib/api";
 import { useRealtimeStream } from "../lib/useRealtimeStream";
 import { useAppStore } from "./store";
-import type { AppSettings, ModelPreset } from "./types";
+import type { AppSettings, ModelPreset, SystemStats } from "./types";
 import styles from "./App.module.css";
 
-type ViewKey = "dashboard" | "stream" | "alerts" | "network" | "plugins" | "settings" | "about";
+type ViewKey = "dashboard" | "stream" | "alerts" | "network" | "plugins" | "settings" | "about" | "performance";
 
 const viewMap: Record<ViewKey, React.ComponentType> = {
-  dashboard: DashboardView,
-  stream:    StreamView,
-  alerts:    AlertsView,
-  network:   NetworkMapView,
-  plugins:   PluginsView,
-  settings:  SettingsView,
-  about:     AboutView,
+  dashboard:   DashboardView,
+  stream:      StreamView,
+  alerts:      AlertsView,
+  network:     NetworkMapView,
+  plugins:     PluginsView,
+  settings:    SettingsView,
+  about:       AboutView,
+  performance: PerformanceView,
 };
 
 /* ── Inline SVG icons ─────────────────────────────────────── */
@@ -111,13 +113,14 @@ const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = 
 ];
 
 const PAGE_TITLES: Record<ViewKey, string> = {
-  dashboard: "Dashboard",
-  stream:    "Live Stream",
-  alerts:    "Инциденты",
-  network:   "Карта сети",
-  plugins:   "Плагины",
-  settings:  "Settings",
-  about:     "О программе",
+  dashboard:   "Dashboard",
+  stream:      "Live Stream",
+  alerts:      "Инциденты",
+  network:     "Карта сети",
+  plugins:     "Плагины",
+  settings:    "Settings",
+  about:       "О программе",
+  performance: "Производительность",
 };
 
 type ThemeName = "dark" | "light" | "gray";
@@ -190,6 +193,16 @@ export function App() {
   useRealtimeStream();
 
   const [refreshing, setRefreshing] = useState(false);
+  const [loadLevel, setLoadLevel] = useState<string>("low");
+
+  useEffect(() => {
+    const refresh = () => api.getSystemStats().then((s: SystemStats) => {
+      if (s.load_level) setLoadLevel(s.load_level);
+    }).catch(() => null);
+    refresh();
+    const iv = setInterval(refresh, 5000);
+    return () => clearInterval(iv);
+  }, []);
 
   const bootstrap = useCallback(async () => {
     setRefreshing(true);
@@ -375,6 +388,19 @@ export function App() {
                 {settings.auto_block ? "Защита ВКЛ" : "Защита ВЫКЛ"}
               </button>
             )}
+            <button
+              className={styles.loadBtn}
+              onClick={() => setView("performance" as ViewKey)}
+              title="Производительность системы"
+              style={{
+                "--load-color": loadLevel === "critical" ? "var(--danger)" :
+                                loadLevel === "high"     ? "#f97316" :
+                                loadLevel === "medium"   ? "#eab308" : "var(--ok)",
+              } as React.CSSProperties}
+            >
+              <span className={styles.loadDot} />
+              Нагрузка
+            </button>
             <ModelPresetPicker compact />
             {settings && (
               <button

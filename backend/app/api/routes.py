@@ -38,7 +38,7 @@ def _get_app_version() -> str:
                 cwd=str(cwd), capture_output=True, text=True, timeout=5,
             )
             if r.returncode == 0 and r.stdout.strip():
-                _APP_VERSION = r.stdout.strip()
+                _APP_VERSION = r.stdout.strip().lstrip("v")   # "v2.2.0" → "2.2.0"
             else:
                 # No tags — fall back to short hash
                 r2 = subprocess.run(

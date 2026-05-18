@@ -3,7 +3,7 @@ export type LanguageCode = "ru" | "en";
 export type RunMode = "mock" | "windows_stub" | "linux_stub" | "linux_live" | "windows_live";
 export type StatusLevel = "idle" | "active" | "warning" | "error";
 export type VerdictLabel = "normal" | "warning" | "anomaly";
-export type AppView = "dashboard" | "stream" | "alerts" | "network" | "plugins" | "settings" | "about";
+export type AppView = "dashboard" | "stream" | "alerts" | "network" | "plugins" | "settings" | "about" | "performance";
 
 export interface AppSettings {
   language: LanguageCode;
@@ -43,6 +43,12 @@ export interface SystemStats {
   net_recv_kbps?: number;
   process_cpu_percent?: number;
   process_ram_mb?: number;
+  load_level?: string;
+  events_total?: number;
+  events_warning?: number;
+  events_anomaly?: number;
+  buffer_size?: number;
+  buffer_max?: number;
   error?: string;
 }
 

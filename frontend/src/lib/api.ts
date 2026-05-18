@@ -178,6 +178,14 @@ export const api = {
     request<{ ip: string; reachable: boolean; latency_ms: number | null; open_ports: number[] }>(
       `/api/devices/${encodeURIComponent(mac)}/probe`, { method: "POST" }
     ),
+  inspectDevice: (mac: string) =>
+    request<{
+      ip: string;
+      os_guess: string | null;
+      services: { port: number; protocol: string; title?: string; server?: string; banner?: string; status?: number }[];
+      web_urls: string[];
+      rtsp_url: string | null;
+    }>(`/api/devices/${encodeURIComponent(mac)}/inspect`, { method: "POST" }),
 
   // ── TLS Monitoring ────────────────────────────────────────────────────────
   getTlsStats: () => request<TlsStats>("/api/tls/stats"),

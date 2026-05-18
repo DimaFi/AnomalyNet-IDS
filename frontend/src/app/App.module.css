@@ -237,6 +237,34 @@
   white-space: nowrap;
 }
 
+.loadBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--load-color, var(--ok)) 35%, transparent);
+  background: color-mix(in srgb, var(--load-color, var(--ok)) 10%, transparent);
+  color: var(--load-color, var(--ok));
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast) var(--ease-fluent),
+              border-color var(--duration-fast) var(--ease-fluent),
+              opacity var(--duration-fast) var(--ease-fluent);
+}
+.loadBtn:hover { opacity: 0.85; }
+
+.loadDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--load-color, var(--ok));
+  box-shadow: 0 0 6px var(--load-color, var(--ok));
+  flex-shrink: 0;
+}
+
 .refreshBtn {
   display: flex;
   align-items: center;
