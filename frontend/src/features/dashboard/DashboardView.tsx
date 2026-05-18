@@ -97,10 +97,11 @@ export function DashboardView() {
           <p>Мониторинг сети в реальном времени. Обнаружение атак на основе CatBoost.</p>
         </div>
       </div>
-      {/* ── Performance quick-nav ── */}
-      {sysStats?.available && (
-        <PerfCard stats={sysStats} />
-      )}
+      {/* ── Quick-nav cards ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {sysStats?.available && <PerfCard stats={sysStats} />}
+        <NetworkCard />
+      </div>
 
       <div className={styles.metricsGrid}>
         <article className={styles.metricCard}>
@@ -241,6 +242,51 @@ export function DashboardView() {
         </div>
       )}
     </section>
+  );
+}
+
+function NetworkCard() {
+  const setView = useAppStore((s) => s.setView);
+  const deviceStats = useAppStore((s) => s.deviceStats);
+  const suspicious = deviceStats?.suspicious ?? 0;
+  const color = suspicious > 0 ? "#f97316" : "#22c55e";
+  return (
+    <div
+      onClick={() => setView("network" as import("../../app/types").AppView)}
+      style={{
+        background: "var(--surface-2)",
+        border: `1px solid ${color}44`,
+        borderRadius: "var(--radius-lg)",
+        padding: "0.85rem 1.1rem",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        boxShadow: `0 0 18px ${color}18`,
+        transition: "box-shadow 0.2s, border-color 0.2s",
+      }}
+    >
+      <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
+          Карта сети
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color, marginTop: 1 }}>
+          {suspicious > 0 ? `${suspicious} подозрительных` : "Угроз не обнаружено"}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 10, fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
+        {deviceStats && (
+          <>
+            <span title="Всего устройств">{deviceStats.total} устройств</span>
+            <span title="Онлайн" style={{ color: "#22c55e" }}>{deviceStats.online} онлайн</span>
+          </>
+        )}
+      </div>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-muted)", flexShrink: 0 }}>
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </div>
   );
 }
 

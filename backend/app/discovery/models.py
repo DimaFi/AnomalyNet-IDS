@@ -47,6 +47,7 @@ class DeviceInfo:
     last_dns_alert: Optional[datetime] = None
     risk_score: int = 0
     risk_label: str = "low"
+    is_self: bool = False          # True when this IP belongs to the machine running AnomalyNet
 
     def display_name(self) -> str:
         return self.custom_name or self.hostname or self.vendor or self.ip
@@ -79,6 +80,7 @@ class DeviceInfo:
             "last_dns_alert": _dt(self.last_dns_alert),
             "risk_score": self.risk_score,
             "risk_label": self.risk_label,
+            "is_self": self.is_self,
             "device_label": DEVICE_TYPES.get(self.device_type, DEVICE_TYPES["unknown"])["label"],
             "device_emoji": DEVICE_TYPES.get(self.device_type, DEVICE_TYPES["unknown"])["emoji"],
         }

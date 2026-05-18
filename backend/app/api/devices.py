@@ -42,7 +42,10 @@ async def list_devices(
     devices = tracker.get_all_devices()
     if suspicious_only:
         devices = [d for d in devices if d.is_suspicious]
-    return [d.to_dict() for d in devices]
+    result = [d.to_dict() for d in devices]
+    # Own device always first, then by risk score descending
+    result.sort(key=lambda d: (not d.get("is_self", False), -d.get("risk_score", 0)))
+    return result
 
 
 @devices_router.get("/devices/stats")

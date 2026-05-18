@@ -12,6 +12,21 @@ if TYPE_CHECKING:
     from app.contracts.schemas import InferenceResult, NormalizedFlowEvent
 
 
+def _get_local_ips() -> set[str]:
+    """Return all IPv4 addresses assigned to local interfaces."""
+    ips: set[str] = set()
+    try:
+        import socket
+        import psutil
+        for addrs in psutil.net_if_addrs().values():
+            for addr in addrs:
+                if addr.family == socket.AF_INET:
+                    ips.add(addr.address)
+    except Exception:
+        pass
+    return ips
+
+
 class DeviceTracker:
     """Tracks discovered devices and enriches them with pipeline alert data."""
 
@@ -22,6 +37,7 @@ class DeviceTracker:
         self._alert_history: dict[str, deque] = {}         # mac → deque(maxlen=50)
         self._traffic: dict[str, deque] = {}               # ip → deque[(ts, b_in, b_out)]
         self._last_scan: Optional[datetime] = None
+        self._local_ips: set[str] = _get_local_ips()
 
     # ── Scan integration ──────────────────────────────────────
 
@@ -49,6 +65,7 @@ class DeviceTracker:
                     score = calculate_risk_score(d)
                     d.risk_score = score
                     d.risk_label = _risk_label(score)
+                    d.is_self = d.ip in self._local_ips
                     self._devices[d.mac] = d
                     self._alert_history[d.mac] = deque(maxlen=50)
                 self._ip_to_mac[d.ip] = d.mac
@@ -181,6 +198,7 @@ class DeviceTracker:
                 mac=mac, ip=src_ip, vendor=vendor,
                 device_type=device_type, hostname=resolved_hostname,
                 first_seen=now, last_seen=now, is_online=True,
+                is_self=(src_ip in self._local_ips),
             )
             from app.discovery.risk import calculate_risk_score, risk_label as _risk_label
             score = calculate_risk_score(dev)

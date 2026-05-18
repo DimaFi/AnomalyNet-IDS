@@ -68,6 +68,20 @@ function RiskBar({ score, label, compact = false }: { score: number; label: stri
   );
 }
 
+// ── Info row helper ──────────────────────────────────────────────────────────
+
+function InfoRow({ label, value, mono = false, ok = false, danger = false, warn = false }: {
+  label: string; value: string; mono?: boolean; ok?: boolean; danger?: boolean; warn?: boolean;
+}) {
+  const color = ok ? "var(--ok)" : danger ? "var(--danger-strong)" : warn ? "#f97316" : undefined;
+  return (
+    <div className={s.infoRow}>
+      <span className={s.infoLabel}>{label}</span>
+      <span className={s.infoValue} style={{ fontFamily: mono ? "monospace" : undefined, fontSize: mono ? 11 : undefined, color }}>{value}</span>
+    </div>
+  );
+}
+
 // ── Device Card ──────────────────────────────────────────────────────────────
 
 function DeviceCard({ device, selected, onClick }: {
@@ -78,6 +92,7 @@ function DeviceCard({ device, selected, onClick }: {
     selected ? s.deviceCardSelected : "",
     device.is_suspicious ? s.deviceCardSuspicious : "",
     !device.is_online ? s.deviceCardOffline : "",
+    device.is_self ? s.deviceCardSelf : "",
   ].filter(Boolean).join(" ");
 
   return (
@@ -86,6 +101,9 @@ function DeviceCard({ device, selected, onClick }: {
       <div className={s.cardName} title={device.display_name}>{device.display_name}</div>
       <div className={s.cardIp}>{device.ip}</div>
       <RiskBar score={device.risk_score} label={device.risk_label} compact />
+      {device.is_self && (
+        <div className={s.selfCardBadge}>🖥 Это устройство</div>
+      )}
       {device.is_suspicious && (
         <div className={`${s.cardBadge} ${s.cardBadgeDanger}`}>⚠ подозрительный</div>
       )}
@@ -96,13 +114,25 @@ function DeviceCard({ device, selected, onClick }: {
   );
 }
 
-// ── Device Panel ─────────────────────────────────────────────────────────────
+// ── Device Panel (tabbed modal drawer) ───────────────────────────────────────
+
+type TabKey = "overview" | "security" | "dns" | "tls" | "recon" | "manage";
+const PANEL_TABS: { key: TabKey; label: string }[] = [
+  { key: "overview",  label: "Обзор" },
+  { key: "security",  label: "Безопасность" },
+  { key: "dns",       label: "DNS" },
+  { key: "tls",       label: "TLS" },
+  { key: "recon",     label: "Разведка" },
+  { key: "manage",    label: "Управление" },
+];
 
 function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
   device: Device; onClose: () => void; onUpdate: () => void; canBlock?: boolean;
 }) {
+  const [tab, setTab] = useState<TabKey>("overview");
   const [history, setHistory] = useState<DeviceAlert[]>([]);
   const [dnsSummary, setDnsSummary] = useState<DeviceDnsSummary | null>(null);
+  const [tlsData, setTlsData] = useState<Record<string, { count: number; first_seen: string; last_seen: string }> | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [nameInput, setNameInput] = useState(device.custom_name || device.hostname || "");
   const [typeInput, setTypeInput] = useState(device.device_type);
@@ -120,6 +150,7 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
   useEffect(() => {
     api.getDeviceHistory(device.mac).then(setHistory).catch(() => {});
     api.getDeviceDnsSummary(device.ip).then(setDnsSummary).catch(() => {});
+    api.getTlsProfiles(device.ip).then(r => setTlsData(r.profiles[device.ip] ?? null)).catch(() => {});
   }, [device.mac, device.ip]);
 
   const handleRename = async () => {
@@ -182,248 +213,297 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
   };
 
   return (
-    <aside className={s.panel}>
-      <div className={s.panelHeader}>
-        <span className={s.panelEmoji}>{device.device_emoji}</span>
-        <div className={s.panelTitleBlock}>
-          <div className={s.panelName}>{device.display_name}</div>
-          <div className={s.panelSub}>{device.device_label} · {device.vendor}</div>
-        </div>
-        <button className={s.panelClose} onClick={onClose}>✕</button>
-      </div>
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)" }} onClick={onClose} />
+      <aside className={s.drawer}>
 
-      <div className={s.panelBody}>
-        {/* Badges */}
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          {device.is_suspicious && <span className={`${s.badge} ${s.badgeSuspicious}`}>⚠ подозрительный</span>}
-          {device.is_whitelisted && <span className={`${s.badge} ${s.badgeWhitelisted}`}>✓ белый список</span>}
-          {!device.is_online && <span className={`${s.badge} ${s.badgeOffline}`}>офлайн</span>}
+        {/* Header */}
+        <div className={s.drawerHeader}>
+          <span style={{ fontSize: 26, lineHeight: 1, flexShrink: 0 }}>{device.device_emoji}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className={s.drawerTitle}>{device.display_name}</div>
+            <div className={s.drawerSub}>{device.device_label} · {device.vendor}</div>
+          </div>
+          {device.is_self && <span className={s.selfBadge}>🖥 Это устройство</span>}
+          <button className={s.panelClose} onClick={onClose}>✕</button>
         </div>
 
-        {/* Risk score */}
-        <RiskBar score={device.risk_score} label={device.risk_label} />
-        {device.risk_score > 0 && (
-          <div className={s.riskExplain}>
-            {device.alert_count > 0 && `${device.alert_count} ML · `}
-            {device.dns_alert_count > 0 && (
-              <span style={{ color: device.dns_alert_count >= 3 ? "#f97316" : "#eab308" }}>
-                {device.dns_alert_count} DNS ·{" "}
-              </span>
-            )}
-            {device.last_alert_score != null && `Score ${device.last_alert_score.toFixed(2)} · `}
-            {device.device_label}
-          </div>
-        )}
-
-        {/* Info */}
-        <div className={s.panelSection}>
-          <div className={s.panelSectionTitle}>Сеть</div>
-          <div className={s.infoRow}>
-            <span className={s.infoLabel}>IP</span>
-            <span className={s.infoValue}>{device.ip}</span>
-          </div>
-          <div className={s.infoRow}>
-            <span className={s.infoLabel}>MAC</span>
-            <span className={s.infoValue}>{device.mac}</span>
-          </div>
-          {device.hostname && (
-            <div className={s.infoRow}>
-              <span className={s.infoLabel}>Хостнейм</span>
-              <span className={s.infoValue}>{device.hostname}</span>
-            </div>
-          )}
+        {/* Status badges */}
+        <div className={s.drawerBadges}>
+          <span className={s.ipMonoBadge}>{device.ip}</span>
+          {device.is_suspicious && <span className={`${s.bdg} ${s.bdgWarn}`}>⚠ подозрительный</span>}
+          {device.is_whitelisted && <span className={`${s.bdg} ${s.bdgOk}`}>✓ белый список</span>}
+          {!device.is_online && <span className={`${s.bdg} ${s.bdgMuted}`}>офлайн</span>}
         </div>
 
-        {/* Traffic */}
-        <div className={s.panelSection}>
-          <div className={s.panelSectionTitle}>Трафик (всего)</div>
-          <div className={s.trafficRow}>
-            <span className={s.trafficLabel}>↓ Входящий</span>
-            <span className={s.trafficValue}>{fmtBytes(device.bytes_in)}</span>
-          </div>
-          <div className={s.trafficRow}>
-            <span className={s.trafficLabel}>↑ Исходящий</span>
-            <span className={s.trafficValue}>{fmtBytes(device.bytes_out)}</span>
-          </div>
+        {/* Risk */}
+        <div style={{ padding: "4px 16px 8px" }}>
+          <RiskBar score={device.risk_score} label={device.risk_label} />
         </div>
 
-        {/* Alerts */}
-        {device.alert_count > 0 && (
-          <div className={s.panelSection}>
-            <div className={s.panelSectionTitle}>Алерты ({device.alert_count})</div>
-            {history.slice(0, 5).map((a, i) => (
-              <div key={i} className={`${s.alertItem} ${s.alertItemDanger}`}>
-                <div className={s.alertTs}>{fmtTime(a.ts)}</div>
-                <div className={s.alertLabel}>{a.attack_class || a.label} {a.score != null ? `(${(a.score * 100).toFixed(0)}%)` : ""}</div>
+        {/* Tabs */}
+        <div className={s.tabs}>
+          {PANEL_TABS.map(t => (
+            <button key={t.key}
+              className={[s.tab, tab === t.key ? s.tabActive : ""].filter(Boolean).join(" ")}
+              onClick={() => setTab(t.key)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className={s.drawerBody}>
+          {/* ── TAB: ОБЗОР ──────────────────────────────────────── */}
+          {tab === "overview" && (
+            <div className={s.tabContent}>
+              <div className={s.infoSection}>
+                <div className={s.infoSectionTitle}>Сеть</div>
+                <InfoRow label="IP" value={device.ip} mono />
+                <InfoRow label="MAC" value={device.mac} mono />
+                {device.hostname && <InfoRow label="Хостнейм" value={device.hostname} />}
+                <InfoRow label="Производитель" value={device.vendor} />
+                <InfoRow label="Тип" value={device.device_label} />
+                <InfoRow label="Статус" value={device.is_online ? "онлайн" : "офлайн"} ok={device.is_online} danger={!device.is_online} />
+                {device.first_seen && <InfoRow label="Первый раз" value={fmtTime(device.first_seen)} />}
+                {device.last_seen && <InfoRow label="Последний раз" value={fmtTime(device.last_seen)} />}
               </div>
-            ))}
-            {history.length === 0 && device.last_alert_type && (
-              <div className={`${s.alertItem} ${s.alertItemDanger}`}>
-                <div className={s.alertTs}>{fmtTime(device.last_alert_time)}</div>
-                <div className={s.alertLabel}>{device.last_alert_type} {device.last_alert_score != null ? `(${(device.last_alert_score * 100).toFixed(0)}%)` : ""}</div>
+              <div className={s.infoSection}>
+                <div className={s.infoSectionTitle}>Трафик (всего)</div>
+                <InfoRow label="↓ Входящий" value={fmtBytes(device.bytes_in)} />
+                <InfoRow label="↑ Исходящий" value={fmtBytes(device.bytes_out)} />
               </div>
-            )}
-          </div>
-        )}
-
-        {/* DNS activity */}
-        {dnsSummary && dnsSummary.available && dnsSummary.total_queries > 0 && (
-          <div className={s.panelSection}>
-            <div className={s.panelSectionTitle}>
-              DNS активность
-              {dnsSummary.alert_count > 0 && (
-                <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700,
-                  padding: "1px 6px", borderRadius: 4,
-                  background: "rgba(var(--warn-rgb,234,179,8),0.15)",
-                  color: "var(--warn)", border: "1px solid rgba(234,179,8,0.3)" }}>
-                  ⚠ {dnsSummary.alert_count} аном.
-                </span>
+              {device.open_ports.length > 0 && (
+                <div className={s.infoSection}>
+                  <div className={s.infoSectionTitle}>Открытые порты</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {device.open_ports.map(p => (
+                      <span key={p} style={{ fontFamily: "monospace", fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--surface-3)", color: "var(--accent)" }}>
+                        {p}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               )}
-            </div>
-            <div className={s.infoRow}>
-              <span className={s.infoLabel}>Запросов</span>
-              <span className={s.infoValue}>{dnsSummary.total_queries}</span>
-            </div>
-            {dnsSummary.top_domains.map((d) => (
-              <div key={d.domain} className={s.infoRow}>
-                <span className={s.infoValue} style={{ fontFamily: "monospace", fontSize: 11,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  maxWidth: 180 }} title={d.domain}>{d.domain}</span>
-                <span className={s.infoLabel} style={{ marginLeft: "auto", flexShrink: 0 }}>×{d.count}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Probe */}
-        <div className={s.panelSection}>
-          <div className={s.panelSectionTitle}>Тест доступности</div>
-          <button className={s.actionBtn} onClick={handleProbe} disabled={probing}>
-            {probing ? "⟳ Проверяю..." : "⚡ Отправить запрос"}
-          </button>
-          {probeResult && (
-            <div style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 3, marginTop: 4 }}>
-              <div className={s.infoRow}>
-                <span className={s.infoLabel}>Доступен</span>
-                <span className={s.infoValue} style={{ color: probeResult.reachable ? "var(--ok)" : "var(--danger-strong)" }}>
-                  {probeResult.reachable ? `✓ да${probeResult.latency_ms != null ? ` (${probeResult.latency_ms} мс)` : ""}` : "✗ нет"}
-                </span>
-              </div>
-              {probeResult.open_ports.length > 0 && (
-                <div className={s.infoRow}>
-                  <span className={s.infoLabel}>Открытые порты</span>
-                  <span className={s.infoValue}>{probeResult.open_ports.join(", ")}</span>
+              {!device.is_self && (
+                <div className={s.gatewayNote}>
+                  ℹ Полная статистика трафика видна только если AnomalyNet работает как шлюз
                 </div>
               )}
             </div>
           )}
-        </div>
 
-        {/* Full Inspect */}
-        <div className={s.panelSection}>
-          <div className={s.panelSectionTitle}>Разведка устройства</div>
-          <button className={s.actionBtn} onClick={handleInspect} disabled={inspecting}>
-            {inspecting ? "⟳ Сканирую..." : "🔍 Инспекция сервисов"}
-          </button>
-          {inspectError && (
-            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>✗ {inspectError}</div>
-          )}
-          {inspectResult && (
-            <div style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
-              {inspectResult.os_guess && (
-                <div className={s.infoRow}>
-                  <span className={s.infoLabel}>ОС (TTL)</span>
-                  <span className={s.infoValue}>{inspectResult.os_guess}</span>
-                </div>
-              )}
-              {inspectResult.web_urls.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
-                  <span className={s.infoLabel} style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>Веб-интерфейсы</span>
-                  {inspectResult.web_urls.map(url => (
-                    <a key={url} href={url} target="_blank" rel="noopener noreferrer"
-                      style={{ color: "var(--accent)", fontSize: 11, wordBreak: "break-all", textDecoration: "none" }}>
-                      🌐 {url}
-                    </a>
-                  ))}
-                </div>
-              )}
-              {inspectResult.rtsp_url && (
-                <div className={s.infoRow}>
-                  <span className={s.infoLabel}>RTSP камера</span>
-                  <span className={s.infoValue} style={{ color: "#f97316", fontFamily: "monospace", fontSize: 10 }}>
-                    {inspectResult.rtsp_url}
-                  </span>
-                </div>
-              )}
-              {inspectResult.services.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
-                  <span className={s.infoLabel} style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.06em" }}>Сервисы</span>
-                  {inspectResult.services.map((sv, i) => (
-                    <div key={i} style={{ background: "var(--surface-3)", borderRadius: 4, padding: "3px 6px", fontSize: 11 }}>
-                      <span style={{ color: "var(--accent)", fontFamily: "monospace" }}>:{sv.port}</span>
-                      {" "}<span style={{ color: "var(--text-muted)" }}>{sv.protocol}</span>
-                      {sv.title && <span style={{ color: "var(--text-secondary)", marginLeft: 4 }}>{sv.title}</span>}
-                      {sv.banner && <span style={{ color: "var(--text-muted)", marginLeft: 4, fontFamily: "monospace", fontSize: 10 }}>{sv.banner.slice(0, 60)}</span>}
+          {/* ── TAB: БЕЗОПАСНОСТЬ ───────────────────────────────── */}
+          {tab === "security" && (
+            <div className={s.tabContent}>
+              <div className={s.infoSection}>
+                <div className={s.infoSectionTitle}>Риск-факторы</div>
+                {device.alert_count > 0 && <InfoRow label="ML алертов" value={String(device.alert_count)} danger />}
+                {device.dns_alert_count > 0 && <InfoRow label="DNS аномалий" value={String(device.dns_alert_count)} warn />}
+                {device.last_alert_type && <InfoRow label="Тип угрозы" value={device.last_alert_type} danger />}
+                {device.last_alert_score != null && <InfoRow label="Score" value={`${(device.last_alert_score * 100).toFixed(0)}%`} danger />}
+                {device.last_alert_time && <InfoRow label="Время угрозы" value={fmtTime(device.last_alert_time)} />}
+                {device.alert_count === 0 && device.dns_alert_count === 0 && (
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 0" }}>Угроз не обнаружено</div>
+                )}
+              </div>
+              {history.length > 0 && (
+                <div className={s.infoSection}>
+                  <div className={s.infoSectionTitle}>История алертов ({history.length})</div>
+                  {history.slice(0, 10).map((a, i) => (
+                    <div key={i} className={s.alertItem}>
+                      <span className={s.alertTs}>{fmtTime(a.ts)}</span>
+                      <span className={s.alertLbl}>{a.attack_class || a.label}</span>
+                      {a.score != null && <span className={s.alertScore}>{(a.score * 100).toFixed(0)}%</span>}
                     </div>
                   ))}
                 </div>
               )}
-              {inspectResult.services.length === 0 && !inspectResult.os_guess && inspectResult.web_urls.length === 0 && (
-                <span style={{ color: "var(--text-muted)" }}>Ничего не найдено — устройство не отвечает</span>
+            </div>
+          )}
+
+          {/* ── TAB: DNS ────────────────────────────────────────── */}
+          {tab === "dns" && (
+            <div className={s.tabContent}>
+              {dnsSummary && dnsSummary.available && dnsSummary.total_queries > 0 ? (
+                <>
+                  <div className={s.infoSection}>
+                    <div className={s.infoSectionTitle}>
+                      Активность
+                      {dnsSummary.alert_count > 0 && (
+                        <span className={`${s.bdg} ${s.bdgWarn}`} style={{ marginLeft: 8 }}>⚠ {dnsSummary.alert_count} аномалий</span>
+                      )}
+                    </div>
+                    <InfoRow label="Всего запросов" value={String(dnsSummary.total_queries)} />
+                  </div>
+                  <div className={s.infoSection}>
+                    <div className={s.infoSectionTitle}>Топ домены</div>
+                    {dnsSummary.top_domains.map((d) => (
+                      <div key={d.domain} className={s.dnsRow}>
+                        <span className={s.dnsDomain} title={d.domain}>{d.domain}</span>
+                        <span className={s.dnsCount}>×{d.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--text-muted)", padding: "16px 0", textAlign: "center" }}>
+                  {dnsSummary && !dnsSummary.available ? "DNS мониторинг отключён" : "DNS-запросов не обнаружено"}
+                </div>
+              )}
+              {!device.is_self && (
+                <div className={s.gatewayNote}>
+                  ℹ DNS запросы других устройств видны только если AnomalyNet работает как шлюз
+                </div>
               )}
             </div>
           )}
-        </div>
 
-        {/* Rename */}
-        <div className={s.panelSection}>
-          <div className={s.panelSectionTitle}>Настройки</div>
-          {renaming ? (
-            <>
-              <input
-                className={s.renameInput}
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                placeholder="Имя устройства"
-                onKeyDown={(e) => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setRenaming(false); }}
-                autoFocus
-              />
-              <select className={s.typeSelect} value={typeInput} onChange={(e) => setTypeInput(e.target.value)}>
-                {Object.entries(DEVICE_TYPES).map(([k, v]) => (
-                  <option key={k} value={k}>{v}</option>
-                ))}
-              </select>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className={s.actionBtn} style={{ flex: 1 }} onClick={handleRename} disabled={loading}>Сохранить</button>
-                <button className={s.actionBtn} style={{ flex: 1 }} onClick={() => setRenaming(false)}>Отмена</button>
+          {/* ── TAB: TLS ────────────────────────────────────────── */}
+          {tab === "tls" && (
+            <div className={s.tabContent}>
+              {tlsData && Object.keys(tlsData).length > 0 ? (
+                <div className={s.infoSection}>
+                  <div className={s.infoSectionTitle}>JA4 профили ({Object.keys(tlsData).length})</div>
+                  {Object.entries(tlsData).map(([ja4, info]) => (
+                    <div key={ja4} className={s.ja4Row}>
+                      <div style={{ fontFamily: "monospace", fontSize: 10, color: "var(--accent)", wordBreak: "break-all" }}>{ja4}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        ×{info.count} · {fmtTime(info.last_seen)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--text-muted)", padding: "16px 0", textAlign: "center" }}>
+                  TLS fingerprints не обнаружены
+                </div>
+              )}
+              {!device.is_self && (
+                <div className={s.gatewayNote}>
+                  ℹ TLS fingerprints других устройств видны только если AnomalyNet работает как шлюз
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB: РАЗВЕДКА ───────────────────────────────────── */}
+          {tab === "recon" && (
+            <div className={s.tabContent}>
+              <div className={s.infoSection}>
+                <div className={s.infoSectionTitle}>Тест доступности</div>
+                <button className={s.actionBtn} onClick={handleProbe} disabled={probing}>
+                  {probing ? "⟳ Проверяю..." : "⚡ Пинг + порты"}
+                </button>
+                {probeResult && (
+                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <InfoRow label="Доступен" value={probeResult.reachable ? `✓ да${probeResult.latency_ms != null ? ` (${probeResult.latency_ms} мс)` : ""}` : "✗ нет"} ok={probeResult.reachable} danger={!probeResult.reachable} />
+                    {probeResult.open_ports.length > 0 && (
+                      <InfoRow label="Порты" value={probeResult.open_ports.join(", ")} mono />
+                    )}
+                  </div>
+                )}
               </div>
-            </>
-          ) : (
-            <button className={s.actionBtn} onClick={() => setRenaming(true)}>✏ Переименовать</button>
+              <div className={s.infoSection}>
+                <div className={s.infoSectionTitle}>Инспекция сервисов</div>
+                <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "0 0 8px" }}>
+                  HTTP/HTTPS баннеры, SSH/FTP/RTSP, определение ОС по TTL
+                </p>
+                <button className={s.actionBtn} onClick={handleInspect} disabled={inspecting}>
+                  {inspecting ? "⟳ Сканирую..." : "🔍 Инспекция"}
+                </button>
+                {inspectError && (
+                  <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>✗ {inspectError}</div>
+                )}
+                {inspectResult && (
+                  <div style={{ fontSize: 11, display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
+                    {inspectResult.os_guess && <InfoRow label="ОС (TTL)" value={inspectResult.os_guess} />}
+                    {inspectResult.web_urls.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Веб-интерфейсы</span>
+                        {inspectResult.web_urls.map(url => (
+                          <a key={url} href={url} target="_blank" rel="noopener noreferrer"
+                            style={{ color: "var(--accent)", fontSize: 11, wordBreak: "break-all", textDecoration: "none" }}>
+                            🌐 {url}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                    {inspectResult.rtsp_url && (
+                      <InfoRow label="RTSP" value={inspectResult.rtsp_url} mono warn />
+                    )}
+                    {inspectResult.services.map((sv, i) => (
+                      <div key={i} style={{ background: "var(--surface-3)", borderRadius: 4, padding: "3px 6px", fontSize: 11 }}>
+                        <span style={{ color: "var(--accent)", fontFamily: "monospace" }}>:{sv.port}</span>
+                        {" "}<span style={{ color: "var(--text-muted)" }}>{sv.protocol}</span>
+                        {sv.title && <span style={{ marginLeft: 4 }}>{sv.title}</span>}
+                        {sv.banner && <span style={{ color: "var(--text-muted)", marginLeft: 4, fontFamily: "monospace", fontSize: 10 }}>{sv.banner.slice(0, 60)}</span>}
+                      </div>
+                    ))}
+                    {inspectResult.services.length === 0 && !inspectResult.os_guess && inspectResult.web_urls.length === 0 && (
+                      <span style={{ color: "var(--text-muted)" }}>Ничего не найдено</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── TAB: УПРАВЛЕНИЕ ─────────────────────────────────── */}
+          {tab === "manage" && (
+            <div className={s.tabContent}>
+              <div className={s.infoSection}>
+                <div className={s.infoSectionTitle}>Переименование</div>
+                {renaming ? (
+                  <>
+                    <input
+                      className={s.renameInput}
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      placeholder="Имя устройства"
+                      onKeyDown={(e) => { if (e.key === "Enter") handleRename(); if (e.key === "Escape") setRenaming(false); }}
+                      autoFocus
+                    />
+                    <select className={s.typeSelect} value={typeInput} onChange={(e) => setTypeInput(e.target.value)}>
+                      {Object.entries(DEVICE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                    <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                      <button className={s.actionBtn} style={{ flex: 1 }} onClick={handleRename} disabled={loading}>Сохранить</button>
+                      <button className={s.actionBtn} style={{ flex: 1 }} onClick={() => setRenaming(false)}>Отмена</button>
+                    </div>
+                  </>
+                ) : (
+                  <button className={s.actionBtn} onClick={() => setRenaming(true)}>✏ Переименовать</button>
+                )}
+              </div>
+              <div className={s.infoSection}>
+                <div className={s.infoSectionTitle}>Действия</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button className={`${s.actionBtn} ${s.actionBtnOk}`} onClick={handleWhitelist} disabled={loading}>
+                    {device.is_whitelisted ? "✕ Убрать из белого списка" : "✓ В белый список"}
+                  </button>
+                  {device.is_suspicious && (
+                    <button className={s.actionBtn} onClick={handleReset} disabled={loading}>
+                      ↺ Сбросить статус подозрительного
+                    </button>
+                  )}
+                  {!device.is_self && canBlock && (
+                    <button className={`${s.actionBtn} ${s.actionBtnDanger}`} onClick={handleBlock} disabled={loading}>
+                      🚫 Заблокировать IP
+                    </button>
+                  )}
+                  {!device.is_self && (
+                    <button className={s.actionBtn} onClick={handleRemove} disabled={loading}
+                      style={{ color: "var(--text-muted)", borderColor: "var(--border)" }}>
+                      🗑 Удалить устройство
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </div>
-      </div>
-
-      <div className={s.panelActions}>
-        {canBlock && (
-          <button className={`${s.actionBtn} ${s.actionBtnDanger}`} onClick={handleBlock} disabled={loading}>
-            🚫 Заблокировать IP
-          </button>
-        )}
-        <button className={`${s.actionBtn} ${s.actionBtnOk}`} onClick={handleWhitelist} disabled={loading}>
-          {device.is_whitelisted ? "✕ Убрать из белого списка" : "✓ В белый список"}
-        </button>
-        {device.is_suspicious && (
-          <button className={s.actionBtn} onClick={handleReset} disabled={loading}>
-            ↺ Сбросить статус
-          </button>
-        )}
-        <button className={`${s.actionBtn}`} onClick={handleRemove} disabled={loading}
-          style={{ color: "var(--text-muted)", borderColor: "var(--border)" }}>
-          🗑 Удалить устройство
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </div>
   );
 }
 

@@ -24,6 +24,7 @@ export interface Device {
   last_dns_alert: string | null;
   risk_score: number;
   risk_label: "low" | "medium" | "high" | "critical";
+  is_self?: boolean;
 }
 
 export interface DeviceAlert {
