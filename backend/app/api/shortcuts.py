@@ -9,6 +9,7 @@ The shortcut points to launch.bat (Windows) or launch.sh (Linux), NOT to a URL.
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import subprocess
@@ -17,6 +18,25 @@ from pathlib import Path
 from fastapi import APIRouter
 
 shortcuts_router = APIRouter(prefix="/api/shortcuts")
+_log = logging.getLogger(__name__)
+
+def _find_icon(root: Path) -> tuple[Path | None, Path | None]:
+    """Return (ico_path, png_path) for Windows/Linux shortcuts."""
+    ico: Path | None = None
+    png: Path | None = None
+    for candidate in [root / "frontend" / "public" / "AnomalyNet.ico",
+                      root / "frontend" / "dist" / "AnomalyNet.ico",
+                      root / "AnomalyNet.ico"]:
+        if candidate.exists():
+            ico = candidate
+            break
+    for candidate in [root / "frontend" / "dist" / "logo.png",
+                      root / "frontend" / "public" / "logo.png"]:
+        if candidate.exists():
+            png = candidate
+            break
+    return ico, png
+
 
 # Resolve app root the same way update.py does
 def _app_root() -> Path:
@@ -33,15 +53,17 @@ def _app_root() -> Path:
     return Path("/opt/anomalynet/AnomalyNet-gui")
 
 
-def _create_windows_lnk(dest: Path, target: Path, work_dir: Path, description: str) -> tuple[bool, str]:
+def _create_windows_lnk(dest: Path, target: Path, work_dir: Path, description: str,
+                         icon: Path | None = None) -> tuple[bool, str]:
     """Create a .lnk shortcut via PowerShell WScript.Shell COM object."""
-    icon_path = target  # use launcher bat as icon source; installer may add .ico later
+    icon_line = f"$sc.IconLocation = '{icon},0'" if icon and icon.exists() else ""
     ps = f"""
 $ws = New-Object -ComObject WScript.Shell
 $sc = $ws.CreateShortcut('{dest}')
 $sc.TargetPath  = '{target}'
 $sc.WorkingDirectory = '{work_dir}'
 $sc.Description = '{description}'
+{icon_line}
 $sc.Save()
 """
     try:
@@ -56,14 +78,16 @@ $sc.Save()
         return False, str(e)
 
 
-def _create_desktop_file(dest: Path, launcher: Path, app_root: Path) -> tuple[bool, str]:
+def _create_desktop_file(dest: Path, launcher: Path, app_root: Path,
+                          icon: Path | None = None) -> tuple[bool, str]:
     """Write an XDG .desktop file for Linux / freedesktop."""
+    icon_value = str(icon) if icon and icon.exists() else "network-wired"
     content = f"""[Desktop Entry]
 Name=AnomalyNet IDS
 Comment=Network intrusion detection system
 Exec=bash {launcher}
 Path={app_root}
-Icon=network-wired
+Icon={icon_value}
 Terminal=false
 Type=Application
 Categories=Network;Security;
@@ -102,6 +126,7 @@ def create_shortcut(body: dict) -> dict:
         if not launcher.exists():
             return {"ok": False, "error": f"Launcher не найден: {launcher}"}
 
+        ico, _ = _find_icon(root)
         name = "AnomalyNet IDS.lnk"
 
         if target_loc == "desktop":
@@ -129,7 +154,9 @@ def create_shortcut(body: dict) -> dict:
         else:
             return {"ok": False, "error": f"Unknown target: {target_loc}"}
 
-        ok, detail = _create_windows_lnk(dest, launcher, root, "AnomalyNet IDS — запустить сервер и открыть интерфейс")
+        ok, detail = _create_windows_lnk(dest, launcher, root,
+                                          "AnomalyNet IDS — запустить сервер и открыть интерфейс",
+                                          icon=ico)
         return {"ok": ok, "path": detail if ok else None, "error": None if ok else detail}
 
     elif sys_name == "Linux":
@@ -138,12 +165,14 @@ def create_shortcut(body: dict) -> dict:
             return {"ok": False, "error": f"Launcher не найден: {launcher}"}
         launcher.chmod(0o755)
 
+        _, icon_png = _find_icon(root)
+
         if target_loc in ("desktop", "applications"):
             if target_loc == "desktop":
                 dest = Path.home() / "Desktop" / "anomalynet.desktop"
             else:
                 dest = Path.home() / ".local" / "share" / "applications" / "anomalynet.desktop"
-            ok, detail = _create_desktop_file(dest, launcher, root)
+            ok, detail = _create_desktop_file(dest, launcher, root, icon=icon_png)
             # Refresh desktop database
             if ok:
                 try:
