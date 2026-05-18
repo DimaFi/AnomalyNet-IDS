@@ -105,11 +105,11 @@ class DeviceTracker:
 
     # ── Passive L2 discovery ──────────────────────────────────
 
-    def on_passive_arp(self, src_ip: str, src_mac: str) -> None:
+    def on_passive_arp(self, src_ip: str, src_mac: str, hostname: str = "") -> None:
         """Called from capture adapter when an L2 frame reveals IP→MAC mapping.
 
-        Works without active ARP scans — extracts info from ARP broadcasts and
-        unicast frames addressed to this host. Thread-safe.
+        Works without active ARP scans — extracts info from ARP/DHCP/mDNS/SSDP
+        broadcasts and unicast frames addressed to this host. Thread-safe.
         """
         import ipaddress as _ip
         try:
@@ -143,6 +143,9 @@ class DeviceTracker:
                 dev.last_seen = now
                 dev.is_online = True
                 self._ip_to_mac[src_ip] = mac
+                # Update hostname if we got a better one (e.g. from DHCP)
+                if hostname and not dev.hostname and not dev.custom_name:
+                    dev.hostname = hostname
                 return
 
             try:
@@ -150,20 +153,23 @@ class DeviceTracker:
                 vendor = get_oui_lookup().lookup(mac)
             except Exception:
                 vendor = "Unknown"
+            # Use provided hostname (DHCP/mDNS); fallback to DNS reverse lookup
+            resolved_hostname = hostname
+            if not resolved_hostname:
+                try:
+                    import socket as _sock
+                    resolved_hostname = _sock.gethostbyaddr(src_ip)[0]
+                except Exception:
+                    resolved_hostname = ""
             try:
                 from app.discovery.classifier import guess_device_type
-                device_type = guess_device_type(vendor=vendor, hostname="")
+                device_type = guess_device_type(vendor=vendor, hostname=resolved_hostname)
             except Exception:
                 device_type = "unknown"
-            try:
-                import socket as _sock
-                hostname = _sock.gethostbyaddr(src_ip)[0]
-            except Exception:
-                hostname = ""
 
             dev = DeviceInfo(
                 mac=mac, ip=src_ip, vendor=vendor,
-                device_type=device_type, hostname=hostname,
+                device_type=device_type, hostname=resolved_hostname,
                 first_seen=now, last_seen=now, is_online=True,
             )
             from app.discovery.risk import calculate_risk_score, risk_label as _risk_label

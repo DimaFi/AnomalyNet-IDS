@@ -147,10 +147,74 @@ def _resolve_hostname(ip: str) -> str:
         return ""
 
 
+def _run_arp_cache() -> tuple[int, str]:
+    """Read the OS ARP cache (arp -a). Returns (returncode, text)."""
+    try:
+        r = subprocess.run(["arp", "-a"], capture_output=True, timeout=5)
+        for enc in ("utf-8", "cp866", "cp1251"):
+            try:
+                return r.returncode, r.stdout.decode(enc)
+            except Exception:
+                continue
+        return r.returncode, r.stdout.decode(errors="replace")
+    except Exception as exc:
+        return -1, str(exc)
+
+
 def _scan_arp(network: str) -> list[DeviceInfo]:
     """Scan a CIDR network using platform-appropriate backend."""
     backend = _create_arp_backend()
     return backend.scan_network(network)
+
+
+def _tcp_connect_scan(network: str, timeout: float = 0.35) -> list[str]:
+    """Find live hosts via TCP connect to common ports.
+
+    Works when ARP is blocked by client isolation (L3 routing still allowed).
+    Uses ConnectionRefusedError (RST) as immediate "host is up" signal —
+    no need to wait for full timeout if the host is up but port is closed.
+
+    Returns list of live IPs (no MAC — caller must check ARP cache).
+    """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    PORTS = [80, 443, 22, 445, 3389, 8080, 23]
+
+    try:
+        net_obj = ipaddress.ip_network(network, strict=False)
+    except ValueError:
+        return []
+    # Skip huge networks (>1024 hosts) to avoid long scans
+    if net_obj.num_addresses > 1024:
+        logger.info("TCP scan: skipping large network %s", network)
+        return []
+
+    hosts = [str(ip) for ip in net_obj.hosts()]
+    live: list[str] = []
+
+    def check(ip: str) -> str | None:
+        for port in PORTS:
+            try:
+                with socket.create_connection((ip, port), timeout=timeout):
+                    return ip  # connected → host is up
+            except ConnectionRefusedError:
+                return ip  # RST → port closed but host is up
+            except OSError:
+                pass  # timeout / filtered → try next port
+        return None
+
+    with ThreadPoolExecutor(max_workers=64) as pool:
+        futures = {pool.submit(check, h): h for h in hosts}
+        for f in as_completed(futures, timeout=20):
+            try:
+                result = f.result()
+                if result:
+                    live.append(result)
+            except Exception:
+                pass
+
+    logger.info("TCP connect scan %s: %d live hosts", network, len(live))
+    return live
 
 
 class NetworkScanner:
@@ -170,16 +234,57 @@ class NetworkScanner:
             logger.warning("No suitable network found for ARP scan")
         return networks
 
+    def _enrich_with_arp_cache(self, ips: list[str]) -> list[DeviceInfo]:
+        """Look up MACs for a list of IPs via ARP cache (arp -a)."""
+        rc, text = _run_arp_cache()
+        from app.discovery.backends.windows_arp import parse_arp_cache
+        cache = dict(parse_arp_cache(text)) if rc == 0 else {}
+
+        from app.discovery.classifier import guess_device_type
+        from app.discovery.oui import get_oui_lookup
+        oui = get_oui_lookup()
+        now = datetime.now()
+        devices: list[DeviceInfo] = []
+        for ip in ips:
+            mac = cache.get(ip, "")
+            if not mac:
+                # Generate placeholder MAC so device appears on map
+                try:
+                    parts = [int(x) for x in ip.split(".")]
+                    mac = f"02:00:{parts[0]:02X}:{parts[1]:02X}:{parts[2]:02X}:{parts[3]:02X}"
+                except Exception:
+                    continue
+            vendor = oui.lookup(mac)
+            devices.append(DeviceInfo(
+                mac=mac.upper(), ip=ip, vendor=vendor,
+                device_type=guess_device_type(vendor=vendor, hostname=""),
+                first_seen=now, last_seen=now, is_online=True,
+            ))
+        return devices
+
     def scan_once(self) -> list[DeviceInfo]:
+        """ARP scan; fall back to TCP connect scan if ARP yields nothing."""
         networks = self._get_networks()
         if not networks:
             return []
         all_devices: list[DeviceInfo] = []
         for net in networks:
             try:
-                all_devices.extend(self._backend.scan_network(net))
+                found = self._backend.scan_network(net)
+                all_devices.extend(found)
             except Exception as exc:
                 logger.warning("ARP scan failed for %s: %s", net, exc)
+
+        # If ARP found nothing (e.g. client isolation), try TCP connect scan
+        if not all_devices:
+            logger.info("ARP returned 0 devices — trying TCP connect scan")
+            for net in networks:
+                try:
+                    live_ips = _tcp_connect_scan(net)
+                    all_devices.extend(self._enrich_with_arp_cache(live_ips))
+                except Exception as exc:
+                    logger.warning("TCP scan failed for %s: %s", net, exc)
+
         return all_devices
 
     async def start_background_scan(

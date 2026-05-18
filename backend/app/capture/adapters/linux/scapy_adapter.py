@@ -148,46 +148,114 @@ class LinuxScapyAdapter(CaptureAdapter):
                 pass
 
     def _process_passive_discovery(self, pkt) -> None:
-        """Extract IP→MAC mapping from captured L2 frames and notify DeviceTracker.
+        """Passive device discovery from broadcast/multicast traffic.
 
-        Catches two cases:
-        1. ARP request/reply broadcast — sender fields hwsrc/psrc are always set
-        2. Any Ethernet+IP unicast frame from a device communicating with us
+        Works even with strict WiFi client isolation because:
+        - ARP requests are L2 broadcast (AP always forwards)
+        - DHCP is L2 broadcast (AP always forwards)
+        - mDNS/SSDP/NetBIOS use multicast/broadcast (AP forwards)
 
-        This is the only reliable passive discovery on WiFi networks with
-        client isolation (ARP broadcasts are not filtered by the AP).
+        Priority order (best hostname wins):
+        1. DHCP DISCOVER/REQUEST — MAC + hostname (option 12) + requested IP
+        2. ARP — MAC + IP, no hostname
+        3. mDNS/SSDP/NetBIOS — MAC + IP (+ name parsed from payload)
+        4. Any Ethernet+IP frame — MAC + IP, no hostname
         """
         src_ip: str | None = None
         src_mac: str | None = None
+        hostname: str = ""
 
-        # Case 1: ARP packet — most reliable, works even with client isolation
+        # ── 1. DHCP broadcast (op=1 DISCOVER, op=3 REQUEST) ─────────────────
+        # Most informative: gives MAC + hostname in a single broadcast packet.
+        # Fires when a device connects/reconnects to the network.
         try:
-            from scapy.layers.l2 import ARP
-            if pkt.haslayer(ARP):
-                arp = pkt[ARP]
-                # op=1 request, op=2 reply — sender fields always populated
-                if arp.hwsrc and arp.psrc and arp.psrc != "0.0.0.0":
-                    src_ip = arp.psrc
-                    src_mac = arp.hwsrc
+            if pkt.haslayer("BOOTP") and pkt.haslayer("Ether"):
+                bootp = pkt["BOOTP"]
+                # chaddr = client hardware address (MAC, 6 bytes)
+                if bootp.chaddr and bootp.chaddr != b"\x00" * 16:
+                    raw_mac = bootp.chaddr[:6]
+                    src_mac = ":".join(f"{b:02X}" for b in raw_mac)
+                    # ciaddr (client IP) may be 0.0.0.0 on DISCOVER
+                    # use src IP from IP layer instead
+                    if pkt.haslayer("IP") and pkt["IP"].src != "0.0.0.0":
+                        src_ip = pkt["IP"].src
+                    # Extract hostname from DHCP option 12
+                    if pkt.haslayer("DHCP"):
+                        for opt in pkt["DHCP"].options:
+                            if isinstance(opt, tuple) and opt[0] == "hostname":
+                                raw = opt[1]
+                                hostname = raw.decode(errors="replace") if isinstance(raw, bytes) else str(raw)
+                                break
         except Exception:
             pass
 
-        # Case 2: Ethernet + IP frame (unicast to us or from us)
+        # ── 2. ARP request/reply (broadcast) ────────────────────────────────
+        # Fires whenever a device needs to resolve a MAC address on the network.
+        if src_ip is None:
+            try:
+                from scapy.layers.l2 import ARP
+                if pkt.haslayer(ARP):
+                    arp = pkt[ARP]
+                    if arp.hwsrc and arp.psrc and arp.psrc != "0.0.0.0":
+                        src_ip = arp.psrc
+                        src_mac = arp.hwsrc
+            except Exception:
+                pass
+
+        # ── 3. mDNS / SSDP / NetBIOS (multicast/broadcast) ─────────────────
+        # mDNS  → 224.0.0.251:5353  (Apple, Linux, Android, Chromecasts)
+        # SSDP  → 239.255.255.250:1900  (Windows, smart TVs, routers, printers)
+        # NBNS  → x.x.x.255:137  (Windows NetBIOS name broadcasts)
+        if src_ip is None:
+            try:
+                if pkt.haslayer("UDP") and pkt.haslayer("IP") and pkt.haslayer("Ether"):
+                    udp = pkt["UDP"]
+                    dst_port = udp.dport
+                    if dst_port in (5353, 1900, 137):
+                        src_ip = pkt["IP"].src
+                        src_mac = pkt["Ether"].src
+                        # mDNS: try to extract hostname from DNS PTR/A records
+                        if dst_port == 5353 and not hostname:
+                            try:
+                                from scapy.layers.dns import DNS
+                                if pkt.haslayer(DNS):
+                                    dns = pkt[DNS]
+                                    # Walk answer + additional records for A/AAAA PTR
+                                    for section in (dns.an, dns.ar):
+                                        rec = section
+                                        while rec and rec.type != 0:
+                                            if rec.type in (1, 28) and hasattr(rec, "rrname"):
+                                                # A/AAAA record — rrname is the hostname
+                                                name = rec.rrname
+                                                if isinstance(name, bytes):
+                                                    name = name.decode(errors="replace")
+                                                name = name.rstrip(".")
+                                                # Take only simple hostnames, skip _service._tcp.local
+                                                if name and "._" not in name and ".local" in name:
+                                                    hostname = name.replace(".local", "")
+                                                    break
+                                            rec = getattr(rec, "payload", None)
+                                            if not hasattr(rec, "type"):
+                                                break
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
+        # ── 4. Any Ethernet+IP frame addressed to/from us ───────────────────
         if src_ip is None:
             try:
                 if pkt.haslayer("Ether") and pkt.haslayer("IP"):
                     eth_src = pkt["Ether"].src
                     ip_src = pkt["IP"].src
-                    # Only capture frames from other devices (not our own traffic)
-                    # Scapy shows our own src MAC on outgoing — skip broadcast
-                    if eth_src and eth_src != "ff:ff:ff:ff:ff:ff":
+                    if eth_src and eth_src not in ("ff:ff:ff:ff:ff:ff", "00:00:00:00:00:00"):
                         src_ip = ip_src
                         src_mac = eth_src
             except Exception:
                 pass
 
         if src_ip and src_mac:
-            self._device_tracker.on_passive_arp(src_ip, src_mac)
+            self._device_tracker.on_passive_arp(src_ip, src_mac, hostname=hostname)
 
     _QTYPE_MAP = {1: "A", 2: "NS", 5: "CNAME", 15: "MX", 16: "TXT", 28: "AAAA", 255: "ANY"}
 
