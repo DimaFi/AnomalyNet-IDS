@@ -195,8 +195,13 @@ class PipelineService:
                 preprocess, model = self._get_pipeline_and_model()
                 adapter = await self._get_or_rebuild_adapter()
 
-                # Wait for at least one event, then drain up to BATCH_SIZE - 1 more
-                events = [await adapter.next_event()]
+                # Wait for at least one event (with timeout so the loop never hangs
+                # permanently if the sniffer stops producing events)
+                try:
+                    first = await asyncio.wait_for(adapter.next_event(), timeout=30.0)
+                except asyncio.TimeoutError:
+                    continue  # no events — re-check capture_enabled and loop
+                events = [first]
                 while len(events) < BATCH_SIZE:
                     try:
                         events.append(adapter._queue.get_nowait())

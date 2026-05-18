@@ -140,6 +140,9 @@ _HOSTNAME_RULES: list[tuple[str, str]] = [
     ("workstation","pc_windows"),
     ("komputer",   "pc_windows"),   # Polish
     ("computer",   "pc_windows"),
+    ("stud",       "pc_windows"),   # student-pc, stud-lab-xx
+    ("user-",      "pc_windows"),
+    ("client",     "pc_windows"),
     # Linux
     ("server",     "pc_linux"),
     ("srv-",       "pc_linux"),
@@ -165,6 +168,13 @@ _HOSTNAME_RULES: list[tuple[str, str]] = [
     ("gateway",    "router"),
     ("ap-",        "router"),
     ("wifi",       "router"),
+    ("tl-",        "router"),   # TP-Link model names: TL-WR940N
+    ("gl-",        "router"),   # GL.iNet routers
+    ("rt-",        "router"),   # ASUS RT-xxxx
+    ("wrt",        "router"),   # OpenWrt / Linksys WRT
+    ("openwrt",    "router"),
+    ("mikrotik",   "router"),
+    ("ubnt",       "router"),   # Ubiquiti shortname
     # Phones
     ("android",    "phone"),
     ("pixel",      "phone"),
@@ -172,6 +182,17 @@ _HOSTNAME_RULES: list[tuple[str, str]] = [
     ("huawei",     "phone"),
     ("honor",      "phone"),
     ("xiaomi",     "phone"),
+    ("redmi",      "phone"),
+    ("mi-",        "phone"),
+    ("oppo",       "phone"),
+    ("vivo",       "phone"),
+    ("oneplus",    "phone"),
+    ("realme",     "phone"),
+    ("motorola",   "phone"),
+    ("nokia",      "phone"),
+    ("sony",       "phone"),   # Xperia
+    ("iphone",     "phone"),   # duplicate-safe
+    ("phone",      "phone"),
     # Smart home
     ("hue",        "iot_bulb"),
     ("lifx",       "iot_bulb"),

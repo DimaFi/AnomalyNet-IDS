@@ -31,12 +31,21 @@ def _get_app_version() -> str:
         try:
             import subprocess
             from pathlib import Path
+            cwd = Path(__file__).parent.parent.parent
+            # Prefer the nearest tag (clean version like v2.1.0)
             r = subprocess.run(
-                ["git", "describe", "--tags", "--always", "--dirty"],
-                cwd=Path(__file__).parent.parent.parent,
-                capture_output=True, text=True, timeout=5,
+                ["git", "describe", "--tags", "--abbrev=0"],
+                cwd=str(cwd), capture_output=True, text=True, timeout=5,
             )
-            _APP_VERSION = r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else "dev"
+            if r.returncode == 0 and r.stdout.strip():
+                _APP_VERSION = r.stdout.strip()
+            else:
+                # No tags — fall back to short hash
+                r2 = subprocess.run(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    cwd=str(cwd), capture_output=True, text=True, timeout=5,
+                )
+                _APP_VERSION = r2.stdout.strip() if r2.returncode == 0 else "dev"
         except Exception:
             _APP_VERSION = "dev"
     return _APP_VERSION

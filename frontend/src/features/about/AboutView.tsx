@@ -8,7 +8,7 @@ const ML_REPO     = "https://github.com/DimaFi/AnomalyNet-ml";
 
 export function AboutView() {
   const health = useAppStore((s) => s.health);
-  const appVersion = health?.version ? `v${health.version}` : "v…";
+  const appVersion = health ? `v${health.version ?? "dev"}` : "v…";
   const [checking, setChecking]   = useState(false);
   const [applying, setApplying]   = useState(false);
   const [checkResult, setCheck]   = useState<UpdateCheckResult | null>(null);

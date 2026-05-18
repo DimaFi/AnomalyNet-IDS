@@ -36,14 +36,11 @@ class DeviceTracker:
                     existing.ip = d.ip
                     existing.last_seen = now
                     existing.is_online = d.is_online
-                    changed = False
                     if d.hostname and existing.hostname != d.hostname:
                         existing.hostname = d.hostname
-                        changed = True
                     if d.vendor != "Unknown" and existing.vendor != d.vendor:
                         existing.vendor = d.vendor
-                        changed = True
-                    if existing.device_type == "unknown" and changed:
+                    if existing.device_type == "unknown" and (existing.hostname or existing.vendor != "Unknown"):
                         from app.discovery.classifier import guess_device_type
                         new_type = guess_device_type(vendor=existing.vendor, hostname=existing.hostname)
                         if new_type != "unknown":
