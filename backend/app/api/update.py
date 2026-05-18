@@ -293,27 +293,27 @@ async def stop_service() -> dict:
         ppid = os.getppid()
 
         if _platform_sys.system() == "Windows":
-            # Kill parent (uvicorn reloader/launcher) tree — cascades to this worker too
+            # Kill parent process tree (uvicorn reloader + all children)
             if ppid > 1:
-                subprocess.Popen(
-                    ["taskkill", "/F", "/T", "/PID", str(ppid)],
-                    creationflags=subprocess.CREATE_NO_WINDOW,
-                    close_fds=True,
-                )
-            # Kill own tree as fallback
-            subprocess.Popen(
-                ["taskkill", "/F", "/T", "/PID", str(os.getpid())],
-                creationflags=subprocess.CREATE_NO_WINDOW,
-                close_fds=True,
-            )
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(ppid)],
+                        capture_output=True, timeout=5,
+                    )
+                except Exception:
+                    pass
         else:
-            # Linux: kill the entire process group
+            # Linux: kill entire process group
             try:
                 os.killpg(os.getpgid(os.getpid()), signal.SIGTERM)
             except Exception:
-                if ppid > 1:
+                try:
                     os.kill(ppid, signal.SIGTERM)
-                os._exit(0)
+                except Exception:
+                    pass
+
+        # Always exit current process as final fallback
+        os._exit(0)
 
     asyncio.create_task(_exit())
     return {"stopped": True, "message": "Сервис остановится через секунду"}
