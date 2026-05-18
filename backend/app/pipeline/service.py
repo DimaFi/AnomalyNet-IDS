@@ -184,16 +184,19 @@ class PipelineService:
         CatBoost batch inference is 5-10x faster than one-by-one calls."""
         self._status = "active"
         BATCH_SIZE = 16  # collect up to 16 events per iteration before inference
+        _err_delay = 2.0  # exponential backoff on persistent errors (2→4→8→…→60s)
 
         while True:
             if not self._settings.capture_enabled:
                 self._status = "idle"
+                _err_delay = 2.0
                 await asyncio.sleep(1.0)
                 continue
 
             try:
                 preprocess, model = self._get_pipeline_and_model()
                 adapter = await self._get_or_rebuild_adapter()
+                _err_delay = 2.0  # reset backoff on successful adapter start
 
                 # Wait for at least one event (with timeout so the loop never hangs
                 # permanently if the sniffer stops producing events)
@@ -305,7 +308,8 @@ class PipelineService:
             except Exception as exc:
                 logger.error("Pipeline loop error: %s", exc, exc_info=True)
                 self._status = "warning"
-                await asyncio.sleep(2.0)
+                await asyncio.sleep(_err_delay)
+                _err_delay = min(_err_delay * 2, 60.0)
 
     async def _try_block_ip(self, ip: str) -> None:
         if ip in self._blocked_ips_registry:
