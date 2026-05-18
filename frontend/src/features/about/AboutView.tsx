@@ -98,13 +98,17 @@ export function AboutView() {
         <h2 className={styles.cardTitle}>Обновления и управление</h2>
 
         <div className={styles.updateActions}>
-          <button className={styles.btnPrimary} onClick={() => void handleCheck()} disabled={checking || applying}>
-            {checking ? <><span className={styles.spinner} /> Проверяем...</> : "Проверить обновления"}
-          </button>
-          <RestartButton />
-          <StopButton />
-          <ReinstallButton />
-          <UninstallButton />
+          <div className={styles.actionsRow}>
+            <button className={styles.btnPrimary} onClick={() => void handleCheck()} disabled={checking || applying}>
+              {checking ? <><span className={styles.spinner} /> Проверяем...</> : "Проверить обновления"}
+            </button>
+            <RestartButton />
+            <StopButton />
+          </div>
+          <div className={styles.actionsRow}>
+            <ReinstallButton />
+            <UninstallButton />
+          </div>
         </div>
 
         {checkError && <p className={styles.errorMsg}>{checkError}</p>}

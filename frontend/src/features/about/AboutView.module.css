@@ -95,7 +95,8 @@
 .extIcon { color: var(--text-muted); margin-left: auto; flex-shrink: 0; }
 
 /* ── Update actions ── */
-.updateActions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.updateActions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.actionsRow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
 .btnPrimary {
   display: flex;
@@ -209,11 +210,11 @@
     flex-direction: column-reverse;
   }
 
-  .updateActions {
+  .actionsRow {
     flex-direction: column;
   }
 
-  .updateActions button {
+  .actionsRow button {
     width: 100%;
     justify-content: center;
   }
