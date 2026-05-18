@@ -146,6 +146,11 @@ def _git_pull_hard(repo_dir: Path, clone_url: str | None = None,
         )
         if r.returncode != 0:
             return False, f"clone failed: {r.stderr[:300]}"
+        # Fetch tags separately — shallow clone doesn't include them by default
+        subprocess.run(
+            ["git", "fetch", "--tags", "--depth=1"],
+            cwd=str(repo_dir), capture_output=True, timeout=60,
+        )
         return True, f"cloned {clone_url}"
 
     # Case 2: directory exists but no .git (ZIP install) → init + connect + fetch
@@ -155,7 +160,7 @@ def _git_pull_hard(repo_dir: Path, clone_url: str | None = None,
         cmds = [
             ["git", "init"],
             ["git", "remote", "add", "origin", clone_url],
-            ["git", "fetch", "--depth=1", "origin", "main"],
+            ["git", "fetch", "--depth=1", "--tags", "origin", "main"],
             ["git", "reset", "--hard", "FETCH_HEAD"],
         ]
         for cmd in cmds:

@@ -8,15 +8,29 @@ from pathlib import Path
 
 
 def _get_version() -> str:
-    """Read version from git tag, fallback to pyproject.toml or hardcoded."""
+    """Read version from git tag. Handles shallow clones (--depth=1)."""
+    repo = Path(__file__).parent.parent.parent
     try:
         r = subprocess.run(
-            ["git", "describe", "--tags", "--always", "--dirty"],
-            cwd=Path(__file__).parent.parent.parent,
-            capture_output=True, text=True, timeout=5,
+            ["git", "describe", "--tags", "--always"],
+            cwd=repo, capture_output=True, text=True, timeout=5,
         )
-        if r.returncode == 0 and r.stdout.strip():
-            return r.stdout.strip().lstrip("v")   # "v2.1.1" → "2.1.1"
+        if r.returncode == 0:
+            val = r.stdout.strip().lstrip("v")
+            if "." in val:          # "2.3.0" or "2.3.0-3-gabcdef" → real version
+                return val.split("-")[0]   # strip "-3-gabcdef" suffix → "2.3.0"
+    except Exception:
+        pass
+    # Fallback: list all tags sorted by version, take latest
+    try:
+        r = subprocess.run(
+            ["git", "tag", "--sort=-version:refname"],
+            cwd=repo, capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode == 0:
+            tags = [t.strip().lstrip("v") for t in r.stdout.splitlines() if t.strip()]
+            if tags:
+                return tags[0]
     except Exception:
         pass
     return "dev"
