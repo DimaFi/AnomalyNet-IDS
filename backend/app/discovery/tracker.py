@@ -27,6 +27,38 @@ def _get_local_ips() -> set[str]:
     return ips
 
 
+def _get_local_interfaces() -> list[tuple[str, str, str]]:
+    """Return list of (ip, mac, iface_name) for all active local interfaces.
+
+    Skips loopback and entries without both IP and MAC.
+    """
+    import socket
+    import psutil
+    result: list[tuple[str, str, str]] = []
+    try:
+        AF_INET = socket.AF_INET
+        AF_LINK = psutil.AF_LINK  # type: ignore[attr-defined]
+        for name, addrs in psutil.net_if_addrs().items():
+            ip: str | None = None
+            mac: str | None = None
+            for addr in addrs:
+                if addr.family == AF_INET and not addr.address.startswith("127.") \
+                        and not addr.address.startswith("169.254."):
+                    ip = addr.address
+                elif addr.family == AF_LINK:
+                    raw = addr.address or ""
+                    # normalise to AA:BB:CC:DD:EE:FF
+                    norm = raw.upper().replace("-", ":").replace(".", ":")
+                    if norm and norm not in ("00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF",
+                                             "", "None"):
+                        mac = norm
+            if ip and mac:
+                result.append((ip, mac, name))
+    except Exception:
+        pass
+    return result
+
+
 class DeviceTracker:
     """Tracks discovered devices and enriches them with pipeline alert data."""
 
@@ -72,10 +104,45 @@ class DeviceTracker:
 
             # Mark devices not in this scan as offline
             for mac, dev in self._devices.items():
-                if mac not in seen_macs:
+                if mac not in seen_macs and not dev.is_self:
                     dev.is_online = False
 
+            # Inject local machine — ARP scan never returns the host itself
+            self._inject_self_devices(now)
+
             self._last_scan = now
+
+    def _inject_self_devices(self, now: datetime) -> None:
+        """Add/update entries for the local machine's own interfaces (called under lock)."""
+        from app.discovery.classifier import guess_device_type
+        from app.discovery.oui import get_oui_lookup
+        import socket as _socket
+
+        oui = get_oui_lookup()
+        for ip, mac, iface_name in _get_local_interfaces():
+            mac_upper = mac.upper()
+            if mac_upper in self._devices:
+                dev = self._devices[mac_upper]
+                dev.ip = ip
+                dev.is_online = True
+                dev.is_self = True
+                dev.last_seen = now
+            else:
+                vendor = oui.lookup(mac_upper)
+                try:
+                    hostname = _socket.gethostname()
+                except Exception:
+                    hostname = ""
+                device_type = guess_device_type(vendor=vendor, hostname=hostname)
+                dev = DeviceInfo(
+                    mac=mac_upper, ip=ip, vendor=vendor,
+                    device_type=device_type if device_type != "unknown" else "pc_windows",
+                    hostname=hostname, first_seen=now, last_seen=now,
+                    is_online=True, is_self=True,
+                )
+                self._devices[mac_upper] = dev
+                self._alert_history[mac_upper] = deque(maxlen=50)
+            self._ip_to_mac[ip] = mac_upper
 
     # ── Pipeline hook ─────────────────────────────────────────
 
@@ -233,7 +300,7 @@ class DeviceTracker:
         with self._lock:
             devices = list(self._devices.values())
         # suspicious first, then online, then offline
-        return sorted(devices, key=lambda d: (not d.is_suspicious, not d.is_online, d.ip))
+        return sorted(devices, key=lambda d: (not d.is_self, not d.is_suspicious, not d.is_online, d.ip))
 
     def get_bytes_last_5min(self, ip: str) -> tuple[int, int]:
         cutoff = datetime.now() - timedelta(minutes=5)
