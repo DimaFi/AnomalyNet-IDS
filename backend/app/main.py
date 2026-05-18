@@ -6,6 +6,12 @@ import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+try:
+    import setproctitle
+    setproctitle.setproctitle("AnomalyNet IDS")
+except Exception:
+    pass
+
 
 def _get_version() -> str:
     """Read version from git tag. Handles shallow clones (--depth=1)."""
