@@ -19,13 +19,26 @@ update_router = APIRouter(prefix="/api/update")
 import os as _os
 import platform as _platform_sys
 
-def _default_app_root() -> str:
-    if _platform_sys.system() == "Windows":
-        return r"C:\AnomalyNet\AnomalyNet-gui"
-    return "/opt/anomalynet/AnomalyNet-gui"
 
-# ANOMALYNET_APP_ROOT is set by the installer (systemd on Linux, machine env var on Windows)
-GUI_DIR  = Path(_os.environ.get("ANOMALYNET_APP_ROOT", _default_app_root()))
+def _detect_app_root() -> Path:
+    # 1. Installer sets ANOMALYNET_APP_ROOT (systemd EnvironmentFile / Windows machine env var)
+    env_root = _os.environ.get("ANOMALYNET_APP_ROOT")
+    if env_root:
+        p = Path(env_root)
+        if p.exists():
+            return p
+    # 2. Auto-detect from this file's location:
+    #    update.py lives at <root>/backend/app/api/update.py  →  4 parents = <root>
+    detected = Path(__file__).parent.parent.parent.parent
+    if (detected / ".git").exists() or (detected / "frontend").exists():
+        return detected
+    # 3. Installed location fallback
+    if _platform_sys.system() == "Windows":
+        return Path(r"C:\AnomalyNet\AnomalyNet-gui")
+    return Path("/opt/anomalynet/AnomalyNet-gui")
+
+
+GUI_DIR  = _detect_app_root()
 ML_DIR   = GUI_DIR.parent / "AnomalyNet-ml"
 DIST_DIR = GUI_DIR / "frontend" / "dist"
 

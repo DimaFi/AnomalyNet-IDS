@@ -140,6 +140,14 @@ export const api = {
       headers: jsonHeaders,
       body: JSON.stringify({ enabled }),
     }),
+  getShortcutInfo: () =>
+    request<{ platform: string; app_root: string; launcher_exists: boolean; launcher_path: string }>("/api/shortcuts/info"),
+  createShortcut: (target: "desktop" | "startmenu" | "applications") =>
+    request<{ ok: boolean; path: string | null; error: string | null }>("/api/shortcuts/create", {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ target }),
+    }),
   lsDir: (path: string) =>
     request<{
       path: string; exists: boolean; error?: string;

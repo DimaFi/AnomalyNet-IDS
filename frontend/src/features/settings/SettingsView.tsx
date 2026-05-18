@@ -17,6 +17,8 @@ export function SettingsView() {
   const [blockedIps, setBlockedIps] = useState<{ ip: string; blocked_at: string }[]>([]);
   const [autostartState, setAutostartState] = useState<{ available: boolean; enabled: boolean } | null>(null);
   const [autostartLoading, setAutostartLoading] = useState(false);
+  const [shortcutInfo, setShortcutInfo] = useState<{ platform: string; launcher_exists: boolean; launcher_path: string } | null>(null);
+  const [shortcutMsg, setShortcutMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [whitelistInput, setWhitelistInput] = useState("");
   const [showAutoBlockConfirm, setShowAutoBlockConfirm] = useState(false);
   const [confirmIp, setConfirmIp] = useState("");
@@ -25,6 +27,7 @@ export function SettingsView() {
     api.getInterfaces().then(setInterfaces).catch(() => setInterfaces([]));
     api.getAutostart().then(setAutostartState).catch(() => null);
     api.getCapabilities().then(setCapabilities).catch(() => null);
+    api.getShortcutInfo().then(setShortcutInfo).catch(() => null);
   }, [setCapabilities]);
 
   const refreshBlocked = useCallback(() => {
@@ -151,6 +154,48 @@ export function SettingsView() {
                 }} />
               <span>Запускать при старте системы{capabilities?.service_backend ? ` (${capabilities.service_backend})` : ""}</span>
             </label>
+          )}
+        </div>
+      </div>
+
+      {/* ── Shortcuts & launch ── */}
+      <div className={selfStyles.group}>
+        <div className={selfStyles.groupTitle}>Ярлыки и запуск</div>
+        <div className={styles.formGrid}>
+          {shortcutInfo && (
+            <p className={styles.dimNote}>
+              Файл запуска: <code>{shortcutInfo.launcher_path}</code>
+              {shortcutInfo.launcher_exists ? " ✓" : " — не найден"}
+            </p>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {shortcutInfo?.platform === "Windows" && (<>
+              <button className={styles.btnSecondary} onClick={async () => {
+                setShortcutMsg(null);
+                try { const r = await api.createShortcut("desktop"); setShortcutMsg({ ok: r.ok, text: r.ok ? `Ярлык создан: ${r.path}` : (r.error ?? "Ошибка") }); }
+                catch (e: unknown) { setShortcutMsg({ ok: false, text: e instanceof Error ? e.message : "Ошибка" }); }
+              }}>Создать ярлык на рабочем столе</button>
+              <button className={styles.btnSecondary} onClick={async () => {
+                setShortcutMsg(null);
+                try { const r = await api.createShortcut("startmenu"); setShortcutMsg({ ok: r.ok, text: r.ok ? `Ярлык добавлен в меню Пуск: ${r.path}` : (r.error ?? "Ошибка") }); }
+                catch (e: unknown) { setShortcutMsg({ ok: false, text: e instanceof Error ? e.message : "Ошибка" }); }
+              }}>Добавить в меню Пуск</button>
+            </>)}
+            {shortcutInfo?.platform === "Linux" && (<>
+              <button className={styles.btnSecondary} onClick={async () => {
+                setShortcutMsg(null);
+                try { const r = await api.createShortcut("desktop"); setShortcutMsg({ ok: r.ok, text: r.ok ? `Ярлык создан: ${r.path}` : (r.error ?? "Ошибка") }); }
+                catch (e: unknown) { setShortcutMsg({ ok: false, text: e instanceof Error ? e.message : "Ошибка" }); }
+              }}>Создать ярлык на рабочем столе</button>
+              <button className={styles.btnSecondary} onClick={async () => {
+                setShortcutMsg(null);
+                try { const r = await api.createShortcut("applications"); setShortcutMsg({ ok: r.ok, text: r.ok ? `Добавлено в меню приложений: ${r.path}` : (r.error ?? "Ошибка") }); }
+                catch (e: unknown) { setShortcutMsg({ ok: false, text: e instanceof Error ? e.message : "Ошибка" }); }
+              }}>Добавить в меню приложений</button>
+            </>)}
+          </div>
+          {shortcutMsg && (
+            <p className={shortcutMsg.ok ? styles.okNote : styles.warnNote}>{shortcutMsg.text}</p>
           )}
         </div>
       </div>

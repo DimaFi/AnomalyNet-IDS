@@ -59,6 +59,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.api.autostart import autostart_router
+from app.api.shortcuts import shortcuts_router
 from app.api.block import block_router, _detect_best_interface_by_traffic
 from app.api.devices import devices_router, ws_devices_endpoint
 from app.api.dns import dns_router
@@ -197,6 +198,7 @@ app.add_middleware(
 )
 app.include_router(router)
 app.include_router(autostart_router)
+app.include_router(shortcuts_router)
 app.include_router(block_router)
 app.include_router(devices_router)
 app.include_router(dns_router)
@@ -221,7 +223,8 @@ if _DIST.exists():
         candidate = _DIST / full_path
         if candidate.is_file():
             return FileResponse(str(candidate))
-        return FileResponse(str(_DIST / "index.html"))
+        # no-store: browser always re-fetches index.html, so new hashed assets load immediately
+        return FileResponse(str(_DIST / "index.html"), headers={"Cache-Control": "no-store, no-cache"})
 
 
 @app.websocket("/ws/devices")
