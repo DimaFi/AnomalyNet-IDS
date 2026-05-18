@@ -1,13 +1,14 @@
 import { useState } from "react";
 import type { ReinstallResult, UninstallResult, UpdateApplyResult, UpdateCheckResult } from "../../app/types";
 import { api } from "../../lib/api";
+import { useAppStore } from "../../app/store";
 import styles from "./AboutView.module.css";
-
-const APP_VERSION = "v1.3.0";
 const GUI_REPO    = "https://github.com/DimaFi/AnomalyNet-gui";
 const ML_REPO     = "https://github.com/DimaFi/AnomalyNet-ml";
 
 export function AboutView() {
+  const health = useAppStore((s) => s.health);
+  const appVersion = health?.version ? `v${health.version}` : "v…";
   const [checking, setChecking]   = useState(false);
   const [applying, setApplying]   = useState(false);
   const [checkResult, setCheck]   = useState<UpdateCheckResult | null>(null);
@@ -50,7 +51,7 @@ export function AboutView() {
         <div className={styles.heroText}>
           <h1 className={styles.appName}>AnomalyNet IDS</h1>
           <p className={styles.appSub}>Система обнаружения вторжений на основе машинного обучения</p>
-          <span className={styles.versionBadge}>{APP_VERSION}</span>
+          <span className={styles.versionBadge}>{appVersion}</span>
         </div>
       </div>
 

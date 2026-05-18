@@ -322,9 +322,15 @@ export function App() {
           <div className={styles.topbarMeta}>
             {settings?.run_mode && (
               <span className={styles.modeBadge}>
-                {settings.run_mode === "linux_live"   ? "Live (Linux)"
-                : settings.run_mode === "windows_live" ? "Live (Windows)"
-                : settings.run_mode}
+                {(() => {
+                  const isLive = settings.run_mode === "linux_live" || settings.run_mode === "windows_live";
+                  if (!isLive) return settings.run_mode;
+                  const plat = capabilities?.platform;
+                  if (plat === "windows") return "Live (Windows)";
+                  if (plat === "linux")   return "Live (Linux)";
+                  // Fallback to run_mode name if capabilities not loaded yet
+                  return settings.run_mode === "windows_live" ? "Live (Windows)" : "Live (Linux)";
+                })()}
               </span>
             )}
             {settings && (

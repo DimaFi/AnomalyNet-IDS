@@ -41,9 +41,11 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._aggregator = FlowAggregator(on_flow_complete=self._on_flow_ready)
         self._sniffer = None
         self._loop: asyncio.AbstractEventLoop | None = None
-        self._dns_monitor = None   # set via set_dns_monitor() after construction
-        self._tls_monitor = None   # set via set_tls_monitor() after construction
+        self._dns_monitor = None     # set via set_dns_monitor() after construction
+        self._tls_monitor = None     # set via set_tls_monitor() after construction
         self._device_tracker = None  # set via set_device_tracker() after construction
+        self._sniffer_kwargs: dict = {}
+        self._watchdog_task: asyncio.Task | None = None
         self._tls_stats = {
             "tls_ports_seen": 0,        # TCP packets on any TLS port
             "raw_tls_like_seen": 0,     # raw bytes starting with 0x16
@@ -110,10 +112,35 @@ class LinuxScapyAdapter(CaptureAdapter):
 
         self._sniffer = AsyncSniffer(**sniffer_kwargs)
         self._sniffer.start()
+        self._sniffer_kwargs = sniffer_kwargs  # keep for watchdog restart
+        self._watchdog_task = asyncio.create_task(self._sniffer_watchdog())
+
+    async def _sniffer_watchdog(self) -> None:
+        """Check every 30s if the sniffer is still running; restart if it stopped."""
+        while True:
+            await asyncio.sleep(30)
+            if self._sniffer is None:
+                return  # adapter was stopped normally
+            try:
+                still_running = getattr(self._sniffer, "running", True)
+            except Exception:
+                still_running = True
+            if not still_running:
+                _log.warning("[Watchdog] Sniffer stopped unexpectedly — restarting")
+                try:
+                    from scapy.all import AsyncSniffer
+                    self._sniffer = AsyncSniffer(**self._sniffer_kwargs)
+                    self._sniffer.start()
+                    _log.info("[Watchdog] Sniffer restarted")
+                except Exception as exc:
+                    _log.error("[Watchdog] Sniffer restart failed: %s", exc)
 
     async def stop(self) -> None:
-        """Stop sniffer and aggregator.
+        """Stop sniffer, watchdog, and aggregator.
         join=False avoids blocking on socket.recv() in the scapy capture thread."""
+        if hasattr(self, "_watchdog_task") and self._watchdog_task is not None:
+            self._watchdog_task.cancel()
+            self._watchdog_task = None
         if self._sniffer is not None:
             try:
                 self._sniffer.stop(join=False)
