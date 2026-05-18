@@ -285,11 +285,36 @@ def apply_updates() -> dict:
 
 @update_router.post("/stop")
 async def stop_service() -> dict:
-    """Останавливает сервис полностью (без перезапуска)."""
-    import asyncio, os
+    """Останавливает сервис полностью — убивает весь дерево процессов uvicorn."""
+    import asyncio, os, signal
+
     async def _exit():
         await asyncio.sleep(1.5)
-        os._exit(0)
+        ppid = os.getppid()
+
+        if _platform_sys.system() == "Windows":
+            # Kill parent (uvicorn reloader/launcher) tree — cascades to this worker too
+            if ppid > 1:
+                subprocess.Popen(
+                    ["taskkill", "/F", "/T", "/PID", str(ppid)],
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                    close_fds=True,
+                )
+            # Kill own tree as fallback
+            subprocess.Popen(
+                ["taskkill", "/F", "/T", "/PID", str(os.getpid())],
+                creationflags=subprocess.CREATE_NO_WINDOW,
+                close_fds=True,
+            )
+        else:
+            # Linux: kill the entire process group
+            try:
+                os.killpg(os.getpgid(os.getpid()), signal.SIGTERM)
+            except Exception:
+                if ppid > 1:
+                    os.kill(ppid, signal.SIGTERM)
+                os._exit(0)
+
     asyncio.create_task(_exit())
     return {"stopped": True, "message": "Сервис остановится через секунду"}
 

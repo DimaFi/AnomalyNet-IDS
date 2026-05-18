@@ -12,6 +12,14 @@ try:
 except Exception:
     pass
 
+import platform as _plat
+if _plat.system() == "Windows":
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetConsoleTitleW("AnomalyNet IDS")
+    except Exception:
+        pass
+
 
 def _get_version() -> str:
     """Read version from git tag. Handles shallow clones (--depth=1)."""
