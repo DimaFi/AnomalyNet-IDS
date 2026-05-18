@@ -60,6 +60,20 @@ def _is_git_repo(repo_dir: Path) -> bool:
     return (repo_dir / ".git").exists()
 
 
+def _nearest_tag(repo_dir: Path, ref: str = "HEAD") -> str:
+    """Return nearest version tag for ref. Falls back to latest tag by sort (for shallow clones)."""
+    r = _run(["git", "describe", "--tags", "--abbrev=0", ref], repo_dir)
+    if r.returncode == 0 and r.stdout.strip():
+        return r.stdout.strip()
+    # Shallow clone fallback: list all tags sorted by version
+    r2 = _run(["git", "tag", "--sort=-version:refname"], repo_dir)
+    if r2.returncode == 0:
+        tags = [t.strip() for t in r2.stdout.splitlines() if t.strip()]
+        if tags:
+            return tags[0]
+    return ""
+
+
 def _git_fetch_with_fallback(repo_dir: Path, fallback_urls: list[str]) -> bool:
     """Try git fetch; if it fails, swap origin to each fallback URL and retry."""
     r = _run(["git", "fetch", "--quiet", "--tags"], repo_dir)
@@ -93,9 +107,8 @@ def _git_info(repo_dir: Path, fallback_urls: list[str] | None = None) -> dict:
         current = _run(["git", "rev-parse", "HEAD"], repo_dir).stdout.strip()
         latest  = _run(["git", "rev-parse", "origin/main"], repo_dir).stdout.strip()
         msg     = _run(["git", "log", "--oneline", "-1", "origin/main"], repo_dir).stdout.strip()
-        # Nearest tag (e.g. v1.0.0), fallback to short hash
-        cur_tag = _run(["git", "describe", "--tags", "--abbrev=0", "HEAD"], repo_dir).stdout.strip()
-        lat_tag = _run(["git", "describe", "--tags", "--abbrev=0", "origin/main"], repo_dir).stdout.strip()
+        cur_tag = _nearest_tag(repo_dir, "HEAD")
+        lat_tag = _nearest_tag(repo_dir, "origin/main")
         return {
             "current":     cur_tag or current[:8],
             "latest":      lat_tag or latest[:8],
