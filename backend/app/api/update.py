@@ -60,7 +60,20 @@ def _is_git_repo(repo_dir: Path) -> bool:
     return (repo_dir / ".git").exists()
 
 
-def _git_info(repo_dir: Path) -> dict:
+def _git_fetch_with_fallback(repo_dir: Path, fallback_urls: list[str]) -> bool:
+    """Try git fetch; if it fails, swap origin to each fallback URL and retry."""
+    r = _run(["git", "fetch", "--quiet", "--tags"], repo_dir)
+    if r.returncode == 0:
+        return True
+    for url in fallback_urls:
+        _run(["git", "remote", "set-url", "origin", url], repo_dir)
+        r = _run(["git", "fetch", "--quiet", "--tags"], repo_dir)
+        if r.returncode == 0:
+            return True
+    return False
+
+
+def _git_info(repo_dir: Path, fallback_urls: list[str] | None = None) -> dict:
     if not repo_dir.exists():
         return {"available": False, "error": f"{repo_dir} не найден"}
     if not _git_available():
@@ -76,7 +89,7 @@ def _git_info(repo_dir: Path) -> dict:
             "error": "Каталог не является git-репозиторием (установка через ZIP). Используйте кнопку «Переустановить» для обновления.",
         }
     try:
-        _run(["git", "fetch", "--quiet", "--tags"], repo_dir)
+        _git_fetch_with_fallback(repo_dir, fallback_urls or [])
         current = _run(["git", "rev-parse", "HEAD"], repo_dir).stdout.strip()
         latest  = _run(["git", "rev-parse", "origin/main"], repo_dir).stdout.strip()
         msg     = _run(["git", "log", "--oneline", "-1", "origin/main"], repo_dir).stdout.strip()
@@ -99,11 +112,20 @@ def _changed_files_after_pull(repo_dir: Path) -> list[str]:
     return [f.strip() for f in r.stdout.splitlines() if f.strip()]
 
 
-GUI_REPO_URL = "https://github.com/DimaFi/AnomalyNet-gui.git"
-ML_REPO_URL  = "https://github.com/DimaFi/AnomalyNet-ml.git"
+GUI_REPO_URLS = [
+    "https://github.com/DimaFi/AnomalyNet-gui.git",
+    "https://gitlab.com/DimaFi1/AnomalyNet-gui.git",
+]
+ML_REPO_URLS = [
+    "https://github.com/DimaFi/AnomalyNet-ml.git",
+    "https://gitlab.com/DimaFi1/AnomalyNet-ml.git",
+]
+GUI_REPO_URL = GUI_REPO_URLS[0]
+ML_REPO_URL  = ML_REPO_URLS[0]
 
 
-def _git_pull_hard(repo_dir: Path, clone_url: str | None = None) -> tuple[bool, str]:
+def _git_pull_hard(repo_dir: Path, clone_url: str | None = None,
+                   fallback_urls: list[str] | None = None) -> tuple[bool, str]:
     """Fetch + reset to origin/main.
 
     Handles three cases:
@@ -142,10 +164,10 @@ def _git_pull_hard(repo_dir: Path, clone_url: str | None = None) -> tuple[bool, 
                 return False, f"{' '.join(cmd)} failed: {r.stderr[:300]}"
         return True, f"инициализирован и синхронизирован с {clone_url}"
 
-    # Case 3: normal git repo → fetch + reset
-    r1 = _run(["git", "fetch", "--quiet", "--tags"], repo_dir)
-    if r1.returncode != 0:
-        return False, r1.stderr[:200]
+    # Case 3: normal git repo → fetch + reset (with URL fallback)
+    fetched = _git_fetch_with_fallback(repo_dir, fallback_urls or [])
+    if not fetched:
+        return False, "git fetch failed on all remotes (GitHub + GitLab)"
     r2 = _run(["git", "reset", "--hard", "origin/main"], repo_dir)
     return r2.returncode == 0, (r2.stdout + r2.stderr).strip()[-200:]
 
@@ -181,8 +203,8 @@ def _schedule_restart() -> None:
 
 @update_router.get("/check")
 def check_updates() -> dict:
-    gui = _git_info(GUI_DIR)
-    ml  = _git_info(ML_DIR)
+    gui = _git_info(GUI_DIR, fallback_urls=GUI_REPO_URLS[1:])
+    ml  = _git_info(ML_DIR,  fallback_urls=ML_REPO_URLS[1:])
     return {
         "gui": gui,
         "ml":  ml,
@@ -203,7 +225,7 @@ def apply_updates() -> dict:
     # Pull GUI repo
     gui_changed: list[str] = []
     try:
-        ok, out = _git_pull_hard(GUI_DIR, clone_url=GUI_REPO_URL)
+        ok, out = _git_pull_hard(GUI_DIR, clone_url=GUI_REPO_URL, fallback_urls=GUI_REPO_URLS[1:])
         result["gui"]["ok"]     = ok
         result["gui"]["output"] = out or "Already up to date"
         gui_changed = _changed_files_after_pull(GUI_DIR)
@@ -217,7 +239,7 @@ def apply_updates() -> dict:
 
     # Pull ML repo (clone if missing)
     try:
-        ok, out = _git_pull_hard(ML_DIR, clone_url=ML_REPO_URL)
+        ok, out = _git_pull_hard(ML_DIR, clone_url=ML_REPO_URL, fallback_urls=ML_REPO_URLS[1:])
         result["ml"]["ok"]     = ok
         result["ml"]["output"] = out or "Already up to date"
     except Exception as e:
@@ -352,7 +374,7 @@ def reinstall(wipe_settings: bool = False) -> dict:
 
     # 1. git pull GUI repo
     try:
-        ok, out = _git_pull_hard(GUI_DIR, clone_url=GUI_REPO_URL)
+        ok, out = _git_pull_hard(GUI_DIR, clone_url=GUI_REPO_URL, fallback_urls=GUI_REPO_URLS[1:])
         step("git pull GUI", ok, out)
     except Exception as e:
         step("git pull GUI", False, str(e))
@@ -365,7 +387,7 @@ def reinstall(wipe_settings: bool = False) -> dict:
 
     # 2. git pull / clone ML repo
     try:
-        ok, out = _git_pull_hard(ML_DIR, clone_url=ML_REPO_URL)
+        ok, out = _git_pull_hard(ML_DIR, clone_url=ML_REPO_URL, fallback_urls=ML_REPO_URLS[1:])
         step("git pull ML", ok, out)
     except Exception as e:
         step("git pull ML", False, str(e))
