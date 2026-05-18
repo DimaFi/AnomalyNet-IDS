@@ -100,6 +100,7 @@ class WindowsNpcapCapture(CaptureAdapter):
         self._device_tracker = None
         self._sniffer_kwargs: dict = {}
         self._watchdog_task: asyncio.Task | None = None
+        self._last_pkt_time: float = 0.0
         self._tls_stats = {
             "tls_ports_seen": 0,
             "raw_tls_like_seen": 0,
@@ -182,15 +183,28 @@ class WindowsNpcapCapture(CaptureAdapter):
         self._watchdog_task = asyncio.create_task(self._sniffer_watchdog())
 
     async def _sniffer_watchdog(self) -> None:
-        """Restart sniffer if it stops unexpectedly."""
-        from scapy.all import AsyncSniffer
+        """Restart sniffer if dead OR stuck (no packets for 90s)."""
+        import time
         while True:
             await asyncio.sleep(30)
+            if self._sniffer is None:
+                return
             try:
-                if self._sniffer is not None and not self._sniffer.running:
-                    _log.warning("[Windows capture] sniffer stopped unexpectedly — restarting")
+                dead = not getattr(self._sniffer, "running", True)
+                since_last = time.monotonic() - self._last_pkt_time
+                stuck = self._last_pkt_time > 0 and since_last > 90
+                if dead or stuck:
+                    reason = "dead" if dead else f"stuck ({since_last:.0f}s no packets)"
+                    _log.warning("[Windows capture] sniffer %s — restarting", reason)
+                    try:
+                        self._sniffer.stop(join=False)
+                    except Exception:
+                        pass
+                    from scapy.all import AsyncSniffer
                     self._sniffer = AsyncSniffer(**self._sniffer_kwargs)
                     self._sniffer.start()
+                    self._last_pkt_time = time.monotonic()
+                    _log.info("[Windows capture] sniffer restarted")
             except Exception as exc:
                 _log.error("[Windows capture] watchdog restart failed: %s", exc)
 
@@ -209,6 +223,8 @@ class WindowsNpcapCapture(CaptureAdapter):
 
     def _packet_callback(self, pkt) -> None:
         """Called by scapy in its capture thread — thread-safe via FlowAggregator lock."""
+        import time
+        self._last_pkt_time = time.monotonic()
         self._aggregator.ingest(pkt)
         if self._dns_monitor is not None:
             try:

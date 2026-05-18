@@ -21,6 +21,38 @@ def _get_version() -> str:
         pass
     return "dev"
 
+
+def _download_oui_sync(out_file: Path) -> None:
+    """Download IEEE OUI database to out_file. Blocking — run in executor."""
+    import csv
+    import io
+    import json as _j
+    import urllib.request
+    url = "https://standards-oui.ieee.org/oui/oui.csv"
+    req = urllib.request.Request(url, headers={"User-Agent": "AnomalyNet/1.0"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        raw = resp.read().decode("utf-8", errors="replace")
+    entries = []
+    for row in csv.DictReader(io.StringIO(raw)):
+        a = row.get("Assignment", "").strip().upper()
+        v = row.get("Organization Name", "").strip()
+        if len(a) == 6 and v:
+            entries.append({"macPrefix": f"{a[0:2]}:{a[2:4]}:{a[4:6]}", "vendorName": v})
+    out_file.parent.mkdir(parents=True, exist_ok=True)
+    out_file.write_text(_j.dumps(entries, ensure_ascii=False), encoding="utf-8")
+
+
+async def _bg_oui_download(out_file: Path) -> None:
+    import logging as _lg
+    _log = _lg.getLogger("app.discovery.oui")
+    _log.info("OUI database not found — downloading from IEEE (background)…")
+    try:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _download_oui_sync, out_file)
+        _log.info("OUI database downloaded — vendor lookup enabled")
+    except Exception as exc:
+        _log.warning("OUI download failed (vendor lookup limited): %s", exc)
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -82,6 +114,11 @@ async def lifespan(app: FastAPI):
     app.state.device_tracker = tracker
     app.state.network_scanner = scanner
     service.set_device_tracker(tracker)
+
+    # Auto-download OUI vendor database if missing (needed for device type classification)
+    _oui_file = APP_ROOT / "config" / "oui.json"
+    if not _oui_file.exists():
+        asyncio.create_task(_bg_oui_download(_oui_file))
 
     # DNS monitoring (runs in linux_live mode; gracefully no-op otherwise)
     dns_monitor = DnsMonitor()

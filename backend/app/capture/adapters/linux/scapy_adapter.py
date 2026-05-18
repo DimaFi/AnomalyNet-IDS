@@ -46,6 +46,7 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._device_tracker = None  # set via set_device_tracker() after construction
         self._sniffer_kwargs: dict = {}
         self._watchdog_task: asyncio.Task | None = None
+        self._last_pkt_time: float = 0.0
         self._tls_stats = {
             "tls_ports_seen": 0,        # TCP packets on any TLS port
             "raw_tls_like_seen": 0,     # raw bytes starting with 0x16
@@ -116,24 +117,31 @@ class LinuxScapyAdapter(CaptureAdapter):
         self._watchdog_task = asyncio.create_task(self._sniffer_watchdog())
 
     async def _sniffer_watchdog(self) -> None:
-        """Check every 30s if the sniffer is still running; restart if it stopped."""
+        """Restart sniffer if dead OR stuck (no packets for 90s on an active capture)."""
+        import time
         while True:
             await asyncio.sleep(30)
             if self._sniffer is None:
-                return  # adapter was stopped normally
+                return
             try:
-                still_running = getattr(self._sniffer, "running", True)
-            except Exception:
-                still_running = True
-            if not still_running:
-                _log.warning("[Watchdog] Sniffer stopped unexpectedly — restarting")
-                try:
+                dead = not getattr(self._sniffer, "running", True)
+                # Stuck: sniffer claims running but no packet arrived in 90s
+                since_last = time.monotonic() - self._last_pkt_time
+                stuck = self._last_pkt_time > 0 and since_last > 90
+                if dead or stuck:
+                    reason = "dead (running=False)" if dead else f"stuck ({since_last:.0f}s no packets)"
+                    _log.warning("[Watchdog] Sniffer %s — restarting", reason)
+                    try:
+                        self._sniffer.stop(join=False)
+                    except Exception:
+                        pass
                     from scapy.all import AsyncSniffer
                     self._sniffer = AsyncSniffer(**self._sniffer_kwargs)
                     self._sniffer.start()
+                    self._last_pkt_time = time.monotonic()
                     _log.info("[Watchdog] Sniffer restarted")
-                except Exception as exc:
-                    _log.error("[Watchdog] Sniffer restart failed: %s", exc)
+            except Exception as exc:
+                _log.error("[Watchdog] restart failed: %s", exc)
 
     async def stop(self) -> None:
         """Stop sniffer, watchdog, and aggregator.
@@ -157,6 +165,8 @@ class LinuxScapyAdapter(CaptureAdapter):
         directly here so the asyncio event loop is NOT touched per-packet.
         This eliminates asyncio saturation under flood (2000+ pps).
         """
+        import time
+        self._last_pkt_time = time.monotonic()
         self._aggregator.ingest(pkt)
         if self._dns_monitor is not None:
             try:

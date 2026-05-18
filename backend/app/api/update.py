@@ -63,7 +63,7 @@ def _git_info(repo_dir: Path) -> dict:
             "error": "Каталог не является git-репозиторием (установка через ZIP). Используйте кнопку «Переустановить» для обновления.",
         }
     try:
-        _run(["git", "fetch", "--quiet"], repo_dir)
+        _run(["git", "fetch", "--quiet", "--tags"], repo_dir)
         current = _run(["git", "rev-parse", "HEAD"], repo_dir).stdout.strip()
         latest  = _run(["git", "rev-parse", "origin/main"], repo_dir).stdout.strip()
         msg     = _run(["git", "log", "--oneline", "-1", "origin/main"], repo_dir).stdout.strip()
@@ -130,7 +130,7 @@ def _git_pull_hard(repo_dir: Path, clone_url: str | None = None) -> tuple[bool, 
         return True, f"инициализирован и синхронизирован с {clone_url}"
 
     # Case 3: normal git repo → fetch + reset
-    r1 = _run(["git", "fetch", "--quiet"], repo_dir)
+    r1 = _run(["git", "fetch", "--quiet", "--tags"], repo_dir)
     if r1.returncode != 0:
         return False, r1.stderr[:200]
     r2 = _run(["git", "reset", "--hard", "origin/main"], repo_dir)
