@@ -46,6 +46,9 @@ interface AppState {
   // Platform capabilities
   capabilities: PlatformCapabilities | null;
   setCapabilities: (caps: PlatformCapabilities) => void;
+  // Service power state
+  serviceStopped: boolean;
+  setServiceStopped: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -61,6 +64,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedMac: null,
   deviceStats: null,
   capabilities: null,
+  serviceStopped: false,
 
   setView: (view) => set({ view }),
   setHealth: (health) => set({ health }),
@@ -121,4 +125,5 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedMac: (selectedMac) => set({ selectedMac }),
   setDeviceStats: (deviceStats) => set({ deviceStats }),
   setCapabilities: (capabilities) => set({ capabilities }),
+  setServiceStopped: (serviceStopped) => set({ serviceStopped }),
 }));

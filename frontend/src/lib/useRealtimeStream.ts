@@ -12,15 +12,28 @@ const POLL_INTERVAL_MS = 5000; // fallback snapshot poll every 5s
  * Also polls /api/snapshot every 5s as a fallback to catch any missed events.
  */
 export function useRealtimeStream(): void {
-  const pushStreamItem = useAppStore((state) => state.pushStreamItem);
-  const replaceStream  = useAppStore((state) => state.replaceStream);
-  const addToast       = useAppStore((state) => state.addToast);
+  const pushStreamItem   = useAppStore((state) => state.pushStreamItem);
+  const replaceStream    = useAppStore((state) => state.replaceStream);
+  const addToast         = useAppStore((state) => state.addToast);
+  const serviceStopped   = useAppStore((state) => state.serviceStopped);
 
-  const socketRef  = useRef<WebSocket | null>(null);
-  const retryDelay = useRef(1000);
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollTimer  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const destroyed  = useRef(false);
+  const socketRef    = useRef<WebSocket | null>(null);
+  const retryDelay   = useRef(1000);
+  const retryTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimer    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const destroyed    = useRef(false);
+  const stoppedRef   = useRef(false);
+
+  // Sync stopped state to ref so inner callbacks can read it without stale closure
+  useEffect(() => {
+    stoppedRef.current = serviceStopped;
+    if (serviceStopped) {
+      if (retryTimer.current !== null) { clearTimeout(retryTimer.current); retryTimer.current = null; }
+      if (pollTimer.current  !== null) { clearInterval(pollTimer.current);  pollTimer.current = null; }
+      socketRef.current?.close();
+      socketRef.current = null;
+    }
+  }, [serviceStopped]);
 
   useEffect(() => {
     destroyed.current = false;
@@ -41,7 +54,7 @@ export function useRealtimeStream(): void {
     };
 
     function connect() {
-      if (destroyed.current) return;
+      if (destroyed.current || stoppedRef.current) return;
 
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
       const ws = new WebSocket(`${protocol}://${window.location.host}/ws/events`);
@@ -51,7 +64,7 @@ export function useRealtimeStream(): void {
         retryDelay.current = 1000;
         try {
           const payload = JSON.parse(msg.data) as { type?: string; items?: PipelineEvent[]; event?: unknown };
-          if (payload.type === "ping") return; // keepalive — ignore
+          if (payload.type === "ping") return;
           if (Array.isArray(payload.items)) {
             replaceStream(payload.items);
           } else if (payload.event) {
@@ -66,7 +79,7 @@ export function useRealtimeStream(): void {
 
       ws.onclose = () => {
         socketRef.current = null;
-        if (destroyed.current) return;
+        if (destroyed.current || stoppedRef.current) return;
         const delay = retryDelay.current;
         retryDelay.current = Math.min(delay * 2, 30_000);
         retryTimer.current = setTimeout(connect, delay);
@@ -75,11 +88,10 @@ export function useRealtimeStream(): void {
 
     connect();
 
-    // Periodic fallback: refresh snapshot every 5s to catch missed events on slow/unreliable server
     pollTimer.current = setInterval(() => {
-      if (destroyed.current) return;
+      if (destroyed.current || stoppedRef.current) return;
       api.getSnapshot().then((snap) => {
-        if (!destroyed.current) replaceStream(snap.items);
+        if (!destroyed.current && !stoppedRef.current) replaceStream(snap.items);
       }).catch(() => { /* server unreachable — skip */ });
     }, POLL_INTERVAL_MS);
 
@@ -88,7 +100,7 @@ export function useRealtimeStream(): void {
       socketRef.current?.close();
       socketRef.current = null;
       if (retryTimer.current !== null) { clearTimeout(retryTimer.current); retryTimer.current = null; }
-      if (pollTimer.current !== null)  { clearInterval(pollTimer.current);  pollTimer.current = null; }
+      if (pollTimer.current  !== null) { clearInterval(pollTimer.current);  pollTimer.current = null; }
     };
   }, [pushStreamItem, replaceStream, addToast]);
 }

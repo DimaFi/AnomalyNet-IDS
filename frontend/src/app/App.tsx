@@ -187,8 +187,10 @@ export function App() {
   const setModels      = useAppStore((state) => state.setModels);
   const presets        = useAppStore((state) => state.presets);
   const setPresets     = useAppStore((state) => state.setPresets);
-  const capabilities   = useAppStore((state) => state.capabilities);
-  const setCapabilities = useAppStore((state) => state.setCapabilities);
+  const capabilities      = useAppStore((state) => state.capabilities);
+  const setCapabilities   = useAppStore((state) => state.setCapabilities);
+  const serviceStopped    = useAppStore((state) => state.serviceStopped);
+  const setServiceStopped = useAppStore((state) => state.setServiceStopped);
 
   useRealtimeStream();
 
@@ -288,23 +290,18 @@ export function App() {
     <div className={styles.shell}>
       {/* ── Narrow icon sidebar ── */}
       <aside className={styles.sidebar}>
-        {/* Logo — power toggle button */}
+        {/* Logo — power/stop button */}
         <button
-          className={[styles.logo, styles.logoPowerBtn, settings && !settings.capture_enabled ? styles.logoPowerOff : ""].filter(Boolean).join(" ")}
+          className={[styles.logo, styles.logoPowerBtn].filter(Boolean).join(" ")}
           onClick={async () => {
-            if (!settings) return;
-            const next = { ...settings, capture_enabled: !settings.capture_enabled };
-            try { setSettings(await api.updateSettings(next)); }
-            catch { setSettings(next); }
+            if (!confirm("Выключить AnomalyNet IDS?\n\nСервис полностью завершит работу. Чтобы запустить снова — откройте launch.bat (Windows) или launch.sh (Linux).")) return;
+            try { await api.stopService(); } catch { /* server closes before response */ }
+            setServiceStopped(true);
           }}
-          title={settings?.capture_enabled ? "Захват активен — нажми чтобы остановить" : "Захват остановлен — нажми чтобы запустить"}
-          aria-label="Переключить захват трафика"
+          title="Выключить сервис AnomalyNet"
+          aria-label="Выключить сервис"
         >
-          <img
-            src={settings && !settings.capture_enabled ? "/AnomalyNet-logo_turn_off.png" : "/logo.png"}
-            alt="AnomalyNet"
-            className={styles.logoImg}
-          />
+          <img src="/logo.png" alt="AnomalyNet" className={styles.logoImg} />
         </button>
 
         {/* Nav buttons */}
@@ -432,6 +429,19 @@ export function App() {
       </div>
 
       <ToastContainer />
+
+      {/* Stopped overlay */}
+      {serviceStopped && (
+        <div className={styles.stoppedOverlay}>
+          <div className={styles.stoppedCard}>
+            <img src="/AnomalyNet-logo_turn_off.png" alt="AnomalyNet" className={styles.stoppedLogo} />
+            <h2 className={styles.stoppedTitle}>Сервис выключен</h2>
+            <p className={styles.stoppedHint}>
+              Для повторного запуска откройте <code>launch.bat</code> (Windows) или <code>launch.sh</code> (Linux)
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Shield confirm dialog */}
       {showShieldConfirm && (

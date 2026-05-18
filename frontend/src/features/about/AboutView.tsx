@@ -207,13 +207,15 @@ function RestartButton() {
 
 function StopButton() {
   const [state, setState] = useState<"idle" | "pending" | "done">("idle");
+  const setServiceStopped = useAppStore((s) => s.setServiceStopped);
 
   async function handleStop() {
-    if (!confirm("Полностью остановить AnomalyNet IDS?\n\nСервис завершит работу. Чтобы запустить снова — откройте launch.bat (Windows) или launch.sh (Linux).")) return;
+    if (!confirm("Выключить AnomalyNet IDS?\n\nСервис полностью завершит работу. Чтобы запустить снова — откройте launch.bat (Windows) или launch.sh (Linux).")) return;
     setState("pending");
     try {
       await api.stopService();
     } catch { /* server closes before response — expected */ }
+    setServiceStopped(true);
     setState("done");
   }
 
@@ -222,12 +224,12 @@ function StopButton() {
       className={styles.btnReinstall}
       onClick={() => void handleStop()}
       disabled={state !== "idle"}
-      title="Остановить сервис полностью (без перезапуска)"
+      title="Выключить сервис полностью (без перезапуска)"
       style={{ background: "transparent", color: "var(--text-muted)", borderColor: "var(--border)" }}
     >
-      {state === "pending" ? "Останавливаем..."
-       : state === "done"  ? "Сервис остановлен"
-       : "⏹ Остановить сервис"}
+      {state === "pending" ? "Выключаем..."
+       : state === "done"  ? "Сервис выключен"
+       : "⏹ Выключить сервис"}
     </button>
   );
 }
