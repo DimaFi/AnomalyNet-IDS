@@ -216,6 +216,8 @@ export function App() {
         api.getModelPresets(),
         api.getCapabilities().catch(() => null),
       ]);
+      // Backend responded — service is running, clear stopped flag
+      setServiceStopped(false);
       setHealth(healthRes);
       setSettings(settingsRes);
       setModels(modelsRes);

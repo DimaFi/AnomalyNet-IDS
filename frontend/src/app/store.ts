@@ -64,7 +64,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedMac: null,
   deviceStats: null,
   capabilities: null,
-  serviceStopped: false,
+  serviceStopped: sessionStorage.getItem("svc_stopped") === "1",
 
   setView: (view) => set({ view }),
   setHealth: (health) => set({ health }),
@@ -125,5 +125,9 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedMac: (selectedMac) => set({ selectedMac }),
   setDeviceStats: (deviceStats) => set({ deviceStats }),
   setCapabilities: (capabilities) => set({ capabilities }),
-  setServiceStopped: (serviceStopped) => set({ serviceStopped }),
+  setServiceStopped: (v) => {
+    if (v) sessionStorage.setItem("svc_stopped", "1");
+    else sessionStorage.removeItem("svc_stopped");
+    set({ serviceStopped: v });
+  },
 }));
