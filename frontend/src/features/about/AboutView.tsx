@@ -102,6 +102,7 @@ export function AboutView() {
             {checking ? <><span className={styles.spinner} /> Проверяем...</> : "Проверить обновления"}
           </button>
           <RestartButton />
+          <StopButton />
           <ReinstallButton />
           <UninstallButton />
         </div>
@@ -196,6 +197,33 @@ function RestartButton() {
        : state === "done"  ? "Перезапускается..."
        : state === "error" ? "Ошибка перезапуска"
        : "↺ Перезапустить"}
+    </button>
+  );
+}
+
+function StopButton() {
+  const [state, setState] = useState<"idle" | "pending" | "done">("idle");
+
+  async function handleStop() {
+    if (!confirm("Полностью остановить AnomalyNet IDS?\n\nСервис завершит работу. Чтобы запустить снова — откройте launch.bat (Windows) или launch.sh (Linux).")) return;
+    setState("pending");
+    try {
+      await api.stopService();
+    } catch { /* server closes before response — expected */ }
+    setState("done");
+  }
+
+  return (
+    <button
+      className={styles.btnReinstall}
+      onClick={() => void handleStop()}
+      disabled={state !== "idle"}
+      title="Остановить сервис полностью (без перезапуска)"
+      style={{ background: "transparent", color: "var(--text-muted)", borderColor: "var(--border)" }}
+    >
+      {state === "pending" ? "Останавливаем..."
+       : state === "done"  ? "Сервис остановлен"
+       : "⏹ Остановить сервис"}
     </button>
   );
 }

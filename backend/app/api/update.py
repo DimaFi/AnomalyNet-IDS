@@ -283,6 +283,17 @@ def apply_updates() -> dict:
     return result
 
 
+@update_router.post("/stop")
+async def stop_service() -> dict:
+    """Останавливает сервис полностью (без перезапуска)."""
+    import asyncio, os
+    async def _exit():
+        await asyncio.sleep(1.5)
+        os._exit(0)
+    asyncio.create_task(_exit())
+    return {"stopped": True, "message": "Сервис остановится через секунду"}
+
+
 @update_router.post("/restart")
 def restart_service() -> dict:
     """Перезапускает сервис (systemd на Linux, re-exec на Windows)."""

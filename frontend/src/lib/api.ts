@@ -82,6 +82,7 @@ export const api = {
     }),
   checkUpdates: () => request<UpdateCheckResult>("/api/update/check"),
   applyUpdates: () => request<UpdateApplyResult>("/api/update/apply", { method: "POST" }),
+  stopService: () => request<{ stopped: boolean; message: string }>("/api/update/stop", { method: "POST" }),
   reinstall: (wipeSettings: boolean) =>
     request<import("../app/types").ReinstallResult>(`/api/update/reinstall?wipe_settings=${wipeSettings}`, { method: "POST" }),
   uninstall: (keepSettings: boolean) =>

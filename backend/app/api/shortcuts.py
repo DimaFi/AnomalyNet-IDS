@@ -55,22 +55,34 @@ def _app_root() -> Path:
 
 def _create_windows_lnk(dest: Path, target: Path, work_dir: Path, description: str,
                          icon: Path | None = None) -> tuple[bool, str]:
-    """Create a .lnk shortcut via PowerShell WScript.Shell COM object."""
-    icon_line = f"$sc.IconLocation = '{icon},0'" if icon and icon.exists() else ""
+    """Create a .lnk shortcut via PowerShell WScript.Shell COM object.
+
+    Writes the PS script to a temp file to avoid encoding issues with
+    non-ASCII paths (Cyrillic, spaces, etc.) in command-line arguments.
+    """
+    import tempfile
+    icon_line = f'$sc.IconLocation = "{icon},0"' if icon and icon.exists() else ""
     ps = f"""
 $ws = New-Object -ComObject WScript.Shell
-$sc = $ws.CreateShortcut('{dest}')
-$sc.TargetPath  = '{target}'
-$sc.WorkingDirectory = '{work_dir}'
-$sc.Description = '{description}'
+$sc = $ws.CreateShortcut("{dest}")
+$sc.TargetPath       = "wscript.exe"
+$sc.Arguments        = '"{target}"'
+$sc.WorkingDirectory = "{work_dir}"
+$sc.Description      = "{description}"
 {icon_line}
 $sc.Save()
 """
     try:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ps1",
+                                         delete=False, encoding="utf-8") as f:
+            f.write(ps)
+            tmp = f.name
         r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            ["powershell", "-NoProfile", "-NonInteractive",
+             "-ExecutionPolicy", "Bypass", "-File", tmp],
             capture_output=True, text=True, timeout=15,
         )
+        Path(tmp).unlink(missing_ok=True)
         if r.returncode == 0:
             return True, str(dest)
         return False, r.stderr[:300]
