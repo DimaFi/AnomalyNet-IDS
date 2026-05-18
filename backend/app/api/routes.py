@@ -22,6 +22,25 @@ from app.preprocess.contracts import DEFAULT_CONTRACT_VERSION
 
 router = APIRouter(prefix="/api")
 
+_APP_VERSION: str | None = None
+
+
+def _get_app_version() -> str:
+    global _APP_VERSION
+    if _APP_VERSION is None:
+        try:
+            import subprocess
+            from pathlib import Path
+            r = subprocess.run(
+                ["git", "describe", "--tags", "--always", "--dirty"],
+                cwd=Path(__file__).parent.parent.parent,
+                capture_output=True, text=True, timeout=5,
+            )
+            _APP_VERSION = r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else "dev"
+        except Exception:
+            _APP_VERSION = "dev"
+    return _APP_VERSION
+
 
 @router.get("/health", response_model=HealthResponse)
 def get_health(service: PipelineService = Depends(get_pipeline_service)) -> HealthResponse:
@@ -32,6 +51,7 @@ def get_health(service: PipelineService = Depends(get_pipeline_service)) -> Heal
         active_model_id=service.settings.active_model_id,
         retention_days=service.settings.retention_days,
         contract_version=DEFAULT_CONTRACT_VERSION,
+        version=_get_app_version(),
     )
 
 

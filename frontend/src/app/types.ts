@@ -178,6 +178,7 @@ export interface HealthResponse {
   active_model_id: string;
   retention_days: number;
   contract_version: string;
+  version?: string;
 }
 
 export interface NetworkInterface {

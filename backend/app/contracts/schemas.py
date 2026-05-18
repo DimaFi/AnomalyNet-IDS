@@ -140,6 +140,7 @@ class HealthResponse(BaseModel):
     active_model_id: str
     retention_days: int
     contract_version: str
+    version: str = "dev"
 
 
 class StreamSnapshot(BaseModel):
