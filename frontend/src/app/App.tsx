@@ -216,8 +216,6 @@ export function App() {
         api.getModelPresets(),
         api.getCapabilities().catch(() => null),
       ]);
-      // Backend responded — service is running, clear stopped flag
-      setServiceStopped(false);
       setHealth(healthRes);
       setSettings(settingsRes);
       setModels(modelsRes);
@@ -232,7 +230,7 @@ export function App() {
     }
   }, [i18n, setCapabilities, setHealth, setModels, setPresets, setSettings]);
 
-  useEffect(() => { void bootstrap(); }, [bootstrap]);
+  useEffect(() => { if (!serviceStopped) void bootstrap(); }, [bootstrap, serviceStopped]);
 
   const [showShieldConfirm, setShowShieldConfirm] = useState(false);
   const [shieldIp, setShieldIp] = useState("");
@@ -441,6 +439,12 @@ export function App() {
             <p className={styles.stoppedHint}>
               Для повторного запуска откройте <code>launch.bat</code> (Windows) или <code>launch.sh</code> (Linux)
             </p>
+            <button
+              className={styles.stoppedReconnectBtn}
+              onClick={() => { setServiceStopped(false); void bootstrap(); }}
+            >
+              Попробовать снова
+            </button>
           </div>
         </div>
       )}

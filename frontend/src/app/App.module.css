@@ -543,3 +543,20 @@
   line-height: 1.6;
   margin: 0;
 }
+
+.stoppedReconnectBtn {
+  margin-top: 4px;
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+}
+.stoppedReconnectBtn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
