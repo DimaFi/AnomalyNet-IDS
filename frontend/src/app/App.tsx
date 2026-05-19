@@ -124,11 +124,11 @@ const PAGE_TITLES: Record<ViewKey, string> = {
   performance: "Производительность",
 };
 
-type ThemeName = "dark" | "light" | "gray";
+type ThemeName = "dark" | "light" | "gray" | "glass";
 
-const THEME_CYCLE: ThemeName[] = ["dark", "light", "gray"];
-const THEME_ICON: Record<ThemeName, string> = { dark: "🌙", light: "☀️", gray: "◑" };
-const THEME_LABEL: Record<ThemeName, string> = { dark: "Тёмная", light: "Светлая", gray: "Серая" };
+const THEME_CYCLE: ThemeName[] = ["dark", "light", "gray", "glass"];
+const THEME_ICON: Record<ThemeName, string> = { dark: "🌙", light: "☀️", gray: "◑", glass: "🫧" };
+const THEME_LABEL: Record<ThemeName, string> = { dark: "Тёмная", light: "Светлая", gray: "Серая", glass: "Стекло" };
 
 function nextTheme(current: string | undefined): ThemeName {
   const idx = THEME_CYCLE.indexOf((current ?? "dark") as ThemeName);
@@ -236,6 +236,17 @@ export function App() {
 
   const [showShieldConfirm, setShowShieldConfirm] = useState(false);
   const [shieldIp, setShieldIp] = useState("");
+
+  // Auto-fill local IP when shield dialog opens
+  useEffect(() => {
+    if (!showShieldConfirm) return;
+    api.getInterfaces().then((ifaces) => {
+      const ip = ifaces.flatMap((i) => i.addresses ?? []).find(
+        (a) => !a.startsWith("127.") && !a.startsWith("::") && !a.startsWith("169.254.") && a.includes(".")
+      ) ?? "";
+      if (ip) setShieldIp(ip);
+    }).catch(() => {});
+  }, [showShieldConfirm]);
 
   const toggleProtection = useCallback(async () => {
     if (!settings) return;
@@ -460,19 +471,22 @@ export function App() {
           <div className={styles.confirmDialog}>
             <h3>⚠ Включить авто-блокировку?</h3>
             <p>
-              Система будет блокировать IP-адреса через <code>iptables</code> при обнаружении атак.
-              Если ваш IP не в белом списке — вы можете заблокировать сами себя.
+              Система будет блокировать IP-адреса через <code>iptables</code> (Linux) или Windows Firewall при обнаружении атак.
+              Ваш IP автоматически определён и добавлен в поле ниже.
             </p>
             <div className={styles.confirmIpRow}>
-              <label>Добавить ваш IP в белый список (необязательно):</label>
+              <label>Ваш IP для белого списка:</label>
               <input
                 type="text"
                 value={shieldIp}
-                placeholder="например: 1.2.3.4"
+                placeholder="например: 192.168.1.10"
                 onChange={(e) => setShieldIp(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void confirmShield(true); }}
                 autoFocus
               />
+              <small style={{ color: "var(--text-secondary)", fontSize: 12, marginTop: 6, display: "block", lineHeight: 1.5 }}>
+                Если вы управляете сервером <strong>удалённо</strong> — укажите IP <strong>вашего компьютера</strong>, а не сервера, иначе потеряете доступ к панели.
+              </small>
             </div>
             <div className={styles.confirmButtons}>
               <button className={styles.confirmBtnSecondary}

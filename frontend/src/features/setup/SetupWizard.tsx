@@ -12,8 +12,8 @@ type StepId     = "welcome" | "device" | "remote" | "os" | "iface" | "autoblock"
 const PC_STEPS:     StepId[] = ["welcome", "device", "os", "iface", "autoblock", "sensitivity", "done"];
 const SERVER_STEPS: StepId[] = ["welcome", "device", "remote", "os", "iface", "autoblock", "sensitivity", "done"];
 
-const THEME_CYCLE = ["dark", "light", "gray"] as const;
-const THEME_ICONS: Record<string, string> = { dark: "🌙", light: "☀️", gray: "◑" };
+const THEME_CYCLE = ["dark", "light", "gray", "glass"] as const;
+const THEME_ICONS: Record<string, string> = { dark: "🌙", light: "☀️", gray: "◑", glass: "🫧" };
 
 // Sensitivity → threshold mapping
 const SENSITIVITY_MAP: Record<string, number> = {
@@ -29,7 +29,7 @@ function detectOS(): RunMode {
 
 function nextTheme(t: string): typeof THEME_CYCLE[number] {
   const i = THEME_CYCLE.indexOf(t as typeof THEME_CYCLE[number]);
-  return THEME_CYCLE[(i + 1) % 3];
+  return THEME_CYCLE[(i + 1) % THEME_CYCLE.length];
 }
 
 // ─── Shared sub-components ────────────────────────────────────
@@ -152,7 +152,9 @@ function IfaceStep({
   );
 }
 
-function AutoblockStep({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function AutoblockStep({
+  value, onChange, myIp, onMyIpChange,
+}: { value: boolean; onChange: (v: boolean) => void; myIp: string; onMyIpChange: (v: string) => void }) {
   return (
     <>
       <h2 className={s.title}>Автоматическая блокировка</h2>
@@ -168,9 +170,23 @@ function AutoblockStep({ value, onChange }: { value: boolean; onChange: (v: bool
           hint="Мгновенно блокировать IP через iptables/Windows Firewall при обнаружении атаки" />
       </div>
       {value && (
-        <div className={s.warn}>
-          ⚠ Убедитесь что ваш IP добавлен в белый список в Settings → иначе можете заблокировать себя.
-        </div>
+        <>
+          <div className={s.ipBlock}>
+            <label className={s.ipLabel}>Ваш IP для белого списка:</label>
+            <input
+              type="text"
+              className={s.ipInput}
+              value={myIp}
+              placeholder="например: 192.168.1.10"
+              onChange={(e) => onMyIpChange(e.target.value)}
+            />
+            <p className={s.remoteHint}>
+              IP определён автоматически и будет добавлен в белый список.
+              Если вы управляете <strong>удалённо</strong> — введите IP <strong>вашего компьютера</strong>,
+              а не сервера, иначе можете потерять доступ к панели.
+            </p>
+          </div>
+        </>
       )}
     </>
   );
@@ -242,10 +258,12 @@ export function SetupWizard() {
   const [autoblock,  setAutoblock]  = useState(false);
   const [sensitivity,setSensitivity]= useState<Sensitivity>("balanced");
   const [interfaces, setInterfaces] = useState<{ name: string }[]>([]);
+  const [myIp,       setMyIp]       = useState("");
   const [applying,   setApplying]   = useState(false);
   const [animKey,    setAnimKey]    = useState(0);
-
-  const theme = (document.documentElement.dataset.theme ?? settings?.theme ?? "dark") as string;
+  const [localTheme, setLocalTheme] = useState<string>(
+    () => document.documentElement.dataset.theme ?? settings?.theme ?? "dark"
+  );
 
   const steps  = device === "server" ? SERVER_STEPS : PC_STEPS;
   const stepId = steps[stepIdx];
@@ -255,11 +273,19 @@ export function SetupWizard() {
   const dotIdx   = dotSteps.indexOf(stepId);
 
   useEffect(() => {
-    api.getInterfaces().then((ifaces: any) => setInterfaces(ifaces)).catch(() => {});
+    api.getInterfaces().then((ifaces: any) => {
+      setInterfaces(ifaces);
+      const ip: string = (ifaces as { addresses?: string[] }[])
+        .flatMap((i) => i.addresses ?? [])
+        .find((a: string) => !a.startsWith("127.") && !a.startsWith("::") && !a.startsWith("169.254.") && a.includes(".")) ?? "";
+      if (ip) setMyIp(ip);
+    }).catch(() => {});
   }, []);
 
   function handleTheme() {
-    document.documentElement.dataset.theme = nextTheme(theme);
+    const next = nextTheme(localTheme);
+    document.documentElement.dataset.theme = next;
+    setLocalTheme(next);
   }
 
   function advance() {
@@ -271,6 +297,11 @@ export function SetupWizard() {
     if (!settings) { setSetupComplete(true); return; }
     setApplying(true);
     const savedTheme = (document.documentElement.dataset.theme as AppSettings["theme"]) ?? settings.theme;
+    const enableAutoblock = !defaults && autoblock;
+    const existingWhitelist = settings.whitelist_ips ?? [];
+    const newWhitelist = enableAutoblock && myIp && !existingWhitelist.includes(myIp.trim())
+      ? [...existingWhitelist, myIp.trim()]
+      : existingWhitelist;
     const patch: AppSettings = {
       ...settings,
       theme:                savedTheme,
@@ -279,6 +310,7 @@ export function SetupWizard() {
       allow_remote_access:  defaults ? false       : (device === "server" ? remote : false),
       auto_block:           defaults ? false       : autoblock,
       catboost_threshold:   defaults ? 0.70        : SENSITIVITY_MAP[sensitivity],
+      whitelist_ips:        newWhitelist,
     };
     try {
       const saved = await api.updateSettings(patch);
@@ -295,7 +327,7 @@ export function SetupWizard() {
     <div className={s.overlay}>
       <button type="button" className={s.themeBtn} onClick={handleTheme}
         title="Сменить тему">
-        {THEME_ICONS[theme] ?? "🌙"}
+        {THEME_ICONS[localTheme] ?? "🌙"}
       </button>
 
       <div className={s.card}>
@@ -307,7 +339,7 @@ export function SetupWizard() {
           {stepId === "remote"      && <RemoteStep value={remote} onChange={setRemote} />}
           {stepId === "os"          && <OSStep value={runMode} onChange={setRunMode} />}
           {stepId === "iface"       && <IfaceStep value={ifaceName} onChange={setIfaceName} interfaces={interfaces} />}
-          {stepId === "autoblock"   && <AutoblockStep value={autoblock} onChange={setAutoblock} />}
+          {stepId === "autoblock"   && <AutoblockStep value={autoblock} onChange={setAutoblock} myIp={myIp} onMyIpChange={setMyIp} />}
           {stepId === "sensitivity" && <SensitivityStep value={sensitivity} onChange={setSensitivity} />}
           {stepId === "done"        && (
             <DoneStep device={device} runMode={runMode} ifaceName={ifaceName}

@@ -1,4 +1,4 @@
-export type ThemeMode = "dark" | "light" | "gray";
+export type ThemeMode = "dark" | "light" | "gray" | "glass";
 export type LanguageCode = "ru" | "en";
 export type RunMode = "mock" | "windows_stub" | "linux_stub" | "linux_live" | "windows_live";
 export type StatusLevel = "idle" | "active" | "warning" | "error";
