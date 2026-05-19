@@ -175,61 +175,74 @@
   --shadow-glow:  0 0 24px rgba(0, 122, 204, 0.12);
 }
 
-/* ── Glass theme (liquid glass / frosted) ──────────────────── */
+/* ── Glass theme (iOS liquid glass / frosted light) ────────── */
 :root[data-theme="glass"] {
-  color-scheme: dark;
-  --background:    linear-gradient(135deg, #0d0d2b 0%, #1b0a3e 45%, #091728 100%);
-  --surface-1:     rgba(255, 255, 255, 0.055);
-  --surface-2:     rgba(255, 255, 255, 0.085);
-  --surface-3:     rgba(255, 255, 255, 0.115);
-  --surface-hover: rgba(255, 255, 255, 0.095);
+  color-scheme: light;
+  /* Pastel gradient — shows through frosted panels */
+  --background:    linear-gradient(145deg, #dce8ff 0%, #ede6ff 45%, #d6f0fb 100%);
+  /* Frosted white panels — backdrop-filter does the magic */
+  --surface-1:     rgba(255, 255, 255, 0.62);
+  --surface-2:     rgba(255, 255, 255, 0.76);
+  --surface-3:     rgba(255, 255, 255, 0.88);
+  --surface-hover: rgba(255, 255, 255, 0.48);
 
-  --border:        rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.20);
-  --border-accent: rgba(139, 92, 246, 0.40);
+  --border:        rgba(0, 0, 0, 0.07);
+  --border-strong: rgba(0, 0, 0, 0.14);
+  --border-accent: rgba(105, 65, 210, 0.32);
 
-  --text-primary:   #f0f0ff;
-  --text-secondary: #b8b8d0;
-  --text-muted:     #6a6a90;
-  --muted-text:     #b8b8d0;
+  --text-primary:   #141428;
+  --text-secondary: #3e3e60;
+  --text-muted:     #8080a8;
+  --muted-text:     #3e3e60;
 
-  --accent:        #a78bfa;
-  --accent-strong: #8b5cf6;
-  --accent-mid:    #22d3ee;
-  --accent-glow:   rgba(167, 139, 250, 0.28);
+  --accent:        #6941c6;
+  --accent-strong: #5535b2;
+  --accent-mid:    #0284c7;
+  --accent-glow:   rgba(105, 65, 198, 0.18);
 
-  --ok:     #10d9a0;
-  --warn:   #f59e0b;
-  --danger: #ef4444;
-  --info:   #38bdf8;
+  --ok:     #16803c;
+  --warn:   #b45309;
+  --danger: #c81e1e;
+  --info:   #0369a1;
 
-  --ok-rgb:     16, 217, 160;
-  --warn-rgb:   245, 158, 11;
-  --danger-rgb: 239, 68, 68;
-  --info-rgb:   56, 189, 248;
+  --ok-rgb:     22, 128, 60;
+  --warn-rgb:   180, 83, 9;
+  --danger-rgb: 200, 30, 30;
+  --info-rgb:   3, 105, 161;
 
-  --success-soft:   rgba(16, 217, 160, 0.10);
-  --success-border: rgba(16, 217, 160, 0.26);
-  --success-strong: #14e6ab;
-  --warning-soft:   rgba(245, 158, 11, 0.10);
-  --warning-border: rgba(245, 158, 11, 0.26);
-  --warning-strong: #fbbf24;
-  --danger-soft:    rgba(239, 68, 68, 0.08);
-  --danger-border:  rgba(239, 68, 68, 0.24);
-  --danger-strong:  #f87171;
-  --info-soft:      rgba(56, 189, 248, 0.08);
-  --info-border:    rgba(56, 189, 248, 0.22);
-  --info-strong:    #7dd3fc;
+  --success-soft:   rgba(22, 128, 60, 0.10);
+  --success-border: rgba(22, 128, 60, 0.26);
+  --success-strong: #15803d;
+  --warning-soft:   rgba(180, 83, 9, 0.10);
+  --warning-border: rgba(180, 83, 9, 0.26);
+  --warning-strong: #92400e;
+  --danger-soft:    rgba(200, 30, 30, 0.08);
+  --danger-border:  rgba(200, 30, 30, 0.24);
+  --danger-strong:  #991b1b;
+  --info-soft:      rgba(3, 105, 161, 0.08);
+  --info-border:    rgba(3, 105, 161, 0.22);
+  --info-strong:    #075985;
 
-  --shadow-soft:  0 2px 16px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(167, 139, 250, 0.08);
-  --shadow-card:  0 8px 40px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.07) inset;
-  --shadow-large: 0 20px 72px rgba(0, 0, 0, 0.65);
-  --shadow-glow:  0 0 36px rgba(167, 139, 250, 0.22);
+  --shadow-soft:  0 2px 12px rgba(60, 50, 120, 0.10), 0 0 0 1px rgba(255, 255, 255, 0.60);
+  --shadow-card:  0 8px 32px rgba(60, 50, 120, 0.14), 0 1px 0 rgba(255, 255, 255, 0.80) inset;
+  --shadow-large: 0 20px 60px rgba(60, 50, 120, 0.18);
+  --shadow-glow:  0 0 28px rgba(105, 65, 198, 0.20);
 }
 
-/* Glass theme — backdrop blur on main structural elements */
+/* Glass theme — fixed gradient + blur on translucent surfaces */
 :root[data-theme="glass"] body {
   background-attachment: fixed;
+}
+/* Add backdrop-filter to all glass surfaces so gradient shows through */
+:root[data-theme="glass"] [class*="card"],
+:root[data-theme="glass"] [class*="panel"],
+:root[data-theme="glass"] [class*="sidebar"],
+:root[data-theme="glass"] [class*="topbar"],
+:root[data-theme="glass"] [class*="content"],
+:root[data-theme="glass"] [class*="dialog"],
+:root[data-theme="glass"] [class*="surface"] {
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
