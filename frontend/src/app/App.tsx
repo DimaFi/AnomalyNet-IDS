@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { SetupWizard } from "../features/setup/SetupWizard";
 import { ToastContainer } from "../components/ToastContainer";
 import { ModelPresetPicker } from "../components/ModelPresetPicker";
 import { AboutView } from "../features/about/AboutView";
@@ -191,6 +192,7 @@ export function App() {
   const setCapabilities   = useAppStore((state) => state.setCapabilities);
   const serviceStopped    = useAppStore((state) => state.serviceStopped);
   const setServiceStopped = useAppStore((state) => state.setServiceStopped);
+  const setupComplete     = useAppStore((state) => state.setupComplete);
 
   useRealtimeStream();
 
@@ -429,6 +431,9 @@ export function App() {
       </div>
 
       <ToastContainer />
+
+      {/* First-run setup wizard */}
+      {!serviceStopped && !setupComplete && settings !== null && <SetupWizard />}
 
       {/* Stopped overlay */}
       {serviceStopped && (

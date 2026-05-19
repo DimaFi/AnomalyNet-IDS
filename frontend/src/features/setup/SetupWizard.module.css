@@ -1,0 +1,277 @@
+/* ── Overlay ──────────────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+/* ── Theme toggle (top-right) ─────────────────────────────── */
+.themeBtn {
+  position: fixed;
+  top: 18px;
+  right: 22px;
+  font-size: 22px;
+  line-height: 1;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.2s, transform 0.2s;
+  padding: 4px;
+  z-index: 1001;
+}
+.themeBtn:hover { opacity: 1; transform: scale(1.15); }
+
+/* ── Card ─────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 36px 44px 28px;
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+  animation: cardIn 0.35s cubic-bezier(.25,.8,.25,1);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(28px) scale(.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);   }
+}
+
+/* ── Step dots ────────────────────────────────────────────── */
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.3s;
+}
+.dotActive {
+  background: var(--accent, #6366f1);
+  width: 20px;
+  border-radius: 4px;
+}
+.dotDone {
+  background: var(--accent, #6366f1);
+  opacity: 0.4;
+}
+
+/* ── Step content animation ───────────────────────────────── */
+.content {
+  animation: stepIn 0.22s ease;
+}
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Welcome/Done logo ────────────────────────────────────── */
+.logo {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 18px;
+  display: block;
+  object-fit: contain;
+}
+
+/* ── Titles ───────────────────────────────────────────────── */
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 8px;
+  line-height: 1.2;
+}
+.subtitle {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+/* ── Option buttons ───────────────────────────────────────── */
+.opts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  margin-bottom: 8px;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 13px 16px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+  background: none;
+  width: 100%;
+  text-align: left;
+  position: relative;
+}
+.option:hover { border-color: var(--accent, #6366f1); background: var(--surface-hover, rgba(99,102,241,.06)); }
+
+.optionSelected {
+  border-color: var(--accent, #6366f1);
+  background: color-mix(in srgb, var(--accent, #6366f1) 9%, transparent);
+}
+
+/* Radio dot */
+.radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  margin-top: 2px;
+  position: relative;
+  transition: border-color 0.18s;
+}
+.optionSelected .radio { border-color: var(--accent, #6366f1); }
+.optionSelected .radio::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent, #6366f1);
+}
+
+.optLabel {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.optHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+/* Default badge */
+.defaultBadge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent, #6366f1) 15%, transparent);
+  color: var(--accent, #6366f1);
+  border: 1px solid color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
+}
+
+/* ── Warning box ──────────────────────────────────────────── */
+.warn {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
+  color: #f59e0b;
+  font-size: 12px;
+  text-align: left;
+  line-height: 1.5;
+}
+
+/* ── Interface select ─────────────────────────────────────── */
+.select {
+  width: 100%;
+  padding: 11px 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  margin-bottom: 8px;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.18s;
+}
+.select:focus { border-color: var(--accent, #6366f1); outline: none; }
+
+.selectHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  text-align: left;
+}
+
+/* ── Done summary ─────────────────────────────────────────── */
+.summary {
+  background: var(--surface-hover, rgba(255,255,255,.04));
+  border-radius: 12px;
+  padding: 14px 18px;
+  text-align: left;
+  margin-bottom: 8px;
+}
+.summRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.summRow:last-child { border-bottom: none; }
+.summLabel { color: var(--text-muted); }
+.summVal   { color: var(--text); font-weight: 600; }
+
+/* ── Bottom nav ───────────────────────────────────────────── */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.skipBtn {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: color 0.18s, background 0.18s;
+}
+.skipBtn:hover:not(:disabled) { color: var(--text); background: var(--surface-hover, rgba(255,255,255,.06)); }
+.skipBtn:disabled { opacity: 0.4; cursor: default; }
+
+.nextBtn {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent, #6366f1);
+  border: none;
+  cursor: pointer;
+  padding: 10px 26px;
+  border-radius: 10px;
+  transition: opacity 0.18s, transform 0.15s;
+}
+.nextBtn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+.nextBtn:disabled { opacity: 0.45; cursor: default; transform: none; }

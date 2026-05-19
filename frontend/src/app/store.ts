@@ -49,6 +49,9 @@ interface AppState {
   // Service power state
   serviceStopped: boolean;
   setServiceStopped: (v: boolean) => void;
+  // First-run setup
+  setupComplete: boolean;
+  setSetupComplete: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -129,5 +132,12 @@ export const useAppStore = create<AppState>((set) => ({
     if (v) sessionStorage.setItem("svc_stopped", "1");
     else sessionStorage.removeItem("svc_stopped");
     set({ serviceStopped: v });
+  },
+
+  setupComplete: localStorage.getItem("setup_done") === "1",
+  setSetupComplete: (v) => {
+    if (v) localStorage.setItem("setup_done", "1");
+    else localStorage.removeItem("setup_done");
+    set({ setupComplete: v });
   },
 }));

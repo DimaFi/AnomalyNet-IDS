@@ -3,6 +3,22 @@ import type { ReinstallResult, UninstallResult, UpdateApplyResult, UpdateCheckRe
 import { api } from "../../lib/api";
 import { useAppStore } from "../../app/store";
 import styles from "./AboutView.module.css";
+
+function SetupAgainButton() {
+  const setSetupComplete = useAppStore((s) => s.setSetupComplete);
+  return (
+    <button
+      className={styles.btnSecondary}
+      onClick={() => {
+        if (confirm("Открыть мастер настройки заново?\n\nТекущие настройки сохранятся — вы сможете их изменить.")) {
+          setSetupComplete(false);
+        }
+      }}
+    >
+      ⚙ Мастер настройки
+    </button>
+  );
+}
 const GUI_REPO    = "https://github.com/DimaFi/AnomalyNet-gui";
 const ML_REPO     = "https://github.com/DimaFi/AnomalyNet-ml";
 
@@ -108,6 +124,7 @@ export function AboutView() {
           <div className={styles.actionsRow}>
             <ReinstallButton />
             <UninstallButton />
+            <SetupAgainButton />
           </div>
         </div>
 
