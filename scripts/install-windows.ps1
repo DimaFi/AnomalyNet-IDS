@@ -506,8 +506,8 @@ $taskXml = @"
   <Principals>
     <Principal id="Author">
       <UserId>$($env:USERDOMAIN)\$($env:USERNAME)</UserId>
-      <LogonType>Password</LogonType>
-      <RunLevel>HighestAvailable</RunLevel>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
     </Principal>
   </Principals>
   <Settings>
@@ -530,17 +530,9 @@ $taskXml = @"
 $xmlPath = "$env:TEMP\anomalynet-task.xml"
 $taskXml | Out-File -Encoding Unicode -FilePath $xmlPath
 
-$cred = Get-Credential -UserName $env:USERNAME -Message "Введите пароль пользователя для задачи планировщика (нужен для работы с высокими привилегиями)"
-if ($cred) {
-    $pass = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($cred.Password))
-    schtasks /create /tn $taskName /xml $xmlPath /ru $env:USERNAME /rp $pass /f 2>$null
-    Remove-Variable pass -ErrorAction SilentlyContinue
-    Ok "Задача '$taskName' создана в Task Scheduler"
-} else {
-    Warn "Пароль не введён — задача не создана. Используйте: schtasks /create /tn AnomalyNet ..."
-}
+schtasks /create /tn $taskName /xml $xmlPath /f 2>$null
 Remove-Item $xmlPath -ErrorAction SilentlyContinue
+Ok "Задача '$taskName' создана в Task Scheduler (без пароля)"
 
 # ── Запуск сервиса прямо сейчас ─────────────────────────────
 Log "Запуск AnomalyNet..."
