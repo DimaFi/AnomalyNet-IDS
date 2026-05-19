@@ -251,7 +251,7 @@ export function SetupWizard() {
   const stepId = steps[stepIdx];
 
   // Dots exclude "welcome" and "done"
-  const dotSteps = steps.filter((id) => id !== "welcome" && id !== "done");
+  const dotSteps = steps.filter((id) => id !== "welcome" && id !== "done") as StepId[];
   const dotIdx   = dotSteps.indexOf(stepId);
 
   useEffect(() => {

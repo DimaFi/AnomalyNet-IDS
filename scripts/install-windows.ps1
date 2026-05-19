@@ -399,9 +399,12 @@ Push-Location "$guiDir\frontend"
 try {
     if (Test-Path "node_modules") { Remove-Item -Recurse -Force "node_modules" }
     npm install --silent
+    if ($LASTEXITCODE -ne 0) { Err "npm install завершился с ошибкой" }
     $env:NODE_OPTIONS = "--max-old-space-size=1536"
     npm run build
+    $buildCode = $LASTEXITCODE
     $env:NODE_OPTIONS = ""
+    if ($buildCode -ne 0) { Err "Сборка фронтенда завершилась с ошибкой (код $buildCode) — обновите репозиторий и запустите установщик заново" }
 } finally {
     Pop-Location
 }
