@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import type { DnsAlert, DnsEntry } from "../../types/dns";
 import s from "./DnsView.module.css";
@@ -69,7 +70,8 @@ function fmtTime(iso: string): string {
 }
 
 function AlertTypeBadge({ type }: { type: string | null }) {
-  if (!type) return <span className={s.statusOk}>норма</span>;
+  const { t } = useTranslation();
+  if (!type) return <span className={s.statusOk}>{t("dns.statusNormal")}</span>;
   if (type === "DGA_DOMAIN")    return <span className={s.statusDanger}>DGA</span>;
   if (type === "DNS_TUNNELING") return <span className={s.statusWarn}>tunneling</span>;
   return <span className={s.statusWarn}>{type}</span>;
@@ -78,6 +80,7 @@ function AlertTypeBadge({ type }: { type: string | null }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function DnsView() {
+  const { t } = useTranslation();
   const [tab,         setTab]         = useState<"queries" | "alerts">("queries");
   const [entries,     setEntries]     = useState<DnsEntry[]>([]);
   const [alerts,      setAlerts]      = useState<DnsAlert[]>([]);
@@ -151,10 +154,10 @@ export function DnsView() {
       <div className={s.toolbar}>
         <div className={s.tabs}>
           <button className={`${s.tabBtn} ${tab === "queries" ? s.tabActive : ""}`} onClick={() => setTab("queries")}>
-            Запросы {entries.length > 0 && <span className={s.count}>{displayed.length}/{entries.length}</span>}
+            {t("dns.tabQueries")} {entries.length > 0 && <span className={s.count}>{displayed.length}/{entries.length}</span>}
           </button>
           <button className={`${s.tabBtn} ${tab === "alerts" ? s.tabActive : ""}`} onClick={() => setTab("alerts")}>
-            Аномалии {alerts.length > 0 && <span className={`${s.count} ${s.countDanger}`}>{alerts.length}</span>}
+            {t("dns.tabAlerts")} {alerts.length > 0 && <span className={`${s.count} ${s.countDanger}`}>{alerts.length}</span>}
           </button>
         </div>
 
@@ -167,7 +170,7 @@ export function DnsView() {
               onClick={() => setShowFilters((v) => !v)}
               title="Настройки отображения"
             >
-              ⚙ Фильтры {activeCount > 0 && <span className={s.filterBadge}>{activeCount}</span>}
+              ⚙ {t("dns.filterTitle")} {activeCount > 0 && <span className={s.filterBadge}>{activeCount}</span>}
             </button>
           </div>
         )}
@@ -178,37 +181,37 @@ export function DnsView() {
         <div className={s.filterPanel}>
           {/* Built-in toggles */}
           <div className={s.filterSection}>
-            <div className={s.filterSectionTitle}>Встроенные</div>
+            <div className={s.filterSectionTitle}>{t("dns.filterBuiltin")}</div>
             <label className={s.checkLabel}>
               <input type="checkbox" checked={filters.hideLocal}
                 onChange={(e) => patch({ hideLocal: e.target.checked })} />
-              Скрыть mDNS / .local
+              {t("dns.filterHideLocal")}
             </label>
             <label className={s.checkLabel}>
               <input type="checkbox" checked={filters.hidePtr}
                 onChange={(e) => patch({ hidePtr: e.target.checked })} />
-              Скрыть PTR / обратный DNS
+              {t("dns.filterHidePtr")}
             </label>
             <label className={s.checkLabel}>
               <input type="checkbox" checked={filters.onlyAlerts}
                 onChange={(e) => patch({ onlyAlerts: e.target.checked })} />
-              Только аномалии
+              {t("dns.filterOnlyAlerts")}
             </label>
           </div>
 
           {/* Custom exclusions */}
           <div className={s.filterSection}>
-            <div className={s.filterSectionTitle}>Свои исключения</div>
+            <div className={s.filterSectionTitle}>{t("dns.customExclusions")}</div>
             <div className={s.exclInputRow}>
               <input
                 className={s.exclInput}
                 type="text"
-                placeholder="домен, .суффикс или *.wildcard"
+                placeholder={t("dns.exclPlaceholder")}
                 value={newPattern}
                 onChange={(e) => setNewPattern(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addExclusion(newPattern); }}
               />
-              <button className={s.addBtn} onClick={() => addExclusion(newPattern)}>+ Добавить</button>
+              <button className={s.addBtn} onClick={() => addExclusion(newPattern)}>{t("dns.addExclusion")}</button>
             </div>
             {exclusions.length > 0 && (
               <div className={s.tagList}>
@@ -226,8 +229,8 @@ export function DnsView() {
           {suggestions.length > 0 && (
             <div className={s.filterSection}>
               <div className={s.filterSectionTitle}>
-                Предложения
-                <span className={s.filterSectionHint}> — часто встречаются, не аномалии</span>
+                {t("dns.suggestions")}
+                <span className={s.filterSectionHint}>{t("dns.suggestionsHint")}</span>
               </div>
               <div className={s.suggList}>
                 {suggestions.map((d) => (
@@ -245,7 +248,7 @@ export function DnsView() {
               setFilters({ ...DEFAULT_DNS_FILTERS });
               setExclusions([]);
             }}>
-              × Сбросить всё
+              {t("dns.resetAll")}
             </button>
           )}
         </div>
@@ -253,7 +256,7 @@ export function DnsView() {
 
       {available === false && (
         <div className={s.notice}>
-          DNS мониторинг доступен только в режиме <strong>linux_live</strong>.
+          {t("dns.noCapture")}
         </div>
       )}
 
@@ -263,11 +266,11 @@ export function DnsView() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Время</th>
-                <th>IP устройства</th>
-                <th>Домен</th>
-                <th>Тип</th>
-                <th>Статус</th>
+                <th>{t("dns.colTime")}</th>
+                <th>{t("dns.colIp")}</th>
+                <th>{t("dns.colDomain")}</th>
+                <th>{t("dns.colType")}</th>
+                <th>{t("dns.colStatus")}</th>
               </tr>
             </thead>
             <tbody>
@@ -291,10 +294,10 @@ export function DnsView() {
           {displayed.length === 0 && (
             <p className={s.empty}>
               {available === false
-                ? "Данных нет — запустите захват в режиме linux_live."
+                ? t("dns.noQueriesLive")
                 : entries.length > 0
-                  ? "Все записи скрыты фильтрами."
-                  : "DNS-запросов пока нет. Ожидание трафика..."}
+                  ? t("dns.noQueriesFiltered")
+                  : t("dns.noQueriesWait")}
             </p>
           )}
         </div>
@@ -306,7 +309,7 @@ export function DnsView() {
           <table className={s.table}>
             <thead>
               <tr>
-                <th>Время</th><th>IP</th><th>Тип</th><th>Домен</th><th>Описание</th>
+                <th>{t("dns.colAlertTime")}</th><th>{t("dns.colAlertIp")}</th><th>{t("dns.colAlertType")}</th><th>{t("dns.colAlertDomain")}</th><th>{t("dns.colAlertDesc")}</th>
               </tr>
             </thead>
             <tbody>
@@ -321,7 +324,7 @@ export function DnsView() {
               ))}
             </tbody>
           </table>
-          {alerts.length === 0 && <p className={s.empty}>DNS-аномалий не обнаружено.</p>}
+          {alerts.length === 0 && <p className={s.empty}>{t("dns.noAnomalies")}</p>}
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { PipelineEvent } from "../../app/types";
 import { api } from "../../lib/api";
 import styles from "../panel.module.css";
@@ -84,6 +85,7 @@ function exportCsv(rows: PipelineEvent[]) {
 // ── Component ──────────────────────────────────────────────
 
 export function AlertsView() {
+  const { t } = useTranslation();
   const [items, setItems]     = useState<PipelineEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
@@ -152,18 +154,18 @@ export function AlertsView() {
     <section className={styles.panel}>
       <div className={styles.panelHeader}>
         <div>
-          <h2>Инциденты</h2>
-          <p>История обнаруженных угроз из /api/history. Обновление каждые 30 с.</p>
+          <h2>{t("alerts.title")}</h2>
+          <p>{t("alerts.subtitle")}</p>
         </div>
         <div className={s.headerStats}>
           <span className={s.statBadge} style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
-            {totalAnomaly} аномалий
+            {totalAnomaly} {t("alerts.anomalies")}
           </span>
           <span className={s.statBadge} style={{ borderColor: "var(--warn)", color: "var(--warn)" }}>
-            {totalWarning} предупреждений
+            {totalWarning} {t("alerts.warnings")}
           </span>
           <span className={s.statBadge}>
-            {items.length} всего
+            {items.length} {t("alerts.total")}
           </span>
         </div>
       </div>
@@ -171,20 +173,20 @@ export function AlertsView() {
       {/* ── Filters bar ── */}
       <div className={s.filtersBar}>
         <div className={s.filterGroup}>
-          <label>Вердикт</label>
+          <label>{t("alerts.verdictLabel")}</label>
           <div className={s.segmented}>
             {(["all", "anomaly", "warning"] as const).map(v => (
               <button key={v}
                 className={filterVerdict === v ? s.segActive : ""}
                 onClick={() => setFilterVerdict(v)}>
-                {v === "all" ? "Все" : v === "anomaly" ? "Аномалия" : "Предупреждение"}
+                {v === "all" ? t("stream.filterAll") : v === "anomaly" ? t("stream.filterAnomaly") : t("stream.filterWarning")}
               </button>
             ))}
           </div>
         </div>
 
         <div className={s.filterGroup}>
-          <label>Тип события</label>
+          <label>{t("alerts.typeLabel")}</label>
           <div className={s.segmented}>
             {(["all", "flow", "dns", "tls"] as const).map(v => (
               <button key={v}
@@ -197,15 +199,15 @@ export function AlertsView() {
         </div>
 
         <div className={s.filterGroup}>
-          <label>Класс атаки</label>
+          <label>{t("alerts.classLabel")}</label>
           <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className={s.filterSelect}>
-            <option value="">Все классы</option>
+            <option value="">{t("alerts.allClasses")}</option>
             {attackClasses.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
         <div className={s.filterGroup}>
-          <label>IP-адрес</label>
+          <label>{t("alerts.ipLabel")}</label>
           <input
             type="text"
             value={filterIp}
@@ -218,7 +220,7 @@ export function AlertsView() {
         <div className={s.filterGroup}>
           <label className={s.checkLabel}>
             <input type="checkbox" checked={filterMitre} onChange={e => setFilterMitre(e.target.checked)} />
-            Только с MITRE
+            {t("alerts.mitreOnly")}
           </label>
         </div>
 
@@ -240,27 +242,27 @@ export function AlertsView() {
       {/* ── Table ── */}
       <div className={styles.tableWrap}>
         {loading && items.length === 0 && (
-          <p className={styles.emptyState}>Загрузка...</p>
+          <p className={styles.emptyState}>{t("alerts.loadingMsg")}</p>
         )}
         {error && (
           <p className={styles.emptyState} style={{ color: "var(--danger)" }}>{error}</p>
         )}
         {!loading && !error && filtered.length === 0 && (
-          <p className={styles.emptyState}>Нет инцидентов по выбранным фильтрам.</p>
+          <p className={styles.emptyState}>{t("alerts.noIncidents")}</p>
         )}
         {filtered.length > 0 && (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>Время</th>
-                <th>Тип</th>
-                <th>Маршрут</th>
-                <th>Вердикт</th>
+                <th>{t("alerts.time")}</th>
+                <th>{t("alerts.type")}</th>
+                <th>{t("alerts.route")}</th>
+                <th>{t("alerts.verdict")}</th>
                 <th>Score</th>
-                <th>Класс атаки</th>
-                <th>MITRE</th>
-                <th>JA4 / Домен</th>
-                <th>Prior.</th>
+                <th>{t("alerts.class")}</th>
+                <th>{t("alerts.mitre")}</th>
+                <th>{t("alerts.ja4domain")}</th>
+                <th>{t("alerts.priority")}</th>
               </tr>
             </thead>
             <tbody>
@@ -366,6 +368,7 @@ export function AlertsView() {
 // ── Expanded row details ───────────────────────────────────
 
 function ExpandedDetails({ item }: { item: PipelineEvent }) {
+  const { t } = useTranslation();
   const meta = (item.metadata ?? {}) as Record<string, unknown>;
   const mitreUrl = (item.mitre as (typeof item.mitre & { url?: string }) | null | undefined)?.url;
   const repInfo  = meta["ja4_reputation"] as Record<string, string> | undefined;
@@ -374,23 +377,23 @@ function ExpandedDetails({ item }: { item: PipelineEvent }) {
     <div className={s.expanded}>
       <div className={s.expandedGrid}>
         <div className={s.expandedSection}>
-          <div className={s.expandedTitle}>Событие</div>
+          <div className={s.expandedTitle}>{t("alerts.expandEvent")}</div>
           <dl className={s.dl}>
             <dt>Event ID</dt><dd className={s.mono}>{item.event.event_id}</dd>
-            <dt>Протокол</dt><dd>{item.event.protocol}</dd>
-            <dt>Пакеты</dt><dd>{item.event.packet_count}</dd>
-            <dt>Байты</dt><dd>{item.event.byte_count}</dd>
-            <dt>Длительность</dt><dd>{item.event.duration_ms} мс</dd>
-            <dt>Источник</dt><dd>{item.event.source}</dd>
+            <dt>{t("alerts.protocol")}</dt><dd>{item.event.protocol}</dd>
+            <dt>{t("alerts.packets")}</dt><dd>{item.event.packet_count}</dd>
+            <dt>{t("alerts.bytes")}</dt><dd>{item.event.byte_count}</dd>
+            <dt>{t("alerts.duration")}</dt><dd>{item.event.duration_ms} ms</dd>
+            <dt>{t("alerts.source")}</dt><dd>{item.event.source}</dd>
             {item.pipeline_used && <><dt>Pipeline</dt><dd>{item.pipeline_used}</dd></>}
-            {item.device_name  && <><dt>Устройство</dt><dd>{item.device_name}</dd></>}
+            {item.device_name  && <><dt>{t("alerts.device")}</dt><dd>{item.device_name}</dd></>}
           </dl>
         </div>
         <div className={s.expandedSection}>
-          <div className={s.expandedTitle}>Вердикт</div>
+          <div className={s.expandedTitle}>{t("alerts.expandVerdict")}</div>
           <dl className={s.dl}>
-            <dt>Model</dt><dd className={s.mono}>{item.inference.model_id}</dd>
-            <dt>Причина</dt><dd>{item.inference.reason || "—"}</dd>
+            <dt>{t("alerts.model")}</dt><dd className={s.mono}>{item.inference.model_id}</dd>
+            <dt>{t("alerts.reason")}</dt><dd>{item.inference.reason || "—"}</dd>
             {item.mitre && (
               <>
                 <dt>MITRE ID</dt>
@@ -399,8 +402,8 @@ function ExpandedDetails({ item }: { item: PipelineEvent }) {
                     ? <a href={mitreUrl} target="_blank" rel="noopener noreferrer" className={s.mitreLink}>{item.mitre.id}</a>
                     : item.mitre.id}
                 </dd>
-                <dt>Техника</dt><dd>{item.mitre.name}</dd>
-                <dt>Тактика</dt><dd>{item.mitre.tactic}</dd>
+                <dt>{t("alerts.technique")}</dt><dd>{item.mitre.name}</dd>
+                <dt>{t("alerts.tactic")}</dt><dd>{item.mitre.tactic}</dd>
               </>
             )}
           </dl>
@@ -421,12 +424,12 @@ function ExpandedDetails({ item }: { item: PipelineEvent }) {
         )}
         {repInfo && (
           <div className={s.expandedSection}>
-            <div className={s.expandedTitle} style={{ color: "var(--danger)" }}>JA4 Репутация</div>
+            <div className={s.expandedTitle} style={{ color: "var(--danger)" }}>{t("alerts.reputation")}</div>
             <dl className={s.dl}>
-              <dt>Метка</dt><dd style={{ color: "var(--danger)", fontWeight: 700 }}>{repInfo["label"]}</dd>
-              <dt>Серьёзность</dt><dd>{repInfo["severity"]}</dd>
-              <dt>Описание</dt><dd>{repInfo["description"]}</dd>
-              <dt>Источник</dt><dd>{repInfo["source"]}</dd>
+              <dt>{t("alerts.repLabel")}</dt><dd style={{ color: "var(--danger)", fontWeight: 700 }}>{repInfo["label"]}</dd>
+              <dt>{t("alerts.repSeverity")}</dt><dd>{repInfo["severity"]}</dd>
+              <dt>{t("alerts.repDesc")}</dt><dd>{repInfo["description"]}</dd>
+              <dt>{t("alerts.repSource")}</dt><dd>{repInfo["source"]}</dd>
             </dl>
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAppStore } from "../app/store";
 import type { ToastItem } from "../app/types";
 import { useBlockIp } from "../lib/useBlockIp";
@@ -41,7 +42,8 @@ export function Toast({ toast }: ToastProps) {
     await blockIp(toast.src_ip, toast.event_id);
   };
 
-  const levelLabel = toast.level === "anomaly" ? "АТАКА" : "ПОДОЗРЕНИЕ";
+  const { t } = useTranslation();
+  const levelLabel = toast.level === "anomaly" ? t("toast.attack") : t("toast.suspicion");
   const badgeText  = toast.attack_class
     ? `${levelLabel} · ${toast.attack_class}`
     : levelLabel;
@@ -56,7 +58,7 @@ export function Toast({ toast }: ToastProps) {
     >
       <div className={styles.header}>
         <span className={styles.badge}>{badgeText}</span>
-        <button className={styles.closeBtn} onClick={handleDismiss} title="Закрыть">
+        <button className={styles.closeBtn} onClick={handleDismiss} title={t("toast.close")}>
           ×
         </button>
       </div>
@@ -67,10 +69,10 @@ export function Toast({ toast }: ToastProps) {
       <div className={styles.footer}>
         <span className={styles.ip}>{toast.src_ip}</span>
         {isBlocked ? (
-          <span className={styles.blockedLabel}>Заблокирован</span>
+          <span className={styles.blockedLabel}>{t("toast.blocked")}</span>
         ) : (
           <button className={styles.blockBtn} onClick={handleBlock}>
-            Заблокировать IP
+            {t("toast.blockBtn")}
           </button>
         )}
       </div>

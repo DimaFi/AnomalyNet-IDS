@@ -15,7 +15,7 @@ DetectionMode = Literal["simple", "advanced"]
 
 
 class AppSettings(BaseModel):
-    language: LanguageCode = "ru"
+    language: LanguageCode = "en"
     theme: ThemeMode = "dark"
     run_mode: RunMode = "mock"
     retention_days: int = Field(default=14, ge=1, le=30)

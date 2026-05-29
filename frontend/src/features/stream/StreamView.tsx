@@ -88,10 +88,10 @@ function ScoreBar({ score }: { score: number }) {
 // ── Export helpers ────────────────────────────────────────────────────────────
 
 const QUICK_RANGES = [
-  { label: "1 час",   hours: 1  },
-  { label: "6 часов", hours: 6  },
-  { label: "24 часа", hours: 24 },
-  { label: "7 дней",  hours: 168 },
+  { labelKey: "1h",   hours: 1  },
+  { labelKey: "6h",   hours: 6  },
+  { labelKey: "24h",  hours: 24 },
+  { labelKey: "7d",   hours: 168 },
 ] as const;
 
 const PRIORITY_OPTIONS = [
@@ -155,7 +155,7 @@ function ExportMenu({ onExportCurrentCsv }: { onExportCurrentCsv: () => void }) 
           {QUICK_RANGES.map((r) => (
             <button key={r.hours} className={s.exportItem}
               onClick={() => { download("eve", r.hours); setOpen(false); }}>
-              ↓ EVE JSON — {r.label}
+              ↓ EVE JSON — {r.labelKey}
             </button>
           ))}
 
@@ -163,7 +163,7 @@ function ExportMenu({ onExportCurrentCsv }: { onExportCurrentCsv: () => void }) 
           {QUICK_RANGES.map((r) => (
             <button key={r.hours} className={s.exportItem}
               onClick={() => { download("csv", r.hours); setOpen(false); }}>
-              ↓ CSV — {r.label}
+              ↓ CSV — {r.labelKey}
             </button>
           ))}
 
@@ -261,12 +261,10 @@ function TlsView({ stream }: { stream: PipelineEvent[] }) {
     [stream],
   );
 
+  const { t: tLocal } = useTranslation();
   if (!tlsEvents.length) {
     return (
-      <p className={styles.emptyState}>
-        Нет TLS событий — алерт появляется только при первом обнаружении нового JA4-fingerprint с IP-адреса.
-        Откройте любой HTTPS-сайт в браузере чтобы проверить работу.
-      </p>
+      <p className={styles.emptyState}>{tLocal("stream.tlsNoEvents")}</p>
     );
   }
 
@@ -475,15 +473,15 @@ export function StreamView() {
             <button
               className={`${s.viewTabBtn} ${viewTab === "flows" ? s.viewTabActive : ""}`}
               onClick={() => setViewTab("flows")}
-            >Потоки</button>
+            >{t("stream.tabFlows")}</button>
             <button
               className={`${s.viewTabBtn} ${viewTab === "dns" ? s.viewTabActive : ""}`}
               onClick={() => setViewTab("dns")}
-            >DNS</button>
+            >{t("stream.tabDns")}</button>
             <button
               className={`${s.viewTabBtn} ${viewTab === "tls" ? s.viewTabActive : ""}`}
               onClick={() => setViewTab("tls")}
-            >TLS</button>
+            >{t("stream.tabTls")}</button>
           </div>
           <span className={s.counter}>
             {filtered.length !== stream.length
@@ -537,20 +535,20 @@ export function StreamView() {
             />
           </label>
           <label className={s.filterItem}>
-            <span>Вердикт</span>
+            <span>{t("stream.filterVerdict")}</span>
             <select
               className={filters.verdict !== "all" ? s.filterActive : ""}
               value={filters.verdict}
               onChange={(e) => patchFilters({ verdict: e.target.value as FilterState["verdict"] })}
             >
-              <option value="all">Все</option>
-              <option value="anomaly">Аномалия</option>
-              <option value="warning">Предупреждение</option>
-              <option value="normal">Норма</option>
+              <option value="all">{t("stream.filterAll")}</option>
+              <option value="anomaly">{t("stream.filterAnomaly")}</option>
+              <option value="warning">{t("stream.filterWarning")}</option>
+              <option value="normal">{t("stream.filterNormal")}</option>
             </select>
           </label>
           <label className={s.filterItem}>
-            <span>Тип</span>
+            <span>{t("stream.filterType")}</span>
             <select
               className={filters.cls !== "all" ? s.filterActive : ""}
               value={filters.cls}
@@ -562,7 +560,7 @@ export function StreamView() {
             </select>
           </label>
           <label className={s.filterItem}>
-            <span>Протокол</span>
+            <span>{t("stream.filterProto")}</span>
             <select
               className={filters.protocol !== "all" ? s.filterActive : ""}
               value={filters.protocol}
@@ -577,7 +575,7 @@ export function StreamView() {
         {/* Row 2: new filters */}
         <div className={s.filterRow}>
           <label className={s.filterItem}>
-            <span>Приоритет</span>
+            <span>{t("stream.filterPriority")}</span>
             <select
               className={filters.priority !== "all" ? s.filterActive : ""}
               value={filters.priority}
@@ -591,7 +589,7 @@ export function StreamView() {
             </select>
           </label>
           <label className={s.filterItem}>
-            <span>Период</span>
+            <span>{t("stream.filterPeriod")}</span>
             <div className={s.timeRangeBtns}>
               {([5, 15, 60, 0] as const).map((m) => (
                 <button
@@ -599,7 +597,7 @@ export function StreamView() {
                   className={`${s.timeBtn} ${filters.timeRange === m ? s.timeBtnActive : ""}`}
                   onClick={() => patchFilters({ timeRange: m })}
                 >
-                  {m === 0 ? "Всё" : m === 60 ? "1ч" : `${m}м`}
+                  {m === 0 ? t("stream.filterPeriodAll") : m === 60 ? "1h" : `${m}m`}
                 </button>
               ))}
             </div>
@@ -628,18 +626,18 @@ export function StreamView() {
               checked={filters.lanOnly}
               onChange={(e) => patchFilters({ lanOnly: e.target.checked })}
             />
-            <span className={filters.lanOnly ? s.filterActive : ""}>Только LAN</span>
+            <span className={filters.lanOnly ? s.filterActive : ""}>{t("stream.lanOnly")}</span>
           </label>
           {hasFilters && (
             <button className={s.clearFiltersBtn} onClick={resetFilters}>
-              × Сбросить
+              {t("stream.resetFilters")}
             </button>
           )}
         </div>
 
         {/* Counter */}
         {filtered.length !== stream.length && (
-          <p className={s.filterCounter}>Показано: {filtered.length} из {stream.length}</p>
+          <p className={s.filterCounter}>{t("stream.shown")} {filtered.length} {t("stream.of")} {stream.length}</p>
         )}
       </div>
 
@@ -730,14 +728,14 @@ export function StreamView() {
                         {canBlock && isAttack && !isBlocked && (
                           <button className={s.blockBtn}
                             onClick={() => blockIp(item.event.src_ip, item.event.event_id)}
-                            title={`Заблокировать ${item.event.src_ip}`}>
-                            Блок
+                            title={`${t("stream.blockIp")} ${item.event.src_ip}`}>
+                            {t("stream.blockIp")}
                           </button>
                         )}
                         {canBlock && isBlocked && (
                           <button className={s.unblockBtn}
                             onClick={() => void handleUnblock(item.event.src_ip)}>
-                            Разблок
+                            {t("stream.unblockIp")}
                           </button>
                         )}
                       </div>
@@ -802,13 +800,13 @@ export function StreamView() {
                   {isAttack && !isBlocked && (
                     <button className={s.blockBtn}
                       onClick={() => blockIp(item.event.src_ip, item.event.event_id)}>
-                      Заблокировать {item.event.src_ip}
+                      {t("stream.blockIp")} {item.event.src_ip}
                     </button>
                   )}
                   {isBlocked && (
                     <button className={s.unblockBtn}
                       onClick={() => void handleUnblock(item.event.src_ip)}>
-                      Разблокировать
+                      {t("stream.unblockIp")}
                     </button>
                   )}
                 </div>

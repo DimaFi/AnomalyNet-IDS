@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import { api } from "../../lib/api";
 import type { Device, DeviceAlert, DevicesWsMessage } from "../../types/device";
 import type { DeviceDnsSummary } from "../../types/dns";
 import s from "./NetworkMapView.module.css";
 
-const DEVICE_TYPES: Record<string, string> = {
-  iot_camera: "IP-камера", iot_sensor: "IoT датчик", iot_bulb: "Умная лампа",
-  iot_plug: "Умная розетка", router: "Роутер/шлюз", pc_windows: "Windows ПК",
-  pc_linux: "Linux сервер", pc_mac: "Mac", phone: "Смартфон", printer: "Принтер",
-  nas: "NAS хранилище", game_console: "Игровая консоль", tv: "Смарт ТВ",
-  unknown: "Неизвестно",
-};
+// Device types are localized inline via t("network.deviceTypes.<key>")
+const DEVICE_TYPE_KEYS = [
+  "iot_camera","iot_sensor","iot_bulb","iot_plug","router",
+  "pc_windows","pc_linux","pc_mac","phone","printer",
+  "nas","game_console","tv","unknown",
+] as const;
 
 function fmtBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -102,13 +102,13 @@ function DeviceCard({ device, selected, onClick }: {
       <div className={s.cardIp}>{device.ip}</div>
       <RiskBar score={device.risk_score} label={device.risk_label} compact />
       {device.is_self && (
-        <div className={s.selfCardBadge}>🖥 Это устройство</div>
+        <div className={s.selfCardBadge}>🖥 This device</div>
       )}
       {device.is_suspicious && (
-        <div className={`${s.cardBadge} ${s.cardBadgeDanger}`}>⚠ подозрительный</div>
+        <div className={`${s.cardBadge} ${s.cardBadgeDanger}`}>⚠ suspicious</div>
       )}
       {!device.is_online && (
-        <div className={`${s.cardBadge} ${s.cardBadgeOff}`}>офлайн</div>
+        <div className={`${s.cardBadge} ${s.cardBadgeOff}`}>offline</div>
       )}
     </div>
   );
@@ -117,18 +117,19 @@ function DeviceCard({ device, selected, onClick }: {
 // ── Device Panel (tabbed modal drawer) ───────────────────────────────────────
 
 type TabKey = "overview" | "security" | "dns" | "tls" | "recon" | "manage";
-const PANEL_TABS: { key: TabKey; label: string }[] = [
-  { key: "overview",  label: "Обзор" },
-  { key: "security",  label: "Безопасность" },
-  { key: "dns",       label: "DNS" },
-  { key: "tls",       label: "TLS" },
-  { key: "recon",     label: "Разведка" },
-  { key: "manage",    label: "Управление" },
+const PANEL_TAB_KEYS: { key: TabKey; labelKey: string }[] = [
+  { key: "overview",  labelKey: "network.tabOverview" },
+  { key: "security",  labelKey: "network.tabSecurity" },
+  { key: "dns",       labelKey: "network.tabDns" },
+  { key: "tls",       labelKey: "network.tabTls" },
+  { key: "recon",     labelKey: "network.tabRecon" },
+  { key: "manage",    labelKey: "network.tabManage" },
 ];
 
 function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
   device: Device; onClose: () => void; onUpdate: () => void; canBlock?: boolean;
 }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TabKey>("overview");
   const [history, setHistory] = useState<DeviceAlert[]>([]);
   const [dnsSummary, setDnsSummary] = useState<DeviceDnsSummary | null>(null);
@@ -231,9 +232,9 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
         {/* Status badges */}
         <div className={s.drawerBadges}>
           <span className={s.ipMonoBadge}>{device.ip}</span>
-          {device.is_suspicious && <span className={`${s.bdg} ${s.bdgWarn}`}>⚠ подозрительный</span>}
-          {device.is_whitelisted && <span className={`${s.bdg} ${s.bdgOk}`}>✓ белый список</span>}
-          {!device.is_online && <span className={`${s.bdg} ${s.bdgMuted}`}>офлайн</span>}
+          {device.is_suspicious && <span className={`${s.bdg} ${s.bdgWarn}`}>{t("network.isSuspicious")}</span>}
+          {device.is_whitelisted && <span className={`${s.bdg} ${s.bdgOk}`}>{t("network.isWhitelisted")}</span>}
+          {!device.is_online && <span className={`${s.bdg} ${s.bdgMuted}`}>{t("common.offline")}</span>}
         </div>
 
         {/* Risk */}
@@ -243,11 +244,11 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
 
         {/* Tabs */}
         <div className={s.tabs}>
-          {PANEL_TABS.map(t => (
-            <button key={t.key}
-              className={[s.tab, tab === t.key ? s.tabActive : ""].filter(Boolean).join(" ")}
-              onClick={() => setTab(t.key)}>
-              {t.label}
+          {PANEL_TAB_KEYS.map(tabDef => (
+            <button key={tabDef.key}
+              className={[s.tab, tab === tabDef.key ? s.tabActive : ""].filter(Boolean).join(" ")}
+              onClick={() => setTab(tabDef.key)}>
+              {t(tabDef.labelKey)}
             </button>
           ))}
         </div>
@@ -257,24 +258,24 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
           {tab === "overview" && (
             <div className={s.tabContent}>
               <div className={s.infoSection}>
-                <div className={s.infoSectionTitle}>Сеть</div>
+                <div className={s.infoSectionTitle}>{t("network.sectionNetwork")}</div>
                 <InfoRow label="IP" value={device.ip} mono />
                 <InfoRow label="MAC" value={device.mac} mono />
-                {device.hostname && <InfoRow label="Хостнейм" value={device.hostname} />}
-                <InfoRow label="Производитель" value={device.vendor} />
-                <InfoRow label="Тип" value={device.device_label} />
-                <InfoRow label="Статус" value={device.is_online ? "онлайн" : "офлайн"} ok={device.is_online} danger={!device.is_online} />
-                {device.first_seen && <InfoRow label="Первый раз" value={fmtTime(device.first_seen)} />}
-                {device.last_seen && <InfoRow label="Последний раз" value={fmtTime(device.last_seen)} />}
+                {device.hostname && <InfoRow label={t("network.hostname")} value={device.hostname} />}
+                <InfoRow label={t("network.vendor")} value={device.vendor} />
+                <InfoRow label={t("network.type")} value={device.device_label} />
+                <InfoRow label={t("network.status")} value={device.is_online ? t("common.online") : t("common.offline")} ok={device.is_online} danger={!device.is_online} />
+                {device.first_seen && <InfoRow label={t("network.firstSeen")} value={fmtTime(device.first_seen)} />}
+                {device.last_seen && <InfoRow label={t("network.lastSeen")} value={fmtTime(device.last_seen)} />}
               </div>
               <div className={s.infoSection}>
-                <div className={s.infoSectionTitle}>Трафик (всего)</div>
-                <InfoRow label="↓ Входящий" value={fmtBytes(device.bytes_in)} />
-                <InfoRow label="↑ Исходящий" value={fmtBytes(device.bytes_out)} />
+                <div className={s.infoSectionTitle}>{t("network.traffic")}</div>
+                <InfoRow label={t("network.inbound")} value={fmtBytes(device.bytes_in)} />
+                <InfoRow label={t("network.outbound")} value={fmtBytes(device.bytes_out)} />
               </div>
               {device.open_ports.length > 0 && (
                 <div className={s.infoSection}>
-                  <div className={s.infoSectionTitle}>Открытые порты</div>
+                  <div className={s.infoSectionTitle}>{t("network.openPorts")}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {device.open_ports.map(p => (
                       <span key={p} style={{ fontFamily: "monospace", fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--surface-3)", color: "var(--accent)" }}>
@@ -286,7 +287,7 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
               )}
               {!device.is_self && (
                 <div className={s.gatewayNote}>
-                  ℹ Полная статистика трафика видна только если AnomalyNet работает как шлюз
+                  {t("network.gatewayNote")}
                 </div>
               )}
             </div>
@@ -464,7 +465,7 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
                       autoFocus
                     />
                     <select className={s.typeSelect} value={typeInput} onChange={(e) => setTypeInput(e.target.value)}>
-                      {Object.entries(DEVICE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      {DEVICE_TYPE_KEYS.map((k) => <option key={k} value={k}>{t(`network.deviceTypes.${k}`)}</option>)}
                     </select>
                     <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                       <button className={s.actionBtn} style={{ flex: 1 }} onClick={handleRename} disabled={loading}>Сохранить</button>
@@ -510,6 +511,7 @@ function DevicePanel({ device, onClose, onUpdate, canBlock = true }: {
 // ── Main view ─────────────────────────────────────────────────────────────────
 
 function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const { t } = useTranslation();
   const [ip, setIp] = useState("");
   const [mac, setMac] = useState("");
   const [name, setName] = useState("");
@@ -518,7 +520,7 @@ function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
   const [error, setError] = useState("");
 
   const handleAdd = async () => {
-    if (!ip.trim()) { setError("IP обязателен"); return; }
+    if (!ip.trim()) { setError(t("network.ipRequired")); return; }
     setLoading(true);
     setError("");
     try {
@@ -534,7 +536,7 @@ function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
       <div style={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: 24, width: 360, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>Добавить устройство</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{t("network.addDevice")}</span>
           <button className={s.panelClose} onClick={onClose}>✕</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -549,7 +551,7 @@ function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
             placeholder="Мой роутер" />
           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Тип</div>
           <select className={s.typeSelect} value={type} onChange={e => setType(e.target.value)}>
-            {Object.entries(DEVICE_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {DEVICE_TYPE_KEYS.map((k) => <option key={k} value={k}>{t(`network.deviceTypes.${k}`)}</option>)}
           </select>
         </div>
         {error && <div style={{ fontSize: 11, color: "var(--danger-strong)" }}>{error}</div>}
@@ -565,16 +567,17 @@ function AddDeviceModal({ onClose, onAdded }: { onClose: () => void; onAdded: ()
   );
 }
 
-const TYPE_FILTER_GROUPS: { label: string; types: string[] }[] = [
-  { label: "Все",     types: [] },
-  { label: "ПК",      types: ["pc_windows", "pc_linux", "pc_mac"] },
-  { label: "IoT",     types: ["iot_camera", "iot_sensor", "iot_bulb", "iot_plug"] },
-  { label: "Телефон", types: ["phone"] },
-  { label: "Сеть",    types: ["router", "nas"] },
-  { label: "Другое",  types: ["printer", "game_console", "tv", "unknown"] },
+const TYPE_FILTER_GROUPS: { labelKey: string; types: string[] }[] = [
+  { labelKey: "network.filterAll",   types: [] },
+  { labelKey: "network.filterPc",    types: ["pc_windows", "pc_linux", "pc_mac"] },
+  { labelKey: "network.filterIot",   types: ["iot_camera", "iot_sensor", "iot_bulb", "iot_plug"] },
+  { labelKey: "network.filterPhone", types: ["phone"] },
+  { labelKey: "network.filterNet",   types: ["router", "nas"] },
+  { labelKey: "network.filterOther", types: ["printer", "game_console", "tv", "unknown"] },
 ];
 
 export default function NetworkMapView() {
+  const { t } = useTranslation();
   const { devices, selectedMac, deviceStats, setDevices, setSelectedMac, setDeviceStats } = useAppStore();
   const capabilities = useAppStore((state) => state.capabilities);
   const canBlock = capabilities == null || capabilities.firewall_blocking;
@@ -655,13 +658,13 @@ export default function NetworkMapView() {
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
       {/* Toolbar */}
       <div className={s.toolbar}>
-        <span className={s.toolbarTitle}>Карта сети</span>
+        <span className={s.toolbarTitle}>{t("network.title")}</span>
         {deviceStats && (
           <>
-            <span className={s.statPill}>{deviceStats.total} устройств</span>
-            <span className={`${s.statPill} ${s.statPillOk}`}>{deviceStats.online} онлайн</span>
+            <span className={s.statPill}>{deviceStats.total} {t("network.devices")}</span>
+            <span className={`${s.statPill} ${s.statPillOk}`}>{deviceStats.online} {t("network.online")}</span>
             {deviceStats.suspicious > 0 && (
-              <span className={`${s.statPill} ${s.statPillDanger}`}>⚠ {deviceStats.suspicious} подозрительных</span>
+              <span className={`${s.statPill} ${s.statPillDanger}`}>⚠ {deviceStats.suspicious} {t("network.suspicious")}</span>
             )}
           </>
         )}
@@ -669,15 +672,15 @@ export default function NetworkMapView() {
         <input
           className={s.searchInput}
           type="search"
-          placeholder="Поиск по IP, MAC, имени..."
+          placeholder={t("network.search")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
         <button className={s.scanBtn} onClick={handleScan} disabled={scanning}>
-          {scanning ? "⟳ Сканирование..." : "⟳ Сканировать"}
+          {scanning ? `⟳ ${t("network.scanning")}` : `⟳ ${t("network.scan")}`}
         </button>
         <button className={s.scanBtn} onClick={() => setShowAddModal(true)}>
-          + Добавить
+          + {t("network.add")}
         </button>
       </div>
 
@@ -689,7 +692,7 @@ export default function NetworkMapView() {
             className={[s.filterBtn, typeFilter === i ? s.filterBtnActive : ""].filter(Boolean).join(" ")}
             onClick={() => setTypeFilter(i)}
           >
-            {g.label}
+            {t(g.labelKey)}
             {i === 0 && devices.length > 0 && (
               <span className={s.filterCount}>{devices.length}</span>
             )}
@@ -751,14 +754,14 @@ function DeviceGrid({ devices, selectedMac, onSelect }: {
   selectedMac: string | null;
   onSelect: (mac: string | null) => void;
 }) {
+  const { t } = useTranslation();
   if (devices.length === 0) {
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--text-muted)", fontSize: 13, padding: 24 }}>
         <span style={{ fontSize: 32 }}>🔍</span>
-        <span>Устройства не обнаружены</span>
+        <span>{t("network.noDevices")}</span>
         <span style={{ fontSize: 11, opacity: 0.65, textAlign: "center", maxWidth: 340 }}>
-          Нажмите «⟳ Сканировать» для поиска устройств в сети.<br/>
-          Если сканирование недоступно, устройства появятся по мере наблюдения трафика.
+          {t("network.noDevicesHint")}
         </span>
       </div>
     );

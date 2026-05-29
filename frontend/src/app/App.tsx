@@ -50,7 +50,6 @@ function IconStream() {
   );
 }
 
-
 function IconAlerts() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -103,32 +102,10 @@ function IconAbout() {
   );
 }
 
-const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; label: string }[] = [
-  { key: "dashboard", Icon: IconDashboard, label: "Dashboard" },
-  { key: "stream",    Icon: IconStream,    label: "Stream" },
-  { key: "alerts",    Icon: IconAlerts,    label: "Инциденты" },
-  { key: "network",   Icon: IconNetwork,   label: "Карта сети" },
-  { key: "plugins",   Icon: IconPlugins,   label: "Plugins" },
-  { key: "settings",  Icon: IconSettings,  label: "Settings" },
-  { key: "about",     Icon: IconAbout,     label: "About" },
-];
-
-const PAGE_TITLES: Record<ViewKey, string> = {
-  dashboard:   "Dashboard",
-  stream:      "Live Stream",
-  alerts:      "Инциденты",
-  network:     "Карта сети",
-  plugins:     "Плагины",
-  settings:    "Settings",
-  about:       "О программе",
-  performance: "Производительность",
-};
-
 type ThemeName = "dark" | "light" | "gray" | "glass";
 
 const THEME_CYCLE: ThemeName[] = ["dark", "light", "gray", "glass"];
 const THEME_ICON: Record<ThemeName, string> = { dark: "🌙", light: "☀️", gray: "◑", glass: "🫧" };
-const THEME_LABEL: Record<ThemeName, string> = { dark: "Тёмная", light: "Светлая", gray: "Серая", glass: "Стекло" };
 
 function nextTheme(current: string | undefined): ThemeName {
   const idx = THEME_CYCLE.indexOf((current ?? "dark") as ThemeName);
@@ -136,10 +113,10 @@ function nextTheme(current: string | undefined): ThemeName {
 }
 
 const KNOWN_MODEL_LABELS: Record<string, string> = {
-  "catboost-iot-v1":          "Быстрый",
-  "catboost-cascade-simple":  "Simple",
-  "catboost-cascade-advanced":"Advanced",
-  "catboost-cascade-routed":  "Cascade",
+  "catboost-iot-v1":           "Fast",
+  "catboost-cascade-simple":   "Simple",
+  "catboost-cascade-advanced": "Advanced",
+  "catboost-cascade-routed":   "Cascade",
 };
 
 function getActiveModelLabel(settings: AppSettings, presets: ModelPreset[]): { label: string; full: string } {
@@ -177,8 +154,38 @@ function ActiveModelBadge({ settings, presets }: { settings: AppSettings; preset
   return <span className={cls} title={full}>{label}</span>;
 }
 
-export function App() {
+/* ── Language switcher ────────────────────────────────────── */
+function LangToggle() {
   const { i18n } = useTranslation();
+  const settings    = useAppStore((s) => s.settings);
+  const setSettings = useAppStore((s) => s.setSettings);
+
+  const current = i18n.language.startsWith("ru") ? "ru" : "en";
+  const next    = current === "en" ? "ru" : "en";
+
+  const handleToggle = async () => {
+    await i18n.changeLanguage(next);
+    if (settings) {
+      const updated = { ...settings, language: next as "ru" | "en" };
+      setSettings(updated);
+      try { await api.updateSettings(updated); } catch { /* ignore */ }
+    }
+  };
+
+  return (
+    <button
+      className={styles.themeBtn}
+      onClick={() => void handleToggle()}
+      title={`Switch language / Сменить язык (${next.toUpperCase()})`}
+      style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.04em", minWidth: 32 }}
+    >
+      {current.toUpperCase()}
+    </button>
+  );
+}
+
+export function App() {
+  const { t, i18n } = useTranslation();
   const view           = useAppStore((state) => state.view);
   const setView        = useAppStore((state) => state.setView);
   const health         = useAppStore((state) => state.health);
@@ -226,7 +233,7 @@ export function App() {
       document.documentElement.dataset.theme = settingsRes.theme;
       await i18n.changeLanguage(settingsRes.language);
     } catch {
-      // Backend unreachable — leave state empty, UI shows loading/empty state
+      // Backend unreachable — leave state empty
     } finally {
       setRefreshing(false);
     }
@@ -237,7 +244,6 @@ export function App() {
   const [showShieldConfirm, setShowShieldConfirm] = useState(false);
   const [shieldIp, setShieldIp] = useState("");
 
-  // Auto-fill local IP when shield dialog opens
   useEffect(() => {
     if (!showShieldConfirm) return;
     api.getInterfaces().then((ifaces) => {
@@ -251,10 +257,8 @@ export function App() {
   const toggleProtection = useCallback(async () => {
     if (!settings) return;
     if (!settings.auto_block) {
-      // Turning ON → show confirm dialog
       setShowShieldConfirm(true);
     } else {
-      // Turning OFF → immediate
       try {
         const saved = await api.updateSettings({ ...settings, auto_block: false });
         setSettings(saved);
@@ -279,7 +283,6 @@ export function App() {
     const list = settings.whitelist_ips ?? [];
     const nextList = addIp && ip && !list.includes(ip) ? [...list, ip] : list;
     const next = { ...settings, auto_block: true, whitelist_ips: nextList };
-    // Close dialog immediately — don't wait for slow server
     setShowShieldConfirm(false);
     setShieldIp("");
     try {
@@ -291,6 +294,16 @@ export function App() {
   }, [settings, setSettings, shieldIp]);
 
   const CurrentView = viewMap[view];
+
+  const NAV_ITEMS: { key: ViewKey; Icon: React.ComponentType; labelKey: string }[] = [
+    { key: "dashboard", Icon: IconDashboard, labelKey: "nav.dashboard" },
+    { key: "stream",    Icon: IconStream,    labelKey: "nav.stream" },
+    { key: "alerts",    Icon: IconAlerts,    labelKey: "nav.alerts" },
+    { key: "network",   Icon: IconNetwork,   labelKey: "nav.network" },
+    { key: "plugins",   Icon: IconPlugins,   labelKey: "nav.plugins" },
+    { key: "settings",  Icon: IconSettings,  labelKey: "nav.settings" },
+    { key: "about",     Icon: IconAbout,     labelKey: "nav.about" },
+  ];
 
   const statusDotClass = [
     styles.statusDot,
@@ -307,29 +320,32 @@ export function App() {
         <button
           className={[styles.logo, styles.logoPowerBtn].filter(Boolean).join(" ")}
           onClick={async () => {
-            if (!confirm("Выключить AnomalyNet IDS?\n\nСервис полностью завершит работу. Чтобы запустить снова — откройте launch.bat (Windows) или launch.sh (Linux).")) return;
+            if (!confirm(t("topbar.stopConfirm"))) return;
             try { await api.stopService(); } catch { /* server closes before response */ }
             setServiceStopped(true);
           }}
-          title="Выключить сервис AnomalyNet"
-          aria-label="Выключить сервис"
+          title={t("topbar.stopTitle")}
+          aria-label={t("topbar.stopTitle")}
         >
           <img src="/logo.png" alt="AnomalyNet" className={styles.logoImg} />
         </button>
 
         {/* Nav buttons */}
         <nav className={styles.nav}>
-          {NAV_ITEMS.map(({ key, Icon, label }) => (
-            <button
-              key={key}
-              className={[styles.navBtn, view === key ? styles.navBtnActive : ""].filter(Boolean).join(" ")}
-              onClick={() => setView(key)}
-              data-label={label}
-              aria-label={label}
-            >
-              <Icon />
-            </button>
-          ))}
+          {NAV_ITEMS.map(({ key, Icon, labelKey }) => {
+            const label = t(labelKey);
+            return (
+              <button
+                key={key}
+                className={[styles.navBtn, view === key ? styles.navBtnActive : ""].filter(Boolean).join(" ")}
+                onClick={() => setView(key)}
+                data-label={label}
+                aria-label={label}
+              >
+                <Icon />
+              </button>
+            );
+          })}
         </nav>
 
         <div className={styles.navSpacer} />
@@ -341,7 +357,7 @@ export function App() {
       {/* ── Main content ── */}
       <div className={styles.content}>
         <div className={styles.topbar}>
-          <span className={styles.topbarTitle}>{PAGE_TITLES[view]}</span>
+          <span className={styles.topbarTitle}>{t(`nav.${view}`, view)}</span>
           <div className={styles.topbarMeta}>
             {settings?.run_mode && (
               <span className={styles.modeBadge}>
@@ -349,36 +365,32 @@ export function App() {
                   const isLive = settings.run_mode === "linux_live" || settings.run_mode === "windows_live";
                   if (!isLive) return settings.run_mode;
                   const plat = capabilities?.platform;
-                  if (plat === "windows") return "Live (Windows)";
-                  if (plat === "linux")   return "Live (Linux)";
-                  // Fallback to run_mode name if capabilities not loaded yet
-                  return settings.run_mode === "windows_live" ? "Live (Windows)" : "Live (Linux)";
+                  if (plat === "windows") return t("topbar.liveWindows");
+                  if (plat === "linux")   return t("topbar.liveLinux");
+                  return settings.run_mode === "windows_live" ? t("topbar.liveWindows") : t("topbar.liveLinux");
                 })()}
               </span>
             )}
             {settings && (
               <ActiveModelBadge settings={settings} presets={presets} />
             )}
-            {/* Warning: live mode + mock model */}
             {(settings?.run_mode === "linux_live" || settings?.run_mode === "windows_live") && settings?.active_model_id === "mock-default" && (
-              <span className={styles.mockWarningBadge} title="Активирована demo-модель — выберите реальный детектор">
-                ⚠ Demo-модель
+              <span className={styles.mockWarningBadge} title={t("topbar.demoModel")}>
+                {t("topbar.demoModel")}
               </span>
             )}
-            {/* Warning: packet capture unavailable in live mode */}
             {capabilities && !capabilities.packet_capture &&
              (settings?.run_mode === "linux_live" || settings?.run_mode === "windows_live") && (
               <span className={styles.mockWarningBadge} title={
                 capabilities.warnings.find(w => /npcap|admin|rights|privilege|scapy/i.test(w))
-                ?? "Захват трафика недоступен"
+                ?? t("topbar.noCapture")
               }>
-                ⚠ Нет захвата
+                {t("topbar.noCapture")}
               </span>
             )}
-            {/* Warning: no firewall available */}
             {capabilities && !capabilities.firewall_blocking && (
-              <span className={styles.mockWarningBadge} title={capabilities.warnings[0] ?? "Блокировка IP недоступна"}>
-                ⚠ Нет фаервола
+              <span className={styles.mockWarningBadge} title={capabilities.warnings[0] ?? t("topbar.noFirewall")}>
+                {t("topbar.noFirewall")}
               </span>
             )}
             {settings && (
@@ -388,20 +400,20 @@ export function App() {
                 disabled={capabilities != null && !capabilities.firewall_blocking}
                 title={
                   capabilities && !capabilities.firewall_blocking
-                    ? (capabilities.warnings[0] ?? "Блокировка IP недоступна на этой платформе")
-                    : settings.auto_block ? "Защита включена — нажми чтобы выключить" : "Включить авто-блокировку атак"
+                    ? (capabilities.warnings[0] ?? t("topbar.noFirewall"))
+                    : settings.auto_block ? t("topbar.shieldOn") : t("topbar.shieldOff")
                 }
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
-                {settings.auto_block ? "Защита ВКЛ" : "Защита ВЫКЛ"}
+                {settings.auto_block ? t("topbar.shieldOn") : t("topbar.shieldOff")}
               </button>
             )}
             <button
               className={styles.loadBtn}
               onClick={() => setView("performance" as ViewKey)}
-              title="Производительность системы"
+              title={t("nav.performance")}
               style={{
                 "--load-color": loadLevel === "critical" ? "var(--danger)" :
                                 loadLevel === "high"     ? "#f97316" :
@@ -409,14 +421,16 @@ export function App() {
               } as React.CSSProperties}
             >
               <span className={styles.loadDot} />
-              Нагрузка
+              {t("topbar.load")}
             </button>
             <ModelPresetPicker compact />
+            {/* Language toggle */}
+            <LangToggle />
             {settings && (
               <button
                 className={styles.themeBtn}
                 onClick={() => void handleThemeToggle()}
-                title={`Тема: ${THEME_LABEL[settings.theme as ThemeName ?? "dark"]} → ${THEME_LABEL[nextTheme(settings.theme)]}`}
+                title={`${t("theme.label")}: ${THEME_ICON[(settings.theme as ThemeName) ?? "dark"]}`}
               >
                 {THEME_ICON[(settings.theme as ThemeName) ?? "dark"]}
               </button>
@@ -425,7 +439,7 @@ export function App() {
               className={styles.refreshBtn}
               onClick={() => void bootstrap()}
               disabled={refreshing}
-              title="Обновить данные без перезагрузки страницы"
+              title={t("topbar.refreshTitle")}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="23 4 23 10 17 10" />
@@ -451,15 +465,13 @@ export function App() {
         <div className={styles.stoppedOverlay}>
           <div className={styles.stoppedCard}>
             <img src="/AnomalyNet-logo_turn_off.png" alt="AnomalyNet" className={styles.stoppedLogo} />
-            <h2 className={styles.stoppedTitle}>Сервис выключен</h2>
-            <p className={styles.stoppedHint}>
-              Для повторного запуска откройте <code>launch.bat</code> (Windows) или <code>launch.sh</code> (Linux)
-            </p>
+            <h2 className={styles.stoppedTitle}>{t("topbar.stopped")}</h2>
+            <p className={styles.stoppedHint}>{t("topbar.stoppedHint")}</p>
             <button
               className={styles.stoppedReconnectBtn}
               onClick={() => { setServiceStopped(false); void bootstrap(); }}
             >
-              Попробовать снова
+              {t("topbar.tryAgain")}
             </button>
           </div>
         </div>
@@ -469,37 +481,33 @@ export function App() {
       {showShieldConfirm && (
         <div className={styles.confirmOverlay}>
           <div className={styles.confirmDialog}>
-            <h3>⚠ Включить авто-блокировку?</h3>
+            <h3>{t("settings.autoBlockConfirmTitle")}</h3>
             <p>
-              Система будет блокировать IP-адреса через <code>iptables</code> (Linux) или Windows Firewall при обнаружении атак.
-              Ваш IP автоматически определён и добавлен в поле ниже.
+              {t("settings.autoBlockConfirmDesc")}
             </p>
             <div className={styles.confirmIpRow}>
-              <label>Ваш IP для белого списка:</label>
+              <label>{t("settings.addIpToWhitelist")}</label>
               <input
                 type="text"
                 value={shieldIp}
-                placeholder="например: 192.168.1.10"
+                placeholder="192.168.1.10"
                 onChange={(e) => setShieldIp(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") void confirmShield(true); }}
                 autoFocus
               />
-              <small style={{ color: "var(--text-secondary)", fontSize: 12, marginTop: 6, display: "block", lineHeight: 1.5 }}>
-                Если вы управляете сервером <strong>удалённо</strong> — укажите IP <strong>вашего компьютера</strong>, а не сервера, иначе потеряете доступ к панели.
-              </small>
             </div>
             <div className={styles.confirmButtons}>
               <button className={styles.confirmBtnSecondary}
                 onClick={() => { setShowShieldConfirm(false); setShieldIp(""); }}>
-                Отмена
+                {t("common.cancel")}
               </button>
               <button className={styles.confirmBtnSecondary}
                 onClick={() => void confirmShield(false)}>
-                Включить без добавления
+                {t("settings.enableWithout")}
               </button>
               <button className={styles.confirmBtnPrimary}
                 onClick={() => void confirmShield(true)}>
-                {shieldIp.trim() ? "Добавить IP и включить" : "Включить"}
+                {shieldIp.trim() ? t("settings.addAndEnable") : t("common.apply")}
               </button>
             </div>
           </div>

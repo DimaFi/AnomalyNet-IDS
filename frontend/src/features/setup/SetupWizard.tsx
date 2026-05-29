@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
 import { api } from "../../lib/api";
 import type { AppSettings } from "../../app/types";
@@ -15,7 +16,6 @@ const SERVER_STEPS: StepId[] = ["welcome", "device", "remote", "os", "iface", "a
 const THEME_CYCLE = ["dark", "light", "gray", "glass"] as const;
 const THEME_ICONS: Record<string, string> = { dark: "🌙", light: "☀️", gray: "◑", glass: "🫧" };
 
-// Sensitivity → threshold mapping
 const SENSITIVITY_MAP: Record<string, number> = {
   conservative: 0.85,
   balanced:     0.70,
@@ -36,6 +36,7 @@ function nextTheme(t: string): typeof THEME_CYCLE[number] {
 function Opt({
   selected, onClick, label, hint, isDefault,
 }: { selected: boolean; onClick: () => void; label: string; hint?: string; isDefault?: boolean }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -46,7 +47,7 @@ function Opt({
       <span>
         <span className={s.optLabel}>
           {label}
-          {isDefault && <span className={s.defaultBadge}>по умолчанию</span>}
+          {isDefault && <span className={s.defaultBadge}>{t("setup.defaultBadge")}</span>}
         </span>
         {hint && <div className={s.optHint}>{hint}</div>}
       </span>
@@ -69,64 +70,65 @@ function Dots({ total, current }: { total: number; current: number }) {
 
 // ─── Steps ───────────────────────────────────────────────────
 function WelcomeStep() {
+  const { t } = useTranslation();
   return (
     <>
       <img src="/logo.png" alt="AnomalyNet" className={s.logo} />
-      <h2 className={s.title}>Добро пожаловать!</h2>
-      <p className={s.subtitle}>
-        Давайте настроим AnomalyNet IDS под вашу систему.<br />
-        Это займёт меньше минуты.
-      </p>
+      <h2 className={s.title}>{t("setup.welcomeTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.welcomeDesc")}</p>
     </>
   );
 }
 
 function DeviceStep({ value, onChange }: { value: DeviceType; onChange: (v: DeviceType) => void }) {
+  const { t } = useTranslation();
   return (
     <>
-      <h2 className={s.title}>Тип устройства</h2>
-      <p className={s.subtitle}>Где установлен AnomalyNet?</p>
+      <h2 className={s.title}>{t("setup.deviceTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.deviceDesc")}</p>
       <div className={s.opts}>
         <Opt selected={value === "pc"} onClick={() => onChange("pc")}
-          label="Персональный компьютер" isDefault
-          hint="Мониторинг домашней или рабочей сети с этого ПК" />
+          label={t("setup.devicePc")} isDefault
+          hint={t("setup.devicePcHint")} />
         <Opt selected={value === "server"} onClick={() => onChange("server")}
-          label="Сервер / сетевое устройство"
-          hint="Выделенный сервер, VPS или сетевой шлюз" />
+          label={t("setup.deviceServer")}
+          hint={t("setup.deviceSrvHint")} />
       </div>
     </>
   );
 }
 
 function RemoteStep({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  const { t } = useTranslation();
   return (
     <>
-      <h2 className={s.title}>Удалённый доступ к панели</h2>
-      <p className={s.subtitle}>С каких адресов разрешить доступ к веб-интерфейсу?</p>
+      <h2 className={s.title}>{t("setup.remoteTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.remoteDesc")}</p>
       <div className={s.opts}>
         <Opt selected={!value} onClick={() => onChange(false)}
-          label="Только с этого сервера" isDefault
-          hint="Доступ по localhost:8000 — рекомендуется для безопасности" />
+          label={t("setup.remoteLocal")} isDefault
+          hint={t("setup.remoteLocalHint")} />
         <Opt selected={value} onClick={() => onChange(true)}
-          label="С любого IP в сети"
-          hint="Открыть панель по IP сервера из любого браузера в сети" />
+          label={t("setup.remoteAny")}
+          hint={t("setup.remoteAnyHint")} />
       </div>
     </>
   );
 }
 
 function OSStep({ value, onChange }: { value: RunMode; onChange: (v: RunMode) => void }) {
+  const { t } = useTranslation();
   return (
     <>
-      <h2 className={s.title}>Операционная система</h2>
-      <p className={s.subtitle}>На какой ОС работает AnomalyNet?</p>
+      <h2 className={s.title}>{t("setup.osTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.osDesc")}</p>
       <div className={s.opts}>
         <Opt selected={value === "windows_live"} onClick={() => onChange("windows_live")}
-          label="Windows"
-          hint="Windows 10/11 · Windows Server 2019/2022" />
+          label={t("setup.osWin")}
+          hint={t("setup.osWinHint")} />
         <Opt selected={value === "linux_live"} onClick={() => onChange("linux_live")}
-          label="Linux"
-          hint="Ubuntu · Debian · RHEL · Alt Linux · любой дистрибутив" />
+          label={t("setup.osLinux")}
+          hint={t("setup.osLinuxHint")} />
       </div>
     </>
   );
@@ -135,19 +137,18 @@ function OSStep({ value, onChange }: { value: RunMode; onChange: (v: RunMode) =>
 function IfaceStep({
   value, onChange, interfaces,
 }: { value: string; onChange: (v: string) => void; interfaces: { name: string }[] }) {
+  const { t } = useTranslation();
   return (
     <>
-      <h2 className={s.title}>Сетевой интерфейс</h2>
-      <p className={s.subtitle}>Какой интерфейс анализировать на предмет угроз?</p>
+      <h2 className={s.title}>{t("setup.ifaceTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.ifaceDesc")}</p>
       <select className={s.select} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Авто — выбрать автоматически (рекомендуется)</option>
+        <option value="">{t("setup.ifaceAuto")}</option>
         {interfaces.map((iface) => (
           <option key={iface.name} value={iface.name}>{iface.name}</option>
         ))}
       </select>
-      <p className={s.selectHint}>
-        Если список пустой — выберите «Авто». Интерфейс можно сменить в Settings позже.
-      </p>
+      <p className={s.selectHint}>{t("setup.ifaceHint")}</p>
     </>
   );
 }
@@ -155,60 +156,52 @@ function IfaceStep({
 function AutoblockStep({
   value, onChange, myIp, onMyIpChange,
 }: { value: boolean; onChange: (v: boolean) => void; myIp: string; onMyIpChange: (v: string) => void }) {
+  const { t } = useTranslation();
   return (
     <>
-      <h2 className={s.title}>Автоматическая блокировка</h2>
-      <p className={s.subtitle}>
-        Блокировать атакующие IP-адреса автоматически?
-      </p>
+      <h2 className={s.title}>{t("setup.autoblockTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.autoblockDesc")}</p>
       <div className={s.opts}>
         <Opt selected={!value} onClick={() => onChange(false)}
-          label="Только оповещения" isDefault
-          hint="Обнаруживать атаки и уведомлять — без блокировки (рекомендуется для начала)" />
+          label={t("setup.autoblockOff")} isDefault
+          hint={t("setup.autoblockOffHint")} />
         <Opt selected={value} onClick={() => onChange(true)}
-          label="Блокировать автоматически"
-          hint="Мгновенно блокировать IP через iptables/Windows Firewall при обнаружении атаки" />
+          label={t("setup.autoblockOn")}
+          hint={t("setup.autoblockOnHint")} />
       </div>
       {value && (
-        <>
-          <div className={s.ipBlock}>
-            <label className={s.ipLabel}>Ваш IP для белого списка:</label>
-            <input
-              type="text"
-              className={s.ipInput}
-              value={myIp}
-              placeholder="например: 192.168.1.10"
-              onChange={(e) => onMyIpChange(e.target.value)}
-            />
-            <p className={s.remoteHint}>
-              IP определён автоматически и будет добавлен в белый список.
-              Если вы управляете <strong>удалённо</strong> — введите IP <strong>вашего компьютера</strong>,
-              а не сервера, иначе можете потерять доступ к панели.
-            </p>
-          </div>
-        </>
+        <div className={s.ipBlock}>
+          <label className={s.ipLabel}>{t("setup.ipLabel")}</label>
+          <input
+            type="text"
+            className={s.ipInput}
+            value={myIp}
+            placeholder="192.168.1.10"
+            onChange={(e) => onMyIpChange(e.target.value)}
+          />
+          <p className={s.remoteHint}>{t("setup.ipHint")}</p>
+        </div>
       )}
     </>
   );
 }
 
 function SensitivityStep({ value, onChange }: { value: Sensitivity; onChange: (v: Sensitivity) => void }) {
+  const { t } = useTranslation();
   return (
     <>
-      <h2 className={s.title}>Чувствительность детектора</h2>
-      <p className={s.subtitle}>
-        Насколько строго классифицировать трафик как атаку?
-      </p>
+      <h2 className={s.title}>{t("setup.sensitivityTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.sensitivityDesc")}</p>
       <div className={s.opts}>
         <Opt selected={value === "conservative"} onClick={() => onChange("conservative")}
-          label="Консервативная"
-          hint="Высокий порог (0.85) — меньше ложных тревог, возможны пропуски атак" />
+          label={t("setup.conservative")}
+          hint={t("setup.conservativeHint")} />
         <Opt selected={value === "balanced"} onClick={() => onChange("balanced")}
-          label="Сбалансированная" isDefault
-          hint="Стандартный порог (0.70) — оптимальное соотношение точности и охвата" />
+          label={t("setup.balanced")} isDefault
+          hint={t("setup.balancedHint")} />
         <Opt selected={value === "aggressive"} onClick={() => onChange("aggressive")}
-          label="Агрессивная"
-          hint="Низкий порог (0.55) — максимальный охват, больше ложных тревог" />
+          label={t("setup.aggressive")}
+          hint={t("setup.aggressiveHint")} />
       </div>
     </>
   );
@@ -217,21 +210,22 @@ function SensitivityStep({ value, onChange }: { value: Sensitivity; onChange: (v
 function DoneStep({
   device, runMode, ifaceName, allowRemote, autoblock, sensitivity,
 }: { device: DeviceType; runMode: RunMode; ifaceName: string; allowRemote: boolean; autoblock: boolean; sensitivity: Sensitivity }) {
+  const { t } = useTranslation();
   const rows: [string, string][] = [
-    ["Устройство",    device === "pc" ? "Персональный компьютер" : "Сервер"],
-    ["Система",       runMode === "windows_live" ? "Windows" : "Linux"],
-    ["Интерфейс",     ifaceName || "Авто"],
-    ["Защита",        autoblock ? "Автоблокировка включена" : "Только оповещения"],
-    ["Чувствительность", sensitivity === "conservative" ? "Консервативная" : sensitivity === "aggressive" ? "Агрессивная" : "Сбалансированная"],
+    [t("setup.device"),      device === "pc" ? t("setup.pc") : t("setup.server")],
+    [t("setup.system"),      runMode === "windows_live" ? "Windows" : "Linux"],
+    [t("setup.interface"),   ifaceName || t("setup.auto")],
+    [t("setup.protection"),  autoblock ? t("setup.protectionOn") : t("setup.protectionOff")],
+    [t("setup.sensitivity"), sensitivity === "conservative" ? t("setup.conservative") : sensitivity === "aggressive" ? t("setup.aggressive") : t("setup.balanced")],
   ];
   if (device === "server") {
-    rows.splice(2, 0, ["Удалённый доступ", allowRemote ? "Включён (любой IP)" : "Только localhost"]);
+    rows.splice(2, 0, [t("setup.remoteAccess"), allowRemote ? t("setup.remoteOn") : t("setup.remoteOff")]);
   }
   return (
     <>
       <img src="/logo.png" alt="AnomalyNet" className={s.logo} />
-      <h2 className={s.title}>Всё готово!</h2>
-      <p className={s.subtitle}>Параметры можно изменить в любое время в разделе Settings.</p>
+      <h2 className={s.title}>{t("setup.doneTitle")}</h2>
+      <p className={s.subtitle}>{t("setup.doneDesc")}</p>
       <div className={s.summary}>
         {rows.map(([label, val]) => (
           <div key={label} className={s.summRow}>
@@ -246,6 +240,7 @@ function DoneStep({
 
 // ─── Main wizard ─────────────────────────────────────────────
 export function SetupWizard() {
+  const { t, i18n } = useTranslation();
   const settings         = useAppStore((st) => st.settings);
   const setSettings      = useAppStore((st) => st.setSettings);
   const setSetupComplete = useAppStore((st) => st.setSetupComplete);
@@ -265,10 +260,12 @@ export function SetupWizard() {
     () => document.documentElement.dataset.theme ?? settings?.theme ?? "dark"
   );
 
+  // Language state (local, synced to i18n)
+  const currentLang = i18n.language.startsWith("ru") ? "ru" : "en";
+
   const steps  = device === "server" ? SERVER_STEPS : PC_STEPS;
   const stepId = steps[stepIdx];
 
-  // Dots exclude "welcome" and "done"
   const dotSteps = steps.filter((id) => id !== "welcome" && id !== "done") as StepId[];
   const dotIdx   = dotSteps.indexOf(stepId);
 
@@ -288,6 +285,11 @@ export function SetupWizard() {
     setLocalTheme(next);
   }
 
+  async function handleLang() {
+    const next = currentLang === "en" ? "ru" : "en";
+    await i18n.changeLanguage(next);
+  }
+
   function advance() {
     setAnimKey((k) => k + 1);
     setStepIdx((i) => Math.min(i + 1, steps.length - 1));
@@ -305,6 +307,7 @@ export function SetupWizard() {
     const patch: AppSettings = {
       ...settings,
       theme:                savedTheme,
+      language:             currentLang as "ru" | "en",
       run_mode:             defaults ? detectOS()  : runMode,
       interface_name:       defaults ? ""          : ifaceName,
       allow_remote_access:  defaults ? false       : (device === "server" ? remote : false),
@@ -325,10 +328,26 @@ export function SetupWizard() {
 
   return (
     <div className={s.overlay}>
-      <button type="button" className={s.themeBtn} onClick={handleTheme}
-        title="Сменить тему">
-        {THEME_ICONS[localTheme] ?? "🌙"}
-      </button>
+      {/* Theme + Language buttons side by side */}
+      <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 6 }}>
+        <button
+          type="button"
+          className={s.themeBtn}
+          onClick={handleTheme}
+          title={t("theme.label")}
+        >
+          {THEME_ICONS[localTheme] ?? "🌙"}
+        </button>
+        <button
+          type="button"
+          className={s.themeBtn}
+          onClick={() => void handleLang()}
+          title="Switch language / Сменить язык"
+          style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.04em", minWidth: 32 }}
+        >
+          {currentLang.toUpperCase()}
+        </button>
+      </div>
 
       <div className={s.card}>
         {dotIdx >= 0 && <Dots total={dotSteps.length} current={dotIdx} />}
@@ -350,12 +369,12 @@ export function SetupWizard() {
         <div className={s.nav}>
           <button type="button" className={s.skipBtn}
             onClick={() => void finish(true)} disabled={applying}>
-            Оставить по умолчанию
+            {t("setup.skipDefault")}
           </button>
           <button type="button" className={s.nextBtn}
             onClick={isLast ? () => void finish() : advance}
             disabled={applying}>
-            {applying ? "Сохраняем…" : isLast ? "Начать →" : "Далее →"}
+            {applying ? t("setup.saving") : isLast ? t("setup.start") : t("setup.next")}
           </button>
         </div>
       </div>

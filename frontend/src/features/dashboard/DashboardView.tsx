@@ -11,7 +11,7 @@ import { DashboardCharts } from "./DashboardCharts";
 const RISK_COLORS: Record<string, string> = {
   low: "#22c55e", medium: "#eab308", high: "#f97316", critical: "#ef4444",
 };
-const RISK_LABELS_RU: Record<string, string> = {
+const RISK_LABELS_EN: Record<string, string> = {
   low: "LOW", medium: "MED", high: "HIGH", critical: "CRIT",
 };
 
@@ -94,7 +94,7 @@ export function DashboardView() {
       <div className={styles.panelHeader}>
         <div>
           <h2>{t("dashboard.title")}</h2>
-          <p>Мониторинг сети в реальном времени. Обнаружение атак на основе CatBoost.</p>
+          <p>{t("dashboard.subtitle")}</p>
         </div>
       </div>
       {/* ── Quick-nav cards ── */}
@@ -125,11 +125,11 @@ export function DashboardView() {
           <strong>{health?.contract_version ?? "feature-contract.v1"}</strong>
         </article>
         <article className={styles.metricCard}>
-          <span>Всего потоков</span>
+          <span>{t("dashboard.totalFlows")}</span>
           <strong>{stats ? stats.uptime_events_total : "—"}</strong>
         </article>
         <article className={styles.metricCard}>
-          <span>Атак обнаружено</span>
+          <span>{t("dashboard.attacksFound")}</span>
           <strong style={{ color: attackCount ? "var(--danger)" : undefined }}>
             {attackCount !== null ? attackCount : "—"}
             {criticalCount > 0 && (
@@ -141,15 +141,15 @@ export function DashboardView() {
           </strong>
         </article>
         <article className={styles.metricCard}>
-          <span>Топ класс атак</span>
+          <span>{t("dashboard.topClass")}</span>
           <strong>{topClass ?? "—"}</strong>
         </article>
         <article className={styles.metricCard}>
-          <span>Топ атакующий IP</span>
+          <span>{t("dashboard.topIp")}</span>
           <strong style={{ fontFamily: "monospace", fontSize: "12px" }}>{topIp ?? "—"}</strong>
         </article>
         <article className={styles.metricCard}>
-          <span>Средний score</span>
+          <span>{t("dashboard.avgScore")}</span>
           <strong>{stats ? stats.avg_score.toFixed(3) : "—"}</strong>
         </article>
       </div>
@@ -172,7 +172,7 @@ export function DashboardView() {
               </div>
             </div>
           ))}
-          {!latest.length && <p className={styles.emptyState}>Нет данных. Ожидание сетевых потоков...</p>}
+          {!latest.length && <p className={styles.emptyState}>{t("dashboard.noData")}</p>}
         </div>
       </div>
 
@@ -216,7 +216,7 @@ export function DashboardView() {
           <div className={styles.previewList}>
             {topRiskDevices.map((d) => {
               const color = RISK_COLORS[d.risk_label] ?? RISK_COLORS.low;
-              const lbl   = RISK_LABELS_RU[d.risk_label] ?? d.risk_label;
+              const lbl   = RISK_LABELS_EN[d.risk_label] ?? d.risk_label;
               return (
                 <div key={d.mac} className={styles.previewRow}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -246,6 +246,7 @@ export function DashboardView() {
 }
 
 function NetworkCard() {
+  const { t } = useTranslation();
   const setView = useAppStore((s) => s.setView);
   const deviceStats = useAppStore((s) => s.deviceStats);
   const suspicious = deviceStats?.suspicious ?? 0;
@@ -269,17 +270,17 @@ function NetworkCard() {
       <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-          Карта сети
+          {t("dashboard.networkMap")}
         </div>
         <div style={{ fontSize: 13, fontWeight: 600, color, marginTop: 1 }}>
-          {suspicious > 0 ? `${suspicious} подозрительных` : "Угроз не обнаружено"}
+          {suspicious > 0 ? `${suspicious} ${t("dashboard.suspicious")}` : t("dashboard.noThreats")}
         </div>
       </div>
       <div style={{ display: "flex", gap: 10, fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
         {deviceStats && (
           <>
-            <span title="Всего устройств">{deviceStats.total} устройств</span>
-            <span title="Онлайн" style={{ color: "#22c55e" }}>{deviceStats.online} онлайн</span>
+            <span>{deviceStats.total} {t("dashboard.devices")}</span>
+            <span style={{ color: "#22c55e" }}>{deviceStats.online} {t("dashboard.online")}</span>
           </>
         )}
       </div>
@@ -293,15 +294,17 @@ function NetworkCard() {
 const LOAD_COLORS: Record<string, string> = {
   low: "#22c55e", medium: "#eab308", high: "#f97316", critical: "#ef4444",
 };
-const LOAD_LABELS: Record<string, string> = {
-  low: "Норма", medium: "Средняя", high: "Высокая", critical: "Критично",
+const LOAD_LABELS_KEYS: Record<string, string> = {
+  low: "performance.loadNorm", medium: "performance.loadMedium",
+  high: "performance.loadHigh", critical: "performance.loadCritical",
 };
 
 function PerfCard({ stats }: { stats: SystemStats }) {
+  const { t } = useTranslation();
   const setView = useAppStore((s) => s.setView);
   const level = stats.load_level ?? "low";
   const color = LOAD_COLORS[level] ?? LOAD_COLORS.low;
-  const label = LOAD_LABELS[level] ?? level;
+  const label = t(LOAD_LABELS_KEYS[level] ?? "performance.loadNorm");
   return (
     <div
       onClick={() => setView("performance" as import("../../app/types").AppView)}
@@ -321,7 +324,7 @@ function PerfCard({ stats }: { stats: SystemStats }) {
       <div style={{ width: 12, height: 12, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)" }}>
-          Производительность
+          {t("dashboard.performance")}
         </div>
         <div style={{ fontSize: 13, fontWeight: 600, color, marginTop: 1 }}>{label}</div>
       </div>
