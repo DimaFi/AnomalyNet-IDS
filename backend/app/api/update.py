@@ -126,6 +126,7 @@ def _changed_files_after_pull(repo_dir: Path) -> list[str]:
 
 
 GUI_REPO_URLS = [
+    "https://github.com/DimaFi/AnomalyNet-IDS.git",
     "https://github.com/DimaFi/AnomalyNet-gui.git",
     "https://gitlab.com/DimaFi1/AnomalyNet-gui.git",
 ]
