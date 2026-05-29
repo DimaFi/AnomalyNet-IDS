@@ -4,7 +4,7 @@
 #
 #  Usage:
 #    # Запустить как Администратор:
-#    powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
+#    powershell -ExecutionPolicy Bypass -File installers\windows\install-windows.ps1
 #
 #  Параметры:
 #    -InstallDir    Куда установить (по умолчанию C:\AnomalyNet)
@@ -605,5 +605,5 @@ Write-Host ""
 Write-Host "  Управление:"
 Write-Host "    Запустить     : schtasks /run /tn AnomalyNet"
 Write-Host "    Остановить    : taskkill /f /im python.exe  (осторожно!)"
-Write-Host "    Удалить       : powershell -File scripts\uninstall-windows.ps1"
+Write-Host "    Удалить       : powershell -File installers\windows\uninstall-windows.ps1"
 Write-Host ""

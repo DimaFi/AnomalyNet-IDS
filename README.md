@@ -143,15 +143,20 @@ Open **http://localhost:5173** — starts in `mock` mode, no root/Admin or model
 
 ## Installation
 
-### Linux (one command)
+There are two ways to install. Pick one:
+
+| | **Quick (portable)** | **Full system install** |
+|---|---|---|
+| Where | runs from the cloned folder | `/opt/anomalynet` · `C:\AnomalyNet` |
+| Rights | no root/admin needed | root / Administrator |
+| Autostart | user-level (login) | systemd / Task Scheduler |
+| Linux | `bash install.sh` | `sudo bash installers/linux/install-linux.sh` |
+| Windows | double-click `install.bat` | `installers\windows\install-windows.bat` (admin) |
+
+### Linux — full system install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DimaFi/AnomalyNet-gui/main/install.sh | sudo bash
-```
-
-Or clone and run locally:
-```bash
-sudo bash scripts/install-linux.sh
+sudo bash installers/linux/install-linux.sh
 # Options: INTERFACE=eth0 PORT=8000 DETECTION_MODE=simple AUTO_BLOCK=false
 ```
 
@@ -164,10 +169,10 @@ The installer:
 - Writes `config/settings.json` with detected interface and model paths
 - Configures and enables a **systemd service** (`anomalynet.service`)
 
-### Windows (PowerShell, as Administrator)
+### Windows — full system install (PowerShell, as Administrator)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
+powershell -ExecutionPolicy Bypass -File installers\windows\install-windows.ps1
 # Options: -InstallDir C:\AnomalyNet -Port 8000 -InstallNpcap -AutoBlock
 ```
 
@@ -182,18 +187,25 @@ The installer:
 
 ### Uninstall
 
+Quick (portable) install — run from the app folder:
+```bash
+bash uninstall.sh          # Linux
+uninstall.bat              # Windows (double-click)
+```
+
+Full system install:
 ```bash
 # Linux — keep data:
-sudo bash scripts/uninstall-linux.sh
+sudo bash installers/linux/uninstall-linux.sh
 # Linux — full wipe:
-sudo bash scripts/uninstall-linux.sh --purge
+sudo bash installers/linux/uninstall-linux.sh --purge
 ```
 
 ```powershell
 # Windows — keep data:
-powershell -File scripts\uninstall-windows.ps1
+powershell -File installers\windows\uninstall-windows.ps1
 # Windows — full wipe:
-powershell -File scripts\uninstall-windows.ps1 -Purge
+powershell -File installers\windows\uninstall-windows.ps1 -Purge
 ```
 
 ---
@@ -211,7 +223,7 @@ The backend will:
 
 ### Via re-install script
 ```bash
-sudo bash scripts/install-linux.sh   # idempotent — safe to run again
+sudo bash installers/linux/install-linux.sh   # idempotent — safe to run again
 ```
 
 ---
@@ -244,13 +256,15 @@ AppCode/
 │   ├── settings.json       Runtime configuration
 │   ├── models_registry.json  Available models
 │   └── model_presets.json  Detection presets
-├── scripts/
-│   ├── install-linux.sh    Full Linux installer
-│   ├── uninstall-linux.sh  Linux uninstaller (--purge flag)
-│   ├── install-windows.ps1 Windows installer
-│   ├── uninstall-windows.ps1 Windows uninstaller (-Purge flag)
-│   └── README-INSTALL.md   Installation documentation
-└── install.sh              Compatibility wrapper → scripts/install-linux.sh
+├── installers/             All installers and helper scripts
+│   ├── linux/              install-linux.sh · uninstall-linux.sh (full system install)
+│   ├── windows/            install-windows.ps1/.bat · uninstall-windows.ps1 · build_installer.ps1
+│   ├── shared/             download_oui.py (OUI vendor DB helper)
+│   ├── legacy/             setup.sh (old curl installer) · run_*.ps1 (dev helpers)
+│   └── README.md           Installation documentation
+├── install.sh · install.bat        Quick portable install (run from this folder)
+├── uninstall.sh · uninstall.bat    Quick portable uninstall
+└── launch.sh · launch.bat · launch.vbs   Launchers (used by shortcuts & autostart)
 ```
 
 ---

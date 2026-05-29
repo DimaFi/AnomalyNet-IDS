@@ -3,8 +3,8 @@
 #  Requires: Admin rights
 #
 #  Usage:
-#    powershell -ExecutionPolicy Bypass -File scripts\uninstall-windows.ps1
-#    powershell -ExecutionPolicy Bypass -File scripts\uninstall-windows.ps1 -Purge
+#    powershell -ExecutionPolicy Bypass -File installers\windows\uninstall-windows.ps1
+#    powershell -ExecutionPolicy Bypass -File installers\windows\uninstall-windows.ps1 -Purge
 # ============================================================
 
 param(
@@ -124,6 +124,6 @@ Write-Host "  +========================================+" -ForegroundColor Green
 Write-Host ""
 if (-not $Purge) {
     Write-Host "  Данные сохранены в: $InstallDir"
-    Write-Host "  Для полного удаления: powershell -File scripts\uninstall-windows.ps1 -Purge"
+    Write-Host "  Для полного удаления: powershell -File installers\windows\uninstall-windows.ps1 -Purge"
 }
 Write-Host ""

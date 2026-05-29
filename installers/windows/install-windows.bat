@@ -12,8 +12,8 @@ if %errorLevel% neq 0 (
 )
 
 :: ── Check installer script exists ───────────────────────────
-if not exist "%~dp0scripts\install-windows.ps1" (
-    echo ERROR: scripts\install-windows.ps1 not found.
+if not exist "%~dp0install-windows.ps1" (
+    echo ERROR: install-windows.ps1 not found.
     echo Make sure you extracted the full AnomalyNet archive.
     echo.
     pause
@@ -24,7 +24,7 @@ if not exist "%~dp0scripts\install-windows.ps1" (
 cd /d "%~dp0"
 echo Starting AnomalyNet installer (PowerShell loading, please wait...)
 echo.
-powershell -ExecutionPolicy Bypass -NoProfile -File "scripts\install-windows.ps1" %*
+powershell -ExecutionPolicy Bypass -NoProfile -File "install-windows.ps1" %*
 
 echo.
 pause

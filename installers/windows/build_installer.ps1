@@ -15,10 +15,10 @@
 
 .USAGE
     cd AppCode
-    .\build_installer.ps1
+    .\installers\windows\build_installer.ps1
 
     Optional: pass model path
-    .\build_installer.ps1 -ModelDir "G:\Диплом\IoT\stage1_v2_cl"
+    .\installers\windows\build_installer.ps1 -ModelDir "G:\Диплом\IoT\stage1_v2_cl"
 #>
 
 param(
@@ -28,7 +28,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$ROOT     = $PSScriptRoot                           # AppCode/
+$ROOT     = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path   # AppCode/ (script lives in installers/windows/)
 $BACKEND  = Join-Path $ROOT "backend"
 $FRONTEND = Join-Path $ROOT "frontend"
 $OUT      = Join-Path $ROOT "installer"

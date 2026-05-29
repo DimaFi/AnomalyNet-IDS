@@ -2,7 +2,7 @@
 
 ## Требования
 
-| | Windows (`install.bat`) | Windows (`install-windows.bat`) | Linux |
+| | Windows (`install.bat`) | Windows (`installers\windows\install-windows.bat`) | Linux |
 |---|---------|-------|-------|
 | ОС | Windows 10/11 (x64) | Windows 10/11 (x64) | Ubuntu 22.04+, Debian, RHEL, Alt Linux, любой дистрибутив |
 | Python | 3.10+ ([скачать](https://python.org)) | устанавливается автоматически | 3.10+ (`sudo apt install python3 python3-venv`) |
@@ -30,12 +30,12 @@
 
 ---
 
-### Windows — `install-windows.bat` (полный, рекомендуется)
+### Windows — `installers\windows\install-windows.bat` (полный, рекомендуется)
 
 Полная установка с нуля: скачивает Python, Git, Npcap, клонирует репозиторий с GitHub, добавляет в **автозапуск через Task Scheduler**.
 
 **Запуск:**  
-Двойной клик на `install-windows.bat` → появится UAC-диалог → нажать **«Да»** → установщик сделает всё сам.
+Двойной клик на `installers\windows\install-windows.bat` → появится UAC-диалог → нажать **«Да»** → установщик сделает всё сам.
 
 > **Пароль не нужен.** UAC показывает только кнопку «Да» — без ввода пароля.  
 > Если аккаунт Windows является администратором (большинство домашних ПК) — пароль не спрашивается.
@@ -177,12 +177,11 @@ bash uninstall.sh
 ## Структура файлов
 
 ```
-AnomalyNet-gui/
+AnomalyNet-IDS/
 ├── install.bat              ← Простой установщик Windows (без Admin)
-├── install-windows.bat      ← Полный установщик Windows (UAC, из GitHub)
-├── install.sh               ← Установщик Linux (bash install.sh)
+├── install.sh               ← Простой установщик Linux (bash install.sh)
 ├── uninstall.bat            ← Удаление Windows (простая установка)
-├── uninstall.sh             ← Удаление Linux
+├── uninstall.sh             ← Удаление Linux (простая установка)
 ├── launch.bat               ← Запуск Windows
 ├── launch.sh                ← Запуск Linux
 ├── launch.vbs               ← Тихий запуск без консоли (используется ярлыком)
@@ -195,9 +194,21 @@ AnomalyNet-gui/
 ├── config/
 │   ├── settings.json        ← настройки приложения
 │   └── model_presets.json
-└── scripts/
-    ├── install-windows.ps1  ← PowerShell-логика полного установщика
-    └── README-INSTALL.md    ← этот файл
+└── installers/              ← все установщики и помощники
+    ├── linux/
+    │   ├── install-linux.sh     ← полный системный установщик (/opt, systemd)
+    │   └── uninstall-linux.sh   ← деинсталлятор (--purge)
+    ├── windows/
+    │   ├── install-windows.bat  ← полный установщик Windows (UAC-обёртка)
+    │   ├── install-windows.ps1  ← PowerShell-логика полного установщика
+    │   ├── uninstall-windows.ps1 ← деинсталлятор (-Purge)
+    │   └── build_installer.ps1  ← сборка .exe-пакета (PyInstaller)
+    ├── shared/
+    │   └── download_oui.py      ← скачивание базы OUI (производители MAC)
+    ├── legacy/                  ← старые/неиспользуемые скрипты
+    │   ├── setup.sh             ← старый curl-установщик (заменён install-linux.sh)
+    │   └── run_*.ps1            ← dev-помощники запуска
+    └── README.md                ← этот файл
 ```
 
 ---

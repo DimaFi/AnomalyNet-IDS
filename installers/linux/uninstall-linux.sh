@@ -3,8 +3,8 @@
 #  AnomalyNet IDS — Linux Uninstall Script
 #
 #  Usage:
-#    sudo bash scripts/uninstall-linux.sh            # удалить код и сервис
-#    sudo bash scripts/uninstall-linux.sh --purge    # + удалить /opt/anomalynet
+#    sudo bash installers/linux/uninstall-linux.sh            # удалить код и сервис
+#    sudo bash installers/linux/uninstall-linux.sh --purge    # + удалить /opt/anomalynet
 # ============================================================
 set -euo pipefail
 
@@ -21,7 +21,7 @@ for arg in "$@"; do
     case "$arg" in --purge|-p) PURGE=true ;; esac
 done
 
-[ $EUID -eq 0 ] || err "Запустите с правами root: sudo bash scripts/uninstall-linux.sh"
+[ $EUID -eq 0 ] || err "Запустите с правами root: sudo bash installers/linux/uninstall-linux.sh"
 
 echo ""
 echo -e "${BOLD}  ╔════════════════════════════════════════╗${NC}"
@@ -103,6 +103,6 @@ echo -e "${BOLD}  ╚═══════════════════�
 echo ""
 if [ "$PURGE" = false ]; then
     echo "  Данные сохранены в: $INSTALL_DIR/"
-    echo "  Для полного удаления: sudo bash scripts/uninstall-linux.sh --purge"
+    echo "  Для полного удаления: sudo bash installers/linux/uninstall-linux.sh --purge"
 fi
 echo ""

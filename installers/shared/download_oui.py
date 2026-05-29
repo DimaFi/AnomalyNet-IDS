@@ -1,7 +1,7 @@
 """Download OUI vendor database and save to config/oui.json.
 
 Usage:
-    python scripts/download_oui.py
+    python installers/shared/download_oui.py
 
 Source: maclookup.app public CSV (~5 MB, ~30K entries).
 Output format: [{"macPrefix": "AA:BB:CC", "vendorName": "TP-Link"}, ...]

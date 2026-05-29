@@ -20,7 +20,7 @@ class OUILookup:
 
     def _load(self) -> None:
         if not _OUI_FILE.exists():
-            logger.warning("OUI database not found at %s — vendor lookup disabled. Run scripts/download_oui.py", _OUI_FILE)
+            logger.warning("OUI database not found at %s — vendor lookup disabled. Run installers/shared/download_oui.py", _OUI_FILE)
             return
         try:
             data: list[dict] = json.loads(_OUI_FILE.read_text(encoding="utf-8"))

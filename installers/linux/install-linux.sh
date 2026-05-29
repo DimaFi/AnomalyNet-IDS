@@ -4,9 +4,11 @@
 #  Tested on: Ubuntu 22.04/24.04, Debian 12, Alt Linux p10,
 #             CentOS/RHEL 8+, Rocky Linux, Arch Linux
 #
-#  Usage:
-#    sudo bash scripts/install-linux.sh
-#    sudo bash install.sh                   # compatibility wrapper
+#  Usage (full system install — /opt/anomalynet + systemd):
+#    sudo bash installers/linux/install-linux.sh
+#
+#  For a quick portable install (run from this folder, no systemd):
+#    bash install.sh
 #
 #  Options (env vars):
 #    INTERFACE=eth0          сетевой интерфейс для захвата

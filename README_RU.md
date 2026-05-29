@@ -143,15 +143,20 @@ npm run dev
 
 ## Установка
 
-### Linux (одна команда)
+Есть два способа установки — выберите один:
+
+| | **Быстрый (portable)** | **Полная системная установка** |
+|---|---|---|
+| Куда | работает из папки проекта | `/opt/anomalynet` · `C:\AnomalyNet` |
+| Права | root/админ не нужны | root / Администратор |
+| Автозапуск | на уровне пользователя (вход) | systemd / Task Scheduler |
+| Linux | `bash install.sh` | `sudo bash installers/linux/install-linux.sh` |
+| Windows | двойной клик `install.bat` | `installers\windows\install-windows.bat` (админ) |
+
+### Linux — полная системная установка
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/DimaFi/AnomalyNet-gui/main/install.sh | sudo bash
-```
-
-Или локально:
-```bash
-sudo bash scripts/install-linux.sh
+sudo bash installers/linux/install-linux.sh
 # Параметры (env): INTERFACE=eth0 PORT=8000 DETECTION_MODE=simple AUTO_BLOCK=false
 ```
 
@@ -164,10 +169,10 @@ sudo bash scripts/install-linux.sh
 - Записывает `config/settings.json` с автоопределением интерфейса и путей к моделям
 - Создаёт и включает **systemd-сервис** `anomalynet`
 
-### Windows (PowerShell от Администратора)
+### Windows — полная системная установка (PowerShell от Администратора)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
+powershell -ExecutionPolicy Bypass -File installers\windows\install-windows.ps1
 # Параметры: -InstallDir C:\AnomalyNet -Port 8000 -InstallNpcap -AutoBlock
 ```
 
@@ -182,18 +187,25 @@ powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1
 
 ### Удаление
 
+Быстрый (portable) — из папки приложения:
+```bash
+bash uninstall.sh          # Linux
+uninstall.bat              # Windows (двойной клик)
+```
+
+Полная системная установка:
 ```bash
 # Linux — сохранить данные:
-sudo bash scripts/uninstall-linux.sh
+sudo bash installers/linux/uninstall-linux.sh
 # Linux — полное удаление:
-sudo bash scripts/uninstall-linux.sh --purge
+sudo bash installers/linux/uninstall-linux.sh --purge
 ```
 
 ```powershell
 # Windows — сохранить данные:
-powershell -File scripts\uninstall-windows.ps1
+powershell -File installers\windows\uninstall-windows.ps1
 # Windows — полное удаление:
-powershell -File scripts\uninstall-windows.ps1 -Purge
+powershell -File installers\windows\uninstall-windows.ps1 -Purge
 ```
 
 ---
@@ -211,7 +223,7 @@ powershell -File scripts\uninstall-windows.ps1 -Purge
 
 ### Повторный запуск установщика
 ```bash
-sudo bash scripts/install-linux.sh   # идемпотентный — безопасно запускать повторно
+sudo bash installers/linux/install-linux.sh   # идемпотентный — безопасно запускать повторно
 ```
 
 ---
@@ -244,13 +256,15 @@ AppCode/
 │   ├── settings.json       Конфигурация
 │   ├── models_registry.json  Доступные модели
 │   └── model_presets.json  Пресеты обнаружения
-├── scripts/
-│   ├── install-linux.sh    Полный Linux-установщик
-│   ├── uninstall-linux.sh  Linux-деинсталлятор (--purge)
-│   ├── install-windows.ps1 Windows-установщик
-│   ├── uninstall-windows.ps1 Windows-деинсталлятор (-Purge)
-│   └── README-INSTALL.md   Документация по установке
-└── install.sh              Враппер совместимости → scripts/install-linux.sh
+├── installers/             Все установщики и вспомогательные скрипты
+│   ├── linux/              install-linux.sh · uninstall-linux.sh (полная установка)
+│   ├── windows/            install-windows.ps1/.bat · uninstall-windows.ps1 · build_installer.ps1
+│   ├── shared/             download_oui.py (помощник для базы OUI)
+│   ├── legacy/             setup.sh (старый curl-установщик) · run_*.ps1 (dev-помощники)
+│   └── README.md           Документация по установке
+├── install.sh · install.bat        Быстрая portable-установка (из этой папки)
+├── uninstall.sh · uninstall.bat    Быстрое portable-удаление
+└── launch.sh · launch.bat · launch.vbs   Лаунчеры (для ярлыков и автозапуска)
 ```
 
 ---
