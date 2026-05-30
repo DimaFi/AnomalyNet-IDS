@@ -53,12 +53,27 @@ echo         OK
 
 :: ── Install dependencies ──────────────────────────────────────
 echo  [3/5]  Installing dependencies (may take 1-2 min)...
-"%VENV_DIR%\Scripts\pip.exe" install -r "%APP_DIR%\backend\requirements.txt" --quiet --disable-pip-version-check
-if errorlevel 1 (
+:: Network-resilient: longer timeout + retries (default 15s times out on slow links)
+set "PIP_OK="
+for /l %%i in (1,1,3) do (
+    if not defined PIP_OK (
+        "%VENV_DIR%\Scripts\pip.exe" install -r "%APP_DIR%\backend\requirements.txt" --timeout 60 --retries 5 --disable-pip-version-check
+        if not errorlevel 1 set "PIP_OK=1"
+        if not defined PIP_OK (
+            echo   [!] pip download failed ^(attempt %%i/3, slow network?^) - retrying in 10s...
+            timeout /t 10 /nobreak >nul 2>&1
+        )
+    )
+)
+if not defined PIP_OK (
     echo.
-    echo   [!] Some packages may have failed to install.
-    echo   Check your internet connection and try again.
+    echo   [!] Could not install dependencies after 3 attempts.
+    echo   Usually an unstable connection to pypi.org ^(read timeout^).
+    echo   Check your internet and run install.bat again, or install manually:
+    echo     "%VENV_DIR%\Scripts\pip.exe" install --timeout 120 --retries 10 -r "%APP_DIR%\backend\requirements.txt"
     echo.
+    pause
+    exit /b 1
 )
 echo         OK
 

@@ -389,8 +389,34 @@ if (-not (Test-Path "$guiDir\backend\requirements.txt")) {
 if (-not (Test-Path $venvPy)) {
     Err "Не удалось создать виртуальное окружение в $venvDir"
 }
-& $venvPy -m pip install --quiet --upgrade pip setuptools wheel
-& $venvPy -m pip install --quiet -r "$guiDir\backend\requirements.txt"
+
+# Network-resilient pip: longer per-connection timeout + more retries.
+# Default pip timeout is 15s — on slow/unstable links pypi.org reads time out.
+$pipNet = @("--timeout", "60", "--retries", "5")
+
+& $venvPy -m pip install --quiet --upgrade @pipNet pip setuptools wheel
+
+# Install requirements with up to 3 attempts (no --quiet so progress is visible
+# while it downloads — important when the connection is slow).
+$pipOk = $false
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    & $venvPy -m pip install @pipNet -r "$guiDir\backend\requirements.txt"
+    if ($LASTEXITCODE -eq 0) { $pipOk = $true; break }
+    if ($attempt -lt 3) {
+        Warn "pip не смог скачать зависимости (попытка $attempt/3, медленная сеть?) — повтор через 10 сек..."
+        Start-Sleep -Seconds 10
+    }
+}
+if (-not $pipOk) {
+    Err @"
+Не удалось установить Python-зависимости после 3 попыток.
+      Причина обычно — нестабильное соединение с pypi.org (таймаут чтения).
+      Что сделать:
+        1. Проверьте интернет и запустите установщик повторно (он идемпотентен).
+        2. Или установите вручную:
+           "$venvPy" -m pip install --timeout 120 --retries 10 -r "$guiDir\backend\requirements.txt"
+"@
+}
 Ok "Python-зависимости установлены"
 
 # ── Сборка фронтенда ─────────────────────────────────────────
