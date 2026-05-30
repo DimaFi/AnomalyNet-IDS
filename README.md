@@ -177,10 +177,11 @@ powershell -ExecutionPolicy Bypass -File installers\windows\install-windows.ps1
 ```
 
 > **Why administrator rights?** On Windows, live packet capture (Npcap) and IP
-> blocking (Windows Firewall / netsh) require elevation. The desktop shortcut
-> created by `install.bat` is therefore marked **"Run as administrator"** — a UAC
-> prompt appears on launch. Without elevation the app still runs, but the top bar
-> shows **⚠ No capture / ⚠ No firewall** and those features are disabled.
+> blocking (Windows Firewall / netsh) require elevation. Both the desktop shortcut
+> and **`launch.bat` self-elevate via UAC** (and the tray app's "Start panel"
+> starts the panel elevated too) — a UAC prompt appears on launch. Without
+> elevation the panel still runs, but the top bar shows **⚠ No capture /
+> ⚠ No firewall** and those features are disabled.
 
 The installer:
 - Verifies Python 3.10+, Git, Node.js 18+

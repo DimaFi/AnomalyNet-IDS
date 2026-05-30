@@ -1,9 +1,24 @@
 @echo off
 :: AnomalyNet IDS — Windows Launcher
 :: Double-click to start the server and open the browser.
+:: Live capture (Npcap) and IP blocking (Windows Firewall) need administrator
+:: rights, so the launcher self-elevates via UAC.
 setlocal
 
 cd /d "%~dp0"
+
+:: ── Self-elevate to administrator (capture + firewall need it) ──
+:: If already running, skip elevation and just open the browser.
+curl -s -o nul -w "%%{http_code}" http://127.0.0.1:8000/api/health 2>nul | findstr "200" >nul
+if %errorlevel%==0 (
+    start "" "http://localhost:8000"
+    exit /b 0
+)
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -Verb RunAs -WindowStyle Hidden"
+    exit /b
+)
 
 :: Find Python: prefer venv, then system
 set "PYTHON="

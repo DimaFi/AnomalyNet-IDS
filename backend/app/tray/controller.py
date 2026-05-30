@@ -72,7 +72,7 @@ class PanelController:
     # ── Status ──────────────────────────────────────────────────────────────
     def is_running(self) -> bool:
         try:
-            r = httpx.get(f"{BASE}/api/health", timeout=1.5)
+            r = httpx.get(f"{BASE}/api/health", timeout=1.0)
             return r.status_code == 200
         except Exception:
             return False
@@ -80,7 +80,7 @@ class PanelController:
     def metrics(self) -> dict | None:
         """Returns the /api/system/stats payload, or None if unreachable."""
         try:
-            r = httpx.get(f"{BASE}/api/system/stats", timeout=2.0)
+            r = httpx.get(f"{BASE}/api/system/stats", timeout=1.5)
             if r.status_code == 200:
                 return r.json()
         except Exception:
@@ -89,31 +89,39 @@ class PanelController:
 
     # ── Lifecycle ───────────────────────────────────────────────────────────
     def start(self) -> bool:
-        """Launch uvicorn directly (detached, no browser). No-op if already up."""
+        """Start the panel (detached, no browser). No-op if already up.
+
+        On Windows the panel is launched **elevated** (UAC prompt) because live
+        capture (Npcap) and IP blocking (Windows Firewall) require administrator
+        rights — otherwise the panel would run without capture/firewall.
+        """
         if self.is_running():
             return True
         py = venv_python(self.root, windowless=True)
         backend_dir = self.root / "backend"
-        cmd = [py, "-m", "uvicorn", "app.main:app", "--host", HOST,
-               "--port", str(PORT), "--app-dir", str(backend_dir)]
         try:
             if platform.system() == "Windows":
-                CREATE_NO_WINDOW = 0x08000000
-                DETACHED_PROCESS = 0x00000008
-                subprocess.Popen(
-                    cmd, cwd=str(backend_dir),
-                    creationflags=CREATE_NO_WINDOW | DETACHED_PROCESS,
-                    close_fds=True,
-                )
+                # ShellExecute "runas" → UAC elevation, hidden window
+                import ctypes
+                params = (f'-m uvicorn app.main:app --host {HOST} '
+                          f'--port {PORT} --app-dir "{backend_dir}"')
+                SW_HIDE = 0
+                rc = ctypes.windll.shell32.ShellExecuteW(
+                    None, "runas", py, params, str(backend_dir), SW_HIDE)
+                ok = int(rc) > 32  # >32 = success per ShellExecute contract
+                _log.info("[tray] panel start (elevated) rc=%s py=%s", rc, py)
+                return ok
             else:
+                cmd = [py, "-m", "uvicorn", "app.main:app", "--host", HOST,
+                       "--port", str(PORT), "--app-dir", str(backend_dir)]
                 logf = open(self.root / "anomalynet.log", "ab")
                 subprocess.Popen(
                     cmd, cwd=str(backend_dir),
                     stdout=logf, stderr=logf,
                     start_new_session=True, close_fds=True,
                 )
-            _log.info("[tray] panel start requested: %s", " ".join(cmd))
-            return True
+                _log.info("[tray] panel start requested: %s", " ".join(cmd))
+                return True
         except Exception as exc:
             _log.error("[tray] panel start failed: %s", exc)
             return False

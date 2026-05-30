@@ -77,6 +77,8 @@ class TrayApp:
         self.state = _State()
         self._base_img = self._load_base_image()
         self._stop = threading.Event()
+        self._last_color: tuple | None = None
+        self._last_title: str | None = None
         self.icon = pystray.Icon(
             "anomalynet",
             icon=self._compose_icon(_COLOR_STOPPED),
@@ -195,20 +197,35 @@ class TrayApp:
 
     # ── Polling ─────────────────────────────────────────────────────────────
     def _refresh(self, force: bool = False):
+        """Poll status/metrics and update the tray UI minimally.
+
+        Recreating the icon image or rebuilding the native menu on every poll
+        is what makes pystray hang/flicker on Windows — so we only touch the
+        icon when the status COLOR changes and only rebuild the menu when the
+        running state flips."""
         running = self.ctl.is_running()
         metrics = self.ctl.metrics() if running else None
-        changed = (running != self.state.running) or force
+        state_changed = (running != self.state.running)
         self.state.running = running
         self.state.metrics = metrics
+
         try:
-            self.icon.icon = self._compose_icon(self._status_color())
-            self.icon.title = self._status_text()
-            self.icon.update_menu()
+            color = self._status_color()
+            if force or color != self._last_color:
+                self.icon.icon = self._compose_icon(color)
+                self._last_color = color
+            title = self._status_text()
+            if title != self._last_title:
+                self.icon.title = title
+                self._last_title = title
+            if force or state_changed:
+                self.icon.update_menu()
         except Exception as exc:
             _log.debug("[tray] refresh ui error: %s", exc)
-        return changed
 
     def _poll_loop(self):
+        # First refresh here (not in setup) so the icon appears instantly,
+        # without waiting on the network health-check.
         while not self._stop.is_set():
             try:
                 self._refresh()
@@ -218,7 +235,6 @@ class TrayApp:
 
     def _setup(self, icon):
         icon.visible = True
-        self._refresh(force=True)
         threading.Thread(target=self._poll_loop, daemon=True).start()
 
     def run(self):
