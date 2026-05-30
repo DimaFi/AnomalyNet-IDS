@@ -594,7 +594,7 @@ function New-UrlShortcut($path, $url, $iconSrc) {
     [System.IO.File]::WriteAllText($path, $content, [System.Text.Encoding]::ASCII)
 }
 
-$iconPath = "$guiDir\frontend\public\favicon.ico"
+$iconPath = "$guiDir\frontend\public\AnomalyNet.ico"
 $shortcutName = "AnomalyNet IDS.url"
 
 # Рабочий стол текущего пользователя
@@ -608,6 +608,25 @@ $startMenuDir  = "$startMenuPath\AnomalyNet"
 New-Item -ItemType Directory -Force -Path $startMenuDir | Out-Null
 New-UrlShortcut "$startMenuDir\$shortcutName" $appUrl $iconPath
 Ok "Ярлык в меню Пуск: $startMenuDir\$shortcutName"
+
+# ── Трей-приложение (AnomalyNet Control) ─────────────────────
+Log "Настраиваем мини-приложение AnomalyNet Control (трей)..."
+$trayVbs = "$guiDir\tray.vbs"
+if (Test-Path $trayVbs) {
+    # Автозапуск трея при входе (HKCU Run — отдельная запись, можно выключить из меню трея)
+    try {
+        Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" `
+            -Name "AnomalyNet Tray" -Value "wscript.exe `"$trayVbs`"" -Force
+        Ok "Трей добавлен в автозапуск (AnomalyNet Tray)"
+    } catch {
+        Warn "Не удалось добавить трей в автозапуск: $_"
+    }
+    # Запустить трей сейчас
+    Start-Process "wscript.exe" -ArgumentList "`"$trayVbs`"" -ErrorAction SilentlyContinue
+    Ok "Трей запущен"
+} else {
+    Warn "tray.vbs не найден — мини-приложение пропущено"
+}
 
 # ── Итог ─────────────────────────────────────────────────────
 Write-Host ""

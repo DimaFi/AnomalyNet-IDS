@@ -505,7 +505,7 @@ else
 fi
 
 # ── Ярлык .desktop (меню приложений + рабочий стол) ─────────
-ICON_PATH="$GUI_DIR/frontend/public/favicon.ico"
+ICON_PATH="$GUI_DIR/frontend/public/logo.png"
 DESKTOP_CONTENT="[Desktop Entry]
 Name=AnomalyNet IDS
 Comment=Network Intrusion Detection System
@@ -534,6 +534,33 @@ for DESKTOP_DIR in "$REAL_HOME/Desktop" "$REAL_HOME/Рабочий стол" "$R
         break
     fi
 done
+
+# ── Трей-приложение (AnomalyNet Control) ─────────────────────
+# AppIndicator нужен для значка в трее на GNOME (best-effort)
+if command -v apt-get &>/dev/null; then
+    apt-get install -y -qq gir1.2-ayatanaappindicator3-0.1 2>/dev/null || \
+    apt-get install -y -qq gir1.2-appindicator3-0.1 2>/dev/null || true
+elif command -v dnf &>/dev/null; then
+    dnf install -y libappindicator-gtk3 2>/dev/null || true
+elif command -v pacman &>/dev/null; then
+    pacman -Sy --noconfirm libappindicator-gtk3 2>/dev/null || true
+fi
+# Автозапуск трея в home реального пользователя (отдельная запись)
+TRAY_AUTOSTART_DIR="$REAL_HOME/.config/autostart"
+mkdir -p "$TRAY_AUTOSTART_DIR" 2>/dev/null || true
+cat > "$TRAY_AUTOSTART_DIR/anomalynet-tray.desktop" 2>/dev/null <<EOF
+[Desktop Entry]
+Name=AnomalyNet Control
+Exec=bash ${GUI_DIR}/tray.sh
+Path=${GUI_DIR}
+Icon=${GUI_DIR}/frontend/public/logo.png
+Type=Application
+Terminal=false
+X-GNOME-Autostart-enabled=true
+EOF
+chown "$REAL_USER:$REAL_USER" "$TRAY_AUTOSTART_DIR/anomalynet-tray.desktop" 2>/dev/null || true
+chmod +x "$GUI_DIR/tray.sh" 2>/dev/null || true
+ok "Трей-приложение AnomalyNet Control добавлено в автозапуск"
 
 # ── Итог ─────────────────────────────────────────────────────
 IP=$(ip -4 addr show scope global | awk '/inet / {print $2}' | cut -d/ -f1 | head -1)

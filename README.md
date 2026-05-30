@@ -219,6 +219,21 @@ powershell -File installers\windows\uninstall-windows.ps1 -Purge
 
 ---
 
+## AnomalyNet Control (tray app)
+
+A lightweight system-tray controller (no console needed) is installed alongside
+the panel. Right-click the tray icon to:
+
+- **Open panel** in the browser
+- **Start / Restart / Stop** the panel
+- See **live metrics** (CPU / RAM / events) in the tooltip and menu header
+- Toggle **two independent autostart entries** — the panel and the tray app
+  (both start at login by default; either can be turned off from the menu)
+
+It runs as a separate process and is not required for the panel to work. Run
+manually if needed: `tray.vbs` (Windows) / `bash tray.sh` (Linux). Built on
+`pystray` + `Pillow` (added to `backend/requirements.txt`).
+
 ## Updating
 
 ### Via UI (recommended)
@@ -273,8 +288,10 @@ AppCode/
 │   └── README.md           Installation documentation
 ├── install.sh · install.bat        Quick portable install (run from this folder)
 ├── uninstall.sh · uninstall.bat    Quick portable uninstall
-└── launch.sh · launch.bat · launch.vbs   Launchers (used by shortcuts & autostart)
+├── launch.sh · launch.bat · launch.vbs   Panel launchers (shortcuts & autostart)
+└── tray.sh · tray.bat · tray.vbs   Tray app launchers (AnomalyNet Control)
 ```
+The tray app code lives in `backend/app/tray/` (`main.py`, `controller.py`, `autostart.py`).
 
 ---
 

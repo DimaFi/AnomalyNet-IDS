@@ -78,7 +78,7 @@ command -v update-desktop-database &>/dev/null && \
     update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 echo "        Added to applications menu."
 
-# ── Add to autostart ─────────────────────────────────────────────
+# ── Add to autostart (panel + tray app, two independent entries) ──
 echo "[5/6] Adding to autostart..."
 AUTOSTART_DIR="$HOME/.config/autostart"
 mkdir -p "$AUTOSTART_DIR"
@@ -92,18 +92,32 @@ Terminal=false
 Type=Application
 X-GNOME-Autostart-enabled=true
 EOF
-echo "        Added to autostart (~/.config/autostart, no sudo required)."
+# Tray control app — separate entry, can be disabled independently
+cat > "$AUTOSTART_DIR/anomalynet-tray.desktop" <<EOF
+[Desktop Entry]
+Name=AnomalyNet Control
+Exec=bash ${APP_DIR}/tray.sh
+Path=${APP_DIR}
+Icon=${ICON_PNG}
+Terminal=false
+Type=Application
+X-GNOME-Autostart-enabled=true
+EOF
+chmod +x "$APP_DIR/tray.sh" 2>/dev/null || true
+echo "        Added panel + tray app to autostart (~/.config/autostart, no sudo)."
 
-# ── Launch the app ───────────────────────────────────────────────
+# ── Launch the app + tray ────────────────────────────────────────
 echo "[6/6] Starting AnomalyNet IDS..."
 bash "$LAUNCHER" &
+[ -f "$APP_DIR/tray.sh" ] && bash "$APP_DIR/tray.sh" >/dev/null 2>&1 || true
 
 echo ""
 echo " ============================================================"
 echo "  Installation complete!"
 echo ""
 echo "  App menu shortcut: installed"
-echo "  Autostart:         enabled"
+echo "  Tray app:          AnomalyNet Control (start/stop/metrics)"
+echo "  Autostart:         panel + tray (both at login)"
 echo "  To uninstall:      bash uninstall.sh"
 echo " ============================================================"
 echo ""

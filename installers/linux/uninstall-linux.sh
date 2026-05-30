@@ -56,6 +56,14 @@ else
     warn "Файл сервиса не найден: $SERVICE"
 fi
 
+# ── 1.5. Трей-приложение: автозапуск + процесс ──────────────
+log "Удаление трея AnomalyNet Control..."
+pkill -f "app.tray.main" 2>/dev/null && ok "Процесс трея завершён" || true
+REAL_USER="${SUDO_USER:-$USER}"
+REAL_HOME=$(eval echo "~$REAL_USER")
+rm -f "$REAL_HOME/.config/autostart/anomalynet-tray.desktop" 2>/dev/null || true
+ok "Автозапуск трея удалён"
+
 # ── 2. Удаление правил iptables (ANOMALYNET цепочки) ─────────
 log "Удаление iptables-правил AnomalyNet..."
 if command -v iptables &>/dev/null; then

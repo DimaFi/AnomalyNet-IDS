@@ -99,6 +99,18 @@ Log "Удаление системных переменных..."
 [System.Environment]::SetEnvironmentVariable("ANOMALYNET_MODELS_ROOT", $null, [System.EnvironmentVariableTarget]::Machine)
 Ok "Переменные ANOMALYNET_APP_ROOT, ANOMALYNET_MODELS_ROOT удалены"
 
+# ── 4.5. Трей-приложение: автозапуск + процесс ───────────────
+Log "Удаление автозапуска и процесса трея (AnomalyNet Control)..."
+Remove-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" `
+    -Name "AnomalyNet Tray" -ErrorAction SilentlyContinue
+$trayProcs = Get-WmiObject Win32_Process -Filter "Name='pythonw.exe' OR Name='python.exe'" -ErrorAction SilentlyContinue
+foreach ($p in $trayProcs) {
+    if ($p.CommandLine -like "*app.tray.main*") {
+        Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+        Ok "Трей завершён (PID=$($p.ProcessId))"
+    }
+}
+
 # ── 5. Удаление ярлыков (рабочий стол + меню Пуск) ──────────
 Log "Удаление ярлыков AnomalyNet..."
 $desktop  = [System.Environment]::GetFolderPath("Desktop")

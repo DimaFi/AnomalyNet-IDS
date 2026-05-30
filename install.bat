@@ -15,6 +15,7 @@ if "%APP_DIR:~-1%"=="\" set "APP_DIR=%APP_DIR:~0,-1%"
 set "VENV_DIR=%APP_DIR%\backend\.venv"
 set "LAUNCHER_VBS=%APP_DIR%\launch.vbs"
 set "LAUNCHER_BAT=%APP_DIR%\launch.bat"
+set "TRAY_VBS=%APP_DIR%\tray.vbs"
 set "ICON_PATH=%APP_DIR%\frontend\public\AnomalyNet.ico"
 
 :: ── Check Python ──────────────────────────────────────────────
@@ -112,7 +113,13 @@ reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" ^
     /t REG_SZ ^
     /d "wscript.exe \"%LAUNCHER_VBS%\"" ^
     /f >nul 2>&1
-echo         Will start automatically at Windows login
+:: Tray control app — independent autostart entry (can be disabled separately)
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" ^
+    /v "AnomalyNet Tray" ^
+    /t REG_SZ ^
+    /d "wscript.exe \"%TRAY_VBS%\"" ^
+    /f >nul 2>&1
+echo         Panel + tray app will start automatically at Windows login
 
 :: ── Npcap info (Live mode) ────────────────────────────────────
 echo.
@@ -138,13 +145,16 @@ if errorlevel 1 (
 echo.
 echo  Starting AnomalyNet IDS...
 start "" wscript.exe "%LAUNCHER_VBS%"
+:: Start the tray control app (AnomalyNet Control)
+if exist "%TRAY_VBS%" start "" wscript.exe "%TRAY_VBS%"
 
 echo.
 echo  ============================================================
 echo   Installation complete!
 echo.
 echo   Desktop shortcut : AnomalyNet IDS (runs as administrator)
-echo   Autostart        : enabled (starts at Windows login)
+echo   Tray app         : AnomalyNet Control (start/stop/metrics)
+echo   Autostart        : panel + tray (both start at Windows login)
 echo   Open manually    : http://localhost:8000
 echo   Uninstall        : run uninstall.bat
 echo.
