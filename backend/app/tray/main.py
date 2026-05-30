@@ -136,7 +136,8 @@ class TrayApp:
         return pystray.Menu(
             Item(self._status_text, None, enabled=False),
             pystray.Menu.SEPARATOR,
-            Item("Открыть панель в браузере", self._on_open),
+            # default=True → срабатывает по двойному клику (Windows) / клику (Linux)
+            Item("Открыть панель в браузере", self._on_open, default=True),
             pystray.Menu.SEPARATOR,
             Item("▶  Запустить панель", self._on_start,
                  enabled=lambda i: not self.state.running),
