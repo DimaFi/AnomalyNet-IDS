@@ -99,7 +99,50 @@ Log "Удаление системных переменных..."
 [System.Environment]::SetEnvironmentVariable("ANOMALYNET_MODELS_ROOT", $null, [System.EnvironmentVariableTarget]::Machine)
 Ok "Переменные ANOMALYNET_APP_ROOT, ANOMALYNET_MODELS_ROOT удалены"
 
-# ── 5. Удаление каталога (только --Purge) ──────────────────
+# ── 5. Удаление ярлыков (рабочий стол + меню Пуск) ──────────
+Log "Удаление ярлыков AnomalyNet..."
+$desktop  = [System.Environment]::GetFolderPath("Desktop")
+$programs = [System.Environment]::GetFolderPath("Programs")
+
+# Все возможные имена ярлыков, которые создаёт установщик/приложение:
+#   .url  — полный установщик (install-windows.ps1)
+#   .lnk  — простой установщик (install.bat) и кнопка "Создать ярлык" в настройках
+# Плюс возможные старые имена без "IDS".
+$shortcutFiles = @(
+    "$desktop\AnomalyNet IDS.url",
+    "$desktop\AnomalyNet IDS.lnk",
+    "$desktop\AnomalyNet.url",
+    "$desktop\AnomalyNet.lnk",
+    "$programs\AnomalyNet\AnomalyNet IDS.url",
+    "$programs\AnomalyNet\AnomalyNet IDS.lnk",
+    "$programs\AnomalyNet\AnomalyNet.url",
+    "$programs\AnomalyNet\AnomalyNet.lnk"
+)
+
+$removedShortcuts = 0
+foreach ($f in $shortcutFiles) {
+    if (Test-Path $f) {
+        Remove-Item $f -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $f)) { Ok "Удалён ярлык: $f"; $removedShortcuts++ }
+        else { Warn "Не удалось удалить ярлык: $f" }
+    }
+}
+
+# Удаляем папку меню Пуск \AnomalyNet, только если она пуста (не трогаем чужие файлы)
+$startDir = "$programs\AnomalyNet"
+if (Test-Path $startDir) {
+    $leftovers = Get-ChildItem $startDir -Force -ErrorAction SilentlyContinue
+    if (-not $leftovers) {
+        Remove-Item $startDir -Force -Recurse -ErrorAction SilentlyContinue
+        Ok "Удалена папка меню Пуск: $startDir"
+    } else {
+        Warn "Папка $startDir не пуста — оставлена (есть посторонние файлы)"
+    }
+}
+
+if ($removedShortcuts -eq 0) { Warn "Ярлыки не найдены (уже удалены)" }
+
+# ── 6. Удаление каталога (только --Purge) ──────────────────
 if ($Purge) {
     Log "Удаление каталога $InstallDir..."
     if (Test-Path $InstallDir) {

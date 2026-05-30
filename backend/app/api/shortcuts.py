@@ -62,15 +62,21 @@ def _create_windows_lnk(dest: Path, target: Path, work_dir: Path, description: s
     """
     import tempfile
     icon_line = f'$sc.IconLocation = "{icon},0"' if icon and icon.exists() else ""
+    # After saving, flip the "Run as administrator" bit (offset 0x15, flag 0x20)
+    # so launching the shortcut elevates — packet capture and firewall need admin.
     ps = f"""
+$lnk = "{dest}"
 $ws = New-Object -ComObject WScript.Shell
-$sc = $ws.CreateShortcut("{dest}")
+$sc = $ws.CreateShortcut($lnk)
 $sc.TargetPath       = "wscript.exe"
 $sc.Arguments        = '"{target}"'
 $sc.WorkingDirectory = "{work_dir}"
 $sc.Description      = "{description}"
 {icon_line}
 $sc.Save()
+$b = [System.IO.File]::ReadAllBytes($lnk)
+$b[0x15] = $b[0x15] -bor 0x20
+[System.IO.File]::WriteAllBytes($lnk, $b)
 """
     try:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".ps1",

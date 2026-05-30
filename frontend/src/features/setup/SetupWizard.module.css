@@ -12,10 +12,23 @@
 }
 
 /* ── Theme toggle (top-right) ─────────────────────────────── */
-.themeBtn {
+/* Fixed container in the top-right corner holding the theme + language toggles */
+.topControls {
   position: fixed;
   top: 18px;
   right: 22px;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.themeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
   font-size: 22px;
   line-height: 1;
   background: none;
@@ -24,9 +37,18 @@
   opacity: 0.65;
   transition: opacity 0.2s, transform 0.2s;
   padding: 4px;
-  z-index: 1001;
 }
 .themeBtn:hover { opacity: 1; transform: scale(1.15); }
+
+/* Language toggle reuses .themeBtn but with a compact text badge style */
+.langBtn {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 0 8px;
+}
 
 /* ── Card ─────────────────────────────────────────────────── */
 .card {

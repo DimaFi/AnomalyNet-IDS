@@ -176,6 +176,12 @@ powershell -ExecutionPolicy Bypass -File installers\windows\install-windows.ps1
 # Options: -InstallDir C:\AnomalyNet -Port 8000 -InstallNpcap -AutoBlock
 ```
 
+> **Why administrator rights?** On Windows, live packet capture (Npcap) and IP
+> blocking (Windows Firewall / netsh) require elevation. The desktop shortcut
+> created by `install.bat` is therefore marked **"Run as administrator"** — a UAC
+> prompt appears on launch. Without elevation the app still runs, but the top bar
+> shows **⚠ No capture / ⚠ No firewall** and those features are disabled.
+
 The installer:
 - Verifies Python 3.10+, Git, Node.js 18+
 - Clones both repos into `C:\AnomalyNet\`

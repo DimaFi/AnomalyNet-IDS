@@ -328,8 +328,8 @@ export function SetupWizard() {
 
   return (
     <div className={s.overlay}>
-      {/* Theme + Language buttons side by side */}
-      <div style={{ position: "absolute", top: 12, right: 12, display: "flex", gap: 6 }}>
+      {/* Theme + Language toggles — fixed top-right, laid out in a flex row */}
+      <div className={s.topControls}>
         <button
           type="button"
           className={s.themeBtn}
@@ -340,10 +340,9 @@ export function SetupWizard() {
         </button>
         <button
           type="button"
-          className={s.themeBtn}
+          className={`${s.themeBtn} ${s.langBtn}`}
           onClick={() => void handleLang()}
           title="Switch language / Сменить язык"
-          style={{ fontWeight: 700, fontSize: 11, letterSpacing: "0.04em", minWidth: 32 }}
         >
           {currentLang.toUpperCase()}
         </button>

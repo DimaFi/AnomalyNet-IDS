@@ -71,14 +71,19 @@ if not defined DESKTOP_DIR set "DESKTOP_DIR=%USERPROFILE%\Desktop"
 
 set "PS_TMP=%TEMP%\anomalynet_sc_%RANDOM%.ps1"
 (
+    echo $lnk = '%DESKTOP_DIR%\AnomalyNet IDS.lnk'
     echo $ws = New-Object -ComObject WScript.Shell
-    echo $sc = $ws.CreateShortcut('%DESKTOP_DIR%\AnomalyNet IDS.lnk'^)
+    echo $sc = $ws.CreateShortcut($lnk^)
     echo $sc.TargetPath       = 'wscript.exe'
     echo $sc.Arguments        = '"%LAUNCHER_VBS%"'
     echo $sc.WorkingDirectory = '%APP_DIR%'
     echo $sc.Description      = 'AnomalyNet IDS - Network Intrusion Detection System'
     echo $sc.IconLocation     = '%ICON_PATH%,0'
     echo $sc.Save(^)
+    echo # Mark shortcut "Run as administrator" ^(capture/firewall need elevation^)
+    echo $b = [System.IO.File]::ReadAllBytes($lnk^)
+    echo $b[0x15] = $b[0x15] -bor 0x20
+    echo [System.IO.File]::WriteAllBytes($lnk, $b^)
 ) > "%PS_TMP%"
 
 powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%PS_TMP%" >nul 2>&1
@@ -123,10 +128,13 @@ echo.
 echo  ============================================================
 echo   Installation complete!
 echo.
-echo   Desktop shortcut : AnomalyNet IDS
+echo   Desktop shortcut : AnomalyNet IDS (runs as administrator)
 echo   Autostart        : enabled (starts at Windows login)
 echo   Open manually    : http://localhost:8000
 echo   Uninstall        : run uninstall.bat
+echo.
+echo   NOTE: the shortcut launches AnomalyNet as administrator —
+echo   live traffic capture and IP blocking require elevation (UAC).
 echo  ============================================================
 echo.
 pause
