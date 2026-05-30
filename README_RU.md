@@ -208,11 +208,14 @@ sudo bash installers/linux/uninstall-linux.sh
 sudo bash installers/linux/uninstall-linux.sh --purge
 ```
 
+Windows — двойной клик по `installers\windows\uninstall-windows.bat` (запросит админа),
+или из PowerShell:
 ```powershell
 # Windows — сохранить данные:
 powershell -File installers\windows\uninstall-windows.ps1
 # Windows — полное удаление:
 powershell -File installers\windows\uninstall-windows.ps1 -Purge
+# (.bat принимает тот же флаг: uninstall-windows.bat -Purge)
 ```
 
 ---
@@ -265,7 +268,7 @@ AppCode/
 │   └── model_presets.json  Пресеты обнаружения
 ├── installers/             Все установщики и вспомогательные скрипты
 │   ├── linux/              install-linux.sh · uninstall-linux.sh (полная установка)
-│   ├── windows/            install-windows.ps1/.bat · uninstall-windows.ps1 · build_installer.ps1
+│   ├── windows/            install-windows.ps1/.bat · uninstall-windows.ps1/.bat · build_installer.ps1
 │   ├── shared/             download_oui.py (помощник для базы OUI)
 │   ├── legacy/             setup.sh (старый curl-установщик) · run_*.ps1 (dev-помощники)
 │   └── README.md           Документация по установке

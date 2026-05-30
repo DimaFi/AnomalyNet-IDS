@@ -201,6 +201,7 @@ AnomalyNet-IDS/
     ├── windows/
     │   ├── install-windows.bat  ← полный установщик Windows (UAC-обёртка)
     │   ├── install-windows.ps1  ← PowerShell-логика полного установщика
+    │   ├── uninstall-windows.bat ← удаление двойным кликом (UAC-обёртка)
     │   ├── uninstall-windows.ps1 ← деинсталлятор (-Purge)
     │   └── build_installer.ps1  ← сборка .exe-пакета (PyInstaller)
     ├── shared/

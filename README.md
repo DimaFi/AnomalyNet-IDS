@@ -207,11 +207,14 @@ sudo bash installers/linux/uninstall-linux.sh
 sudo bash installers/linux/uninstall-linux.sh --purge
 ```
 
+Windows — double-click `installers\windows\uninstall-windows.bat` (asks for admin),
+or from PowerShell:
 ```powershell
 # Windows — keep data:
 powershell -File installers\windows\uninstall-windows.ps1
 # Windows — full wipe:
 powershell -File installers\windows\uninstall-windows.ps1 -Purge
+# (the .bat accepts the same flag: uninstall-windows.bat -Purge)
 ```
 
 ---
@@ -264,7 +267,7 @@ AppCode/
 │   └── model_presets.json  Detection presets
 ├── installers/             All installers and helper scripts
 │   ├── linux/              install-linux.sh · uninstall-linux.sh (full system install)
-│   ├── windows/            install-windows.ps1/.bat · uninstall-windows.ps1 · build_installer.ps1
+│   ├── windows/            install-windows.ps1/.bat · uninstall-windows.ps1/.bat · build_installer.ps1
 │   ├── shared/             download_oui.py (OUI vendor DB helper)
 │   ├── legacy/             setup.sh (old curl installer) · run_*.ps1 (dev helpers)
 │   └── README.md           Installation documentation
