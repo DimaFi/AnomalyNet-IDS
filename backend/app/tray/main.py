@@ -226,7 +226,31 @@ class TrayApp:
         self.icon.run(setup=self._setup)
 
 
+_SINGLE_INSTANCE_PORT = 49219  # localhost lock — only one tray at a time
+_instance_lock = None  # keep the socket alive for the process lifetime
+
+
+def _acquire_single_instance() -> bool:
+    """Bind a localhost port as a single-instance lock. False if already taken.
+
+    The OS frees the socket automatically when the process exits, so there is
+    no stale-lock problem (unlike a PID file)."""
+    global _instance_lock
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", _SINGLE_INSTANCE_PORT))
+        s.listen(1)
+        _instance_lock = s
+        return True
+    except OSError:
+        return False
+
+
 def main():
+    if not _acquire_single_instance():
+        _log.info("[tray] another AnomalyNet Control is already running — exiting")
+        sys.exit(0)
     TrayApp().run()
 
 
