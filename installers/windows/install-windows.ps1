@@ -413,23 +413,29 @@ for ($attempt = 1; $attempt -le 3; $attempt++) {
 # Скачиваем готовый набор wheel'ов с GitHub Release (GitHub обычно доступен) и
 # ставим из него без обращения к pypi.
 if (-not $pipOk) {
-    Warn "pip с pypi не сработал — пробуем офлайн-набор зависимостей с GitHub Release..."
-    $wheelsUrl = "https://github.com/DimaFi/AnomalyNet-IDS/releases/download/deps-py311/wheels-win-py311.zip"
+    Warn "pip с pypi не сработал — пробуем офлайн-набор зависимостей (GitHub → GitLab)..."
     $wheelsZip = "$env:TEMP\anomalynet-wheels.zip"
     $wheelsDir = "$env:TEMP\anomalynet-wheels"
-    try {
-        Log "Скачиваем wheels-win-py311.zip с GitHub..."
-        $ProgressPreference = "SilentlyContinue"
-        Invoke-WebRequest -Uri $wheelsUrl -OutFile $wheelsZip -UseBasicParsing
-        if (Test-Path $wheelsDir) { Remove-Item $wheelsDir -Recurse -Force }
-        Expand-Archive -Path $wheelsZip -DestinationPath $wheelsDir -Force
-        & $venvPy -m pip install --no-index --find-links $wheelsDir -r $reqFile
-        if ($LASTEXITCODE -eq 0) {
-            $pipOk = $true
-            Ok "Зависимости установлены из офлайн-набора (GitHub Release, без pypi)"
+    $wheelsUrls = @(
+        "https://github.com/DimaFi/AnomalyNet-IDS/releases/download/deps-py311/wheels-win-py311.zip",
+        "https://gitlab.com/api/v4/projects/DimaFi1%2FAnomalyNet-gui/packages/generic/deps/v1/wheels-win-py311.zip"
+    )
+    foreach ($wheelsUrl in $wheelsUrls) {
+        try {
+            Log "Скачиваем wheels-win-py311.zip: $wheelsUrl"
+            $ProgressPreference = "SilentlyContinue"
+            Invoke-WebRequest -Uri $wheelsUrl -OutFile $wheelsZip -UseBasicParsing
+            if (Test-Path $wheelsDir) { Remove-Item $wheelsDir -Recurse -Force }
+            Expand-Archive -Path $wheelsZip -DestinationPath $wheelsDir -Force
+            & $venvPy -m pip install --no-index --find-links $wheelsDir -r $reqFile
+            if ($LASTEXITCODE -eq 0) {
+                $pipOk = $true
+                Ok "Зависимости установлены из офлайн-набора (без pypi)"
+                break
+            }
+        } catch {
+            Warn "Источник недоступен: $_"
         }
-    } catch {
-        Warn "Не удалось получить офлайн-набор: $_"
     }
 }
 

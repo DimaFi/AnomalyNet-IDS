@@ -336,8 +336,39 @@ PYTHON_BIN=$(command -v python3.11 2>/dev/null || command -v python3.10 2>/dev/n
 log "Python: $($PYTHON_BIN --version)"
 "$PYTHON_BIN" -m venv "$VENV" 2>/dev/null || \
     { pip3 install --quiet virtualenv 2>/dev/null; virtualenv -p "$PYTHON_BIN" "$VENV"; }
-"$VENV/bin/pip" install --quiet --upgrade pip setuptools wheel
-"$VENV/bin/pip" install --quiet -r "$GUI_DIR/backend/requirements.txt"
+PIP="$VENV/bin/pip"
+REQ="$GUI_DIR/backend/requirements.txt"
+"$PIP" install --quiet --upgrade --timeout 60 --retries 5 pip setuptools wheel 2>/dev/null || true
+
+PIP_OK=0
+for attempt in 1 2 3; do
+    if "$PIP" install --timeout 60 --retries 5 -r "$REQ"; then PIP_OK=1; break; fi
+    [ "$attempt" -lt 3 ] && { warn "pip с pypi не сработал (попытка $attempt/3) — повтор через 10с..."; sleep 10; }
+done
+
+# Офлайн-фолбэк: pypi заблокирован → берём готовый набор wheel'ов с GitHub,
+# затем (если и он недоступен) с GitLab. Архив выбирается под версию Python.
+if [ "$PIP_OK" -eq 0 ]; then
+    warn "pypi недоступен — пробуем офлайн-набор wheel'ов..."
+    PYV=$("$VENV/bin/python" -c "import sys;print('py3%d'%sys.version_info.minor)")
+    ZIP="wheels-linux-${PYV}.zip"
+    WZIP="/tmp/anomalynet-wheels.zip"; WDIR="/tmp/anomalynet-wheels"
+    for URL in \
+        "https://github.com/DimaFi/AnomalyNet-IDS/releases/download/deps-py311/${ZIP}" \
+        "https://gitlab.com/api/v4/projects/DimaFi1%2FAnomalyNet-gui/packages/generic/deps/v1/${ZIP}"; do
+        log "Качаю $ZIP ..."
+        if curl -fL -o "$WZIP" "$URL" 2>/dev/null; then
+            rm -rf "$WDIR"; mkdir -p "$WDIR"
+            (unzip -q -o "$WZIP" -d "$WDIR" 2>/dev/null) || \
+                ("$VENV/bin/python" -m zipfile -e "$WZIP" "$WDIR")
+            if "$PIP" install --no-index --find-links "$WDIR" -r "$REQ"; then
+                PIP_OK=1; ok "Зависимости установлены из офлайн-набора ($ZIP, без pypi)"; break
+            fi
+        fi
+    done
+fi
+
+[ "$PIP_OK" -eq 0 ] && err "Не удалось установить зависимости: pypi оборван, офлайн-набор недоступен. Смените сеть/VPN и повторите."
 ok "Python-зависимости установлены"
 
 # ── 7. Сборка фронтенда ──────────────────────────────────────
