@@ -66,12 +66,33 @@ for /l %%i in (1,1,3) do (
         )
     )
 )
+:: Offline fallback: pypi blocked (RU networks reset the connection). Download a
+:: prebuilt wheel set from GitHub Release (GitHub usually reachable) and install
+:: from it without touching pypi.
+if not defined PIP_OK (
+    echo   [!] pypi unreachable - trying offline wheel set from GitHub Release...
+    set "WHEELS_URL=https://github.com/DimaFi/AnomalyNet-IDS/releases/download/deps-py311/wheels-win-py311.zip"
+    set "WHEELS_ZIP=%TEMP%\anomalynet-wheels.zip"
+    set "WHEELS_DIR=%TEMP%\anomalynet-wheels"
+    curl -L -o "%WHEELS_ZIP%" "%WHEELS_URL%" 2>nul
+    if exist "%WHEELS_ZIP%" (
+        if exist "%WHEELS_DIR%" rmdir /s /q "%WHEELS_DIR%" >nul 2>&1
+        mkdir "%WHEELS_DIR%" >nul 2>&1
+        tar -xf "%WHEELS_ZIP%" -C "%WHEELS_DIR%" >nul 2>&1
+        "%VENV_DIR%\Scripts\pip.exe" install --no-index --find-links "%WHEELS_DIR%" -r "%APP_DIR%\backend\requirements.txt"
+        if not errorlevel 1 (
+            set "PIP_OK=1"
+            echo         Installed from offline wheel set ^(GitHub Release, no pypi^)
+        )
+    )
+)
 if not defined PIP_OK (
     echo.
-    echo   [!] Could not install dependencies after 3 attempts.
-    echo   Usually an unstable connection to pypi.org ^(read timeout^).
-    echo   Check your internet and run install.bat again, or install manually:
-    echo     "%VENV_DIR%\Scripts\pip.exe" install --timeout 120 --retries 10 -r "%APP_DIR%\backend\requirements.txt"
+    echo   [!] Could not install dependencies.
+    echo   pypi.org connection was reset and the offline set could not be downloaded.
+    echo   Switch network ^(mobile hotspot / VPN^) and run install.bat again, or
+    echo   download wheels-win-py311.zip from Releases, unzip and run:
+    echo     "%VENV_DIR%\Scripts\pip.exe" install --no-index --find-links ^<folder^> -r "%APP_DIR%\backend\requirements.txt"
     echo.
     pause
     exit /b 1

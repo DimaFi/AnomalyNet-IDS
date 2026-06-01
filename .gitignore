@@ -34,6 +34,11 @@ dist/
 !frontend/dist/
 !frontend/dist/**
 
+# Offline wheels — built locally, uploaded to GitHub Releases (never committed)
+dist-wheels/
+wheels/
+*.whl
+
 # IDE
 .vscode/
 .idea/

@@ -398,23 +398,51 @@ $pipNet = @("--timeout", "60", "--retries", "5")
 
 # Install requirements with up to 3 attempts (no --quiet so progress is visible
 # while it downloads — important when the connection is slow).
+$reqFile = "$guiDir\backend\requirements.txt"
 $pipOk = $false
 for ($attempt = 1; $attempt -le 3; $attempt++) {
-    & $venvPy -m pip install @pipNet -r "$guiDir\backend\requirements.txt"
+    & $venvPy -m pip install @pipNet -r $reqFile
     if ($LASTEXITCODE -eq 0) { $pipOk = $true; break }
     if ($attempt -lt 3) {
         Warn "pip не смог скачать зависимости (попытка $attempt/3, медленная сеть?) — повтор через 10 сек..."
         Start-Sleep -Seconds 10
     }
 }
+
+# ── Офлайн-фолбэк: pypi заблокирован (типично для РФ — ConnectionReset 10054).
+# Скачиваем готовый набор wheel'ов с GitHub Release (GitHub обычно доступен) и
+# ставим из него без обращения к pypi.
+if (-not $pipOk) {
+    Warn "pip с pypi не сработал — пробуем офлайн-набор зависимостей с GitHub Release..."
+    $wheelsUrl = "https://github.com/DimaFi/AnomalyNet-IDS/releases/download/deps-py311/wheels-win-py311.zip"
+    $wheelsZip = "$env:TEMP\anomalynet-wheels.zip"
+    $wheelsDir = "$env:TEMP\anomalynet-wheels"
+    try {
+        Log "Скачиваем wheels-win-py311.zip с GitHub..."
+        $ProgressPreference = "SilentlyContinue"
+        Invoke-WebRequest -Uri $wheelsUrl -OutFile $wheelsZip -UseBasicParsing
+        if (Test-Path $wheelsDir) { Remove-Item $wheelsDir -Recurse -Force }
+        Expand-Archive -Path $wheelsZip -DestinationPath $wheelsDir -Force
+        & $venvPy -m pip install --no-index --find-links $wheelsDir -r $reqFile
+        if ($LASTEXITCODE -eq 0) {
+            $pipOk = $true
+            Ok "Зависимости установлены из офлайн-набора (GitHub Release, без pypi)"
+        }
+    } catch {
+        Warn "Не удалось получить офлайн-набор: $_"
+    }
+}
+
 if (-not $pipOk) {
     Err @"
-Не удалось установить Python-зависимости после 3 попыток.
-      Причина обычно — нестабильное соединение с pypi.org (таймаут чтения).
+Не удалось установить Python-зависимости.
+      Причина обычно — соединение с pypi.org обрывается (ConnectionReset 10054,
+      типично для РФ-сетей), а офлайн-набор с GitHub скачать не удалось.
       Что сделать:
-        1. Проверьте интернет и запустите установщик повторно (он идемпотентен).
-        2. Или установите вручную:
-           "$venvPy" -m pip install --timeout 120 --retries 10 -r "$guiDir\backend\requirements.txt"
+        1. Смените сеть (мобильная точка / VPN) и запустите установщик повторно.
+        2. Или вручную офлайн: скачайте wheels-win-py311.zip из раздела Releases,
+           распакуйте и выполните:
+           "$venvPy" -m pip install --no-index --find-links <папка_wheels> -r "$reqFile"
 "@
 }
 Ok "Python-зависимости установлены"
