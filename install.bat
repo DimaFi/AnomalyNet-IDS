@@ -56,13 +56,13 @@ echo         OK
 echo  [3/5]  Installing dependencies (may take 1-2 min)...
 :: Network-resilient: longer timeout + retries (default 15s times out on slow links)
 set "PIP_OK="
-for /l %%i in (1,1,3) do (
+for /l %%i in (1,1,2) do (
     if not defined PIP_OK (
-        "%VENV_DIR%\Scripts\pip.exe" install -r "%APP_DIR%\backend\requirements.txt" --timeout 60 --retries 5 --disable-pip-version-check
+        "%VENV_DIR%\Scripts\pip.exe" install -r "%APP_DIR%\backend\requirements.txt" --timeout 20 --retries 2 --disable-pip-version-check
         if not errorlevel 1 set "PIP_OK=1"
         if not defined PIP_OK (
-            echo   [!] pip download failed ^(attempt %%i/3, slow network?^) - retrying in 10s...
-            timeout /t 10 /nobreak >nul 2>&1
+            echo   [!] pip failed ^(attempt %%i/2^) - trying once more, then offline set...
+            timeout /t 5 /nobreak >nul 2>&1
         )
     )
 )

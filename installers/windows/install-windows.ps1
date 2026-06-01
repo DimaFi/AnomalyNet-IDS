@@ -390,22 +390,23 @@ if (-not (Test-Path $venvPy)) {
     Err "Не удалось создать виртуальное окружение в $venvDir"
 }
 
-# Network-resilient pip: longer per-connection timeout + more retries.
-# Default pip timeout is 15s — on slow/unstable links pypi.org reads time out.
-$pipNet = @("--timeout", "60", "--retries", "5")
+# Network-resilient pip, but fail FAST on a blocked network (RU often resets the
+# pypi connection) so we reach the offline GitHub fallback quickly instead of
+# burning minutes on pointless retries.
+$pipNet = @("--timeout", "20", "--retries", "2")
 
-& $venvPy -m pip install --quiet --upgrade @pipNet pip setuptools wheel
+# Upgrade pip/setuptools/wheel is optional — fail fast, never blocks the install.
+& $venvPy -m pip install --quiet --disable-pip-version-check --timeout 15 --retries 1 --upgrade pip setuptools wheel 2>$null
 
-# Install requirements with up to 3 attempts (no --quiet so progress is visible
-# while it downloads — important when the connection is slow).
+# Try pypi twice; if it can't, we go straight to the offline wheel set below.
 $reqFile = "$guiDir\backend\requirements.txt"
 $pipOk = $false
-for ($attempt = 1; $attempt -le 3; $attempt++) {
+for ($attempt = 1; $attempt -le 2; $attempt++) {
     & $venvPy -m pip install @pipNet -r $reqFile
     if ($LASTEXITCODE -eq 0) { $pipOk = $true; break }
-    if ($attempt -lt 3) {
-        Warn "pip не смог скачать зависимости (попытка $attempt/3, медленная сеть?) — повтор через 10 сек..."
-        Start-Sleep -Seconds 10
+    if ($attempt -lt 2) {
+        Warn "pip не смог скачать с pypi (попытка $attempt/2) — пробуем ещё раз, потом офлайн-набор..."
+        Start-Sleep -Seconds 3
     }
 }
 

@@ -338,12 +338,13 @@ log "Python: $($PYTHON_BIN --version)"
     { pip3 install --quiet virtualenv 2>/dev/null; virtualenv -p "$PYTHON_BIN" "$VENV"; }
 PIP="$VENV/bin/pip"
 REQ="$GUI_DIR/backend/requirements.txt"
-"$PIP" install --quiet --upgrade --timeout 60 --retries 5 pip setuptools wheel 2>/dev/null || true
+# Fail fast on a blocked network so we reach the offline fallback quickly.
+"$PIP" install --quiet --upgrade --timeout 15 --retries 1 pip setuptools wheel 2>/dev/null || true
 
 PIP_OK=0
-for attempt in 1 2 3; do
-    if "$PIP" install --timeout 60 --retries 5 -r "$REQ"; then PIP_OK=1; break; fi
-    [ "$attempt" -lt 3 ] && { warn "pip с pypi не сработал (попытка $attempt/3) — повтор через 10с..."; sleep 10; }
+for attempt in 1 2; do
+    if "$PIP" install --timeout 20 --retries 2 -r "$REQ"; then PIP_OK=1; break; fi
+    [ "$attempt" -lt 2 ] && { warn "pip с pypi не сработал (попытка $attempt/2) — ещё раз, потом офлайн-набор..."; sleep 3; }
 done
 
 # Офлайн-фолбэк: pypi заблокирован → берём готовый набор wheel'ов с GitHub,
