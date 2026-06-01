@@ -23,10 +23,11 @@ if _plat.system() == "Windows":
 
 def _get_version() -> str:
     """Read version from git tag. Handles shallow clones (--depth=1)."""
+    from app.core import git_safe
     repo = Path(__file__).parent.parent.parent
     try:
         r = subprocess.run(
-            ["git", "describe", "--tags", "--always"],
+            git_safe(["git", "describe", "--tags", "--always"]),
             cwd=repo, capture_output=True, text=True, timeout=5,
         )
         if r.returncode == 0:
@@ -38,7 +39,7 @@ def _get_version() -> str:
     # Fallback: list all tags sorted by version, take latest
     try:
         r = subprocess.run(
-            ["git", "tag", "--sort=-version:refname"],
+            git_safe(["git", "tag", "--sort=-version:refname"]),
             cwd=repo, capture_output=True, text=True, timeout=5,
         )
         if r.returncode == 0:

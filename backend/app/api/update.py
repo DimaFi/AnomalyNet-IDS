@@ -43,8 +43,11 @@ ML_DIR   = GUI_DIR.parent / "AnomalyNet-ml"
 DIST_DIR = GUI_DIR / "frontend" / "dist"
 
 
+from app.core import git_safe as _git_safe
+
+
 def _run(cmd: list[str], cwd: Path, timeout: int = 60) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout)
+    return subprocess.run(_git_safe(cmd), cwd=str(cwd), capture_output=True, text=True, timeout=timeout)
 
 
 def _npm_path() -> str | None:
@@ -166,14 +169,14 @@ def _git_pull_hard(repo_dir: Path, clone_url: str | None = None,
         if not clone_url:
             return False, f"{repo_dir} не найден и clone_url не указан"
         r = subprocess.run(
-            ["git", "clone", "--depth=1", clone_url, str(repo_dir)],
+            _git_safe(["git", "clone", "--depth=1", clone_url, str(repo_dir)]),
             capture_output=True, text=True, timeout=300,
         )
         if r.returncode != 0:
             return False, f"clone failed: {r.stderr[:300]}"
         # Fetch tags separately — shallow clone doesn't include them by default
         subprocess.run(
-            ["git", "fetch", "--tags", "--depth=1"],
+            _git_safe(["git", "fetch", "--tags", "--depth=1"]),
             cwd=str(repo_dir), capture_output=True, timeout=60,
         )
         return True, f"cloned {clone_url}"

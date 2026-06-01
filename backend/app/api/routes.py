@@ -26,15 +26,16 @@ def _read_version_from_git() -> str:
     try:
         import subprocess
         from pathlib import Path
+        from app.core import git_safe
         cwd = Path(__file__).parent.parent.parent.parent
         r = subprocess.run(
-            ["git", "describe", "--tags", "--abbrev=0"],
+            git_safe(["git", "describe", "--tags", "--abbrev=0"]),
             cwd=str(cwd), capture_output=True, text=True, timeout=5,
         )
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip().lstrip("v")   # "v2.2.3" → "2.2.3"
         r2 = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
+            git_safe(["git", "rev-parse", "--short", "HEAD"]),
             cwd=str(cwd), capture_output=True, text=True, timeout=5,
         )
         return r2.stdout.strip() if r2.returncode == 0 else "dev"

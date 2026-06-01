@@ -13,6 +13,8 @@ import logging
 from pathlib import Path
 from typing import AsyncGenerator
 
+from app.core import git_safe
+
 logger = logging.getLogger(__name__)
 
 
@@ -45,7 +47,7 @@ async def clone_or_pull(
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            *cmd,
+            *git_safe(cmd),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
         )
@@ -74,7 +76,7 @@ async def get_installed_version(repo_path: str | Path) -> str | None:
         return None
     try:
         proc = await asyncio.create_subprocess_exec(
-            "git", "-C", str(path), "rev-parse", "--short", "HEAD",
+            *git_safe(["git", "-C", str(path), "rev-parse", "--short", "HEAD"]),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )
@@ -94,14 +96,14 @@ async def check_for_updates(repo_path: str | Path) -> bool:
         return False
     try:
         fetch = await asyncio.create_subprocess_exec(
-            "git", "-C", str(path), "fetch", "--quiet",
+            *git_safe(["git", "-C", str(path), "fetch", "--quiet"]),
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
         )
         await asyncio.wait_for(fetch.wait(), timeout=15.0)
 
         proc = await asyncio.create_subprocess_exec(
-            "git", "-C", str(path), "rev-list", "HEAD..@{u}", "--count",
+            *git_safe(["git", "-C", str(path), "rev-list", "HEAD..@{u}", "--count"]),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.DEVNULL,
         )

@@ -9,6 +9,20 @@ _env = os.environ.get("ANOMALYNET_APP_ROOT")
 APP_ROOT: Path = Path(_env) if _env else Path(__file__).resolve().parents[2]
 
 
+def git_safe(cmd: list[str]) -> list[str]:
+    """Prefix a git command with `-c safe.directory=*`.
+
+    The repo folder is often owned by a different user than the one running the
+    panel (installed as Administrator/root, panel runs as the logged-in user).
+    Without this, git aborts EVERY command with 'detected dubious ownership',
+    which silently breaks update checks and version detection on both Windows
+    and Linux.
+    """
+    if cmd and cmd[0] == "git":
+        return ["git", "-c", "safe.directory=*"] + cmd[1:]
+    return cmd
+
+
 def get_user_data_dir() -> Path:
     """
     Returns a persistent, writable directory for user-specific data
