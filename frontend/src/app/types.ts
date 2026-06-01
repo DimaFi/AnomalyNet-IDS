@@ -320,6 +320,8 @@ export interface UpdateCheckResult {
   gui: RepoUpdateInfo;
   ml: RepoUpdateInfo;
   has_any_update: boolean;
+  fetch_failed?: boolean;
+  warning?: string | null;
 }
 
 export interface UpdateApplyResult {

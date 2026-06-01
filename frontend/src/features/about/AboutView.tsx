@@ -134,7 +134,12 @@ export function AboutView() {
           <div className={styles.checkResult}>
             <RepoStatus label="GUI (приложение)" info={checkResult.gui} />
             <RepoStatus label="ML (модели)"       info={checkResult.ml} />
-            {!checkResult.has_any_update && (
+            {!checkResult.has_any_update && checkResult.fetch_failed && (
+              <p className={styles.upToDate} style={{ color: "var(--warn)" }}>
+                ⚠ {checkResult.warning ?? "Не удалось проверить обновления — нет связи с сервером (сеть/прокси/git)."}
+              </p>
+            )}
+            {!checkResult.has_any_update && !checkResult.fetch_failed && (
               <p className={styles.upToDate}>Всё актуально</p>
             )}
             {checkResult.has_any_update && (

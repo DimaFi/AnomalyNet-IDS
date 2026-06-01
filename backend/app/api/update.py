@@ -103,19 +103,30 @@ def _git_info(repo_dir: Path, fallback_urls: list[str] | None = None) -> dict:
             "error": "Каталог не является git-репозиторием (установка через ZIP). Используйте кнопку «Переустановить» для обновления.",
         }
     try:
-        _git_fetch_with_fallback(repo_dir, fallback_urls or [])
+        # IMPORTANT: a failed fetch must NOT be silently reported as "up to date".
+        # Without network, origin/main stays stale and HEAD == origin/main, which
+        # used to show "Всё актуально" even when newer commits existed on GitHub.
+        fetched = _git_fetch_with_fallback(repo_dir, fallback_urls or [])
         current = _run(["git", "rev-parse", "HEAD"], repo_dir).stdout.strip()
         latest  = _run(["git", "rev-parse", "origin/main"], repo_dir).stdout.strip()
         msg     = _run(["git", "log", "--oneline", "-1", "origin/main"], repo_dir).stdout.strip()
         cur_tag = _nearest_tag(repo_dir, "HEAD")
         lat_tag = _nearest_tag(repo_dir, "origin/main")
-        return {
+        result = {
             "current":     cur_tag or current[:8],
             "latest":      lat_tag or latest[:8],
             "has_update":  current != latest,
             "latest_msg":  msg.split(" ", 1)[1] if " " in msg else msg,
             "available":   True,
+            "fetch_ok":    fetched,
         }
+        if not fetched:
+            result["warning"] = (
+                "Не удалось связаться с сервером обновлений (нет сети или git "
+                "заблокирован). Показано последнее известное состояние — "
+                "обновления могут быть, но проверить их не удалось."
+            )
+        return result
     except Exception as e:
         return {"available": False, "error": str(e)}
 
@@ -224,10 +235,14 @@ def _schedule_restart() -> None:
 def check_updates() -> dict:
     gui = _git_info(GUI_DIR, fallback_urls=GUI_REPO_URLS[1:])
     ml  = _git_info(ML_DIR,  fallback_urls=ML_REPO_URLS[1:])
+    # Surface a fetch failure so the UI doesn't show a misleading "up to date".
+    warn = gui.get("warning") or ml.get("warning")
     return {
         "gui": gui,
         "ml":  ml,
         "has_any_update": gui.get("has_update", False) or ml.get("has_update", False),
+        "fetch_failed": (gui.get("fetch_ok") is False) or (ml.get("fetch_ok") is False),
+        "warning": warn,
     }
 
 
