@@ -390,19 +390,27 @@ if (-not (Test-Path $venvPy)) {
     Err "Не удалось создать виртуальное окружение в $venvDir"
 }
 
+# IMPORTANT: pip prints WARNINGs to stderr. With $ErrorActionPreference='Stop'
+# (set at the top of this script) PowerShell 5.1 turns native-command stderr into
+# a terminating NativeCommandError and ABORTS the installer — even with 2>$null.
+# So switch to 'Continue' for the whole dependency phase; success is checked via
+# $LASTEXITCODE, not via thrown errors.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+
 # Network-resilient pip, but fail FAST on a blocked network (RU often resets the
 # pypi connection) so we reach the offline GitHub fallback quickly instead of
 # burning minutes on pointless retries.
 $pipNet = @("--timeout", "20", "--retries", "2")
 
 # Upgrade pip/setuptools/wheel is optional — fail fast, never blocks the install.
-& $venvPy -m pip install --quiet --disable-pip-version-check --timeout 15 --retries 1 --upgrade pip setuptools wheel 2>$null
+& $venvPy -m pip install --quiet --disable-pip-version-check --timeout 15 --retries 1 --upgrade pip setuptools wheel 2>&1 | Out-Null
 
 # Try pypi twice; if it can't, we go straight to the offline wheel set below.
 $reqFile = "$guiDir\backend\requirements.txt"
 $pipOk = $false
 for ($attempt = 1; $attempt -le 2; $attempt++) {
-    & $venvPy -m pip install @pipNet -r $reqFile
+    & $venvPy -m pip install @pipNet -r $reqFile 2>&1 | Out-Host
     if ($LASTEXITCODE -eq 0) { $pipOk = $true; break }
     if ($attempt -lt 2) {
         Warn "pip не смог скачать с pypi (попытка $attempt/2) — пробуем ещё раз, потом офлайн-набор..."
@@ -428,7 +436,7 @@ if (-not $pipOk) {
             Invoke-WebRequest -Uri $wheelsUrl -OutFile $wheelsZip -UseBasicParsing
             if (Test-Path $wheelsDir) { Remove-Item $wheelsDir -Recurse -Force }
             Expand-Archive -Path $wheelsZip -DestinationPath $wheelsDir -Force
-            & $venvPy -m pip install --no-index --find-links $wheelsDir -r $reqFile
+            & $venvPy -m pip install --no-index --find-links $wheelsDir -r $reqFile 2>&1 | Out-Host
             if ($LASTEXITCODE -eq 0) {
                 $pipOk = $true
                 Ok "Зависимости установлены из офлайн-набора (без pypi)"
@@ -439,6 +447,9 @@ if (-not $pipOk) {
         }
     }
 }
+
+# Restore the strict error mode for the rest of the installer.
+$ErrorActionPreference = $prevEAP
 
 if (-not $pipOk) {
     Err @"
