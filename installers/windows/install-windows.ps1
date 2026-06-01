@@ -403,14 +403,19 @@ $ErrorActionPreference = "Continue"
 # burning minutes on pointless retries.
 $pipNet = @("--timeout", "20", "--retries", "2")
 
+# NOTE: do NOT redirect pip's stderr (2>&1 / 2>$null). In PowerShell 5.1 that
+# converts native stderr into ErrorRecords → NativeCommandError → script abort.
+# Left un-redirected, pip warnings just print to the console and exit codes are
+# read from $LASTEXITCODE.
+
 # Upgrade pip/setuptools/wheel is optional — fail fast, never blocks the install.
-& $venvPy -m pip install --quiet --disable-pip-version-check --timeout 15 --retries 1 --upgrade pip setuptools wheel 2>&1 | Out-Null
+& $venvPy -m pip install --quiet --disable-pip-version-check --timeout 15 --retries 1 --upgrade pip setuptools wheel
 
 # Try pypi twice; if it can't, we go straight to the offline wheel set below.
 $reqFile = "$guiDir\backend\requirements.txt"
 $pipOk = $false
 for ($attempt = 1; $attempt -le 2; $attempt++) {
-    & $venvPy -m pip install @pipNet -r $reqFile 2>&1 | Out-Host
+    & $venvPy -m pip install @pipNet -r $reqFile
     if ($LASTEXITCODE -eq 0) { $pipOk = $true; break }
     if ($attempt -lt 2) {
         Warn "pip не смог скачать с pypi (попытка $attempt/2) — пробуем ещё раз, потом офлайн-набор..."
@@ -433,10 +438,10 @@ if (-not $pipOk) {
         try {
             Log "Скачиваем wheels-win-py311.zip: $wheelsUrl"
             $ProgressPreference = "SilentlyContinue"
-            Invoke-WebRequest -Uri $wheelsUrl -OutFile $wheelsZip -UseBasicParsing
+            Invoke-WebRequest -Uri $wheelsUrl -OutFile $wheelsZip -UseBasicParsing -ErrorAction Stop
             if (Test-Path $wheelsDir) { Remove-Item $wheelsDir -Recurse -Force }
-            Expand-Archive -Path $wheelsZip -DestinationPath $wheelsDir -Force
-            & $venvPy -m pip install --no-index --find-links $wheelsDir -r $reqFile 2>&1 | Out-Host
+            Expand-Archive -Path $wheelsZip -DestinationPath $wheelsDir -Force -ErrorAction Stop
+            & $venvPy -m pip install --no-index --find-links $wheelsDir -r $reqFile
             if ($LASTEXITCODE -eq 0) {
                 $pipOk = $true
                 Ok "Зависимости установлены из офлайн-набора (без pypi)"
