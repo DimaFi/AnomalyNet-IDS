@@ -27,8 +27,19 @@ const jsonHeaders = {
   "Content-Type": "application/json"
 };
 
+/** Access key for public (tunnel) mode — read once from ?key=… and remembered. */
+export function remoteKey(): string {
+  try {
+    const k = new URL(window.location.href).searchParams.get("key");
+    if (k) { sessionStorage.setItem("anet_key", k); return k; }
+    return sessionStorage.getItem("anet_key") ?? "";
+  } catch { return ""; }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
+  const key = remoteKey();
+  const url = key ? path + (path.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(key) : path;
+  const response = await fetch(url, init);
   if (!response.ok) {
     let detail = `HTTP ${response.status}`;
     try {

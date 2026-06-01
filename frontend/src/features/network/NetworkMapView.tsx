@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../app/store";
-import { api } from "../../lib/api";
+import { api, remoteKey } from "../../lib/api";
 import type { Device, DeviceAlert, DevicesWsMessage } from "../../types/device";
 import type { DeviceDnsSummary } from "../../types/dns";
 import s from "./NetworkMapView.module.css";
@@ -618,7 +618,8 @@ export default function NetworkMapView() {
     loadDevices();
 
     const proto = window.location.protocol === "https:" ? "wss" : "ws";
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws/devices`);
+    const _k = remoteKey();
+    const ws = new WebSocket(`${proto}://${window.location.host}/ws/devices${_k ? `?key=${encodeURIComponent(_k)}` : ""}`);
     wsRef.current = ws;
 
     ws.onmessage = (e) => {

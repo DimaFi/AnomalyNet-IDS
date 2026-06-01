@@ -252,24 +252,29 @@ app.include_router(remote_router)
 
 @app.middleware("http")
 async def _public_access_gate(request, call_next):
-    """Require the access key for requests coming through the public Cloudflare
-    tunnel (CF-Ray header). Local/LAN requests pass untouched."""
+    """Require the access key ONLY for API/WS requests that come through the
+    public Cloudflare tunnel (CF-Ray header). Static assets (the SPA shell) load
+    freely — they hold no data — and the frontend attaches the key to every API
+    and WebSocket call, so it doesn't depend on cookies surviving."""
     from app.remote import gate
-    if gate.is_enabled() and gate.is_via_tunnel(request.headers):
+    path = request.url.path
+    is_data = path.startswith("/api/") or path.startswith("/ws/")
+    if is_data and gate.is_enabled() and gate.is_via_tunnel(request.headers):
         query_key = request.query_params.get("key", "")
+        header_key = request.headers.get("x-anet-key", "")
         cookie_key = request.cookies.get("anet_key", "")
-        if not gate.request_allowed(request.headers, query_key, cookie_key):
+        if not gate.request_allowed(request.headers, query_key or header_key, cookie_key):
             from fastapi.responses import PlainTextResponse
             return PlainTextResponse(
                 "AnomalyNet: доступ запрещён — неверный или отсутствующий ключ.",
                 status_code=403,
             )
-        response = await call_next(request)
-        if query_key:  # first visit via ?key=... → remember it in a cookie
-            response.set_cookie("anet_key", query_key, max_age=60 * 60 * 24 * 30,
-                                httponly=True, samesite="lax")
-        return response
-    return await call_next(request)
+    response = await call_next(request)
+    # On the first page load (?key=... on the SPA) remember the key in a cookie too.
+    qk = request.query_params.get("key", "")
+    if qk and gate.is_enabled():
+        response.set_cookie("anet_key", qk, max_age=60 * 60 * 24 * 30, samesite="lax")
+    return response
 
 
 # Serve built frontend in production / packaged mode
@@ -291,14 +296,29 @@ if _DIST.exists():
         return FileResponse(str(_DIST / "index.html"), headers={"Cache-Control": "no-store, no-cache"})
 
 
+def _ws_key_ok(websocket: WebSocket) -> bool:
+    """Gate WS over the public tunnel by the access key (CF-Ray + ?key=)."""
+    from app.remote import gate
+    if not (gate.is_enabled() and gate.is_via_tunnel(websocket.headers)):
+        return True
+    key = websocket.query_params.get("key", "") or websocket.cookies.get("anet_key", "")
+    return gate.request_allowed(websocket.headers, key, "")
+
+
 @app.websocket("/ws/devices")
 async def devices_ws(websocket: WebSocket) -> None:
+    if not _ws_key_ok(websocket):
+        await websocket.close(code=1008)
+        return
     tracker: DeviceTracker = websocket.app.state.device_tracker
     await ws_devices_endpoint(websocket, tracker)
 
 
 @app.websocket("/ws/events")
 async def events_ws(websocket: WebSocket) -> None:
+    if not _ws_key_ok(websocket):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     service: PipelineService = websocket.app.state.pipeline_service
     queue = service.subscribe()

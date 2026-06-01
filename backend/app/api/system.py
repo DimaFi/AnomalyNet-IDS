@@ -107,29 +107,50 @@ def get_access_info(
 
     enabled = bool(getattr(service.settings, "allow_remote_access", False))
 
-    # Primary outbound LAN IP — picks the default route without sending packets.
-    primary = ""
+    def _rank(ip: str) -> int:
+        # Prefer real home/office LAN ranges; demote Docker/WSL/Hyper-V (172.16-31).
+        if ip.startswith("192.168."):
+            return 0
+        if ip.startswith("10."):
+            return 1
+        if ip.startswith("172."):
+            try:
+                second = int(ip.split(".")[1])
+                if 16 <= second <= 31:
+                    return 3
+            except Exception:
+                pass
+        return 2
+
+    # Default-route IP (the interface that actually reaches the internet/LAN).
+    route_ip = ""
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
-        primary = s.getsockname()[0]
+        route_ip = s.getsockname()[0]
         s.close()
     except Exception:
         pass
 
-    ips: list[str] = []
-    if primary and not primary.startswith("127."):
-        ips.append(primary)
+    found: set[str] = set()
+    if route_ip and not route_ip.startswith("127."):
+        found.add(route_ip)
     try:
         import psutil
         for addrs in psutil.net_if_addrs().values():
             for a in addrs:
                 if (a.family == socket.AF_INET
                         and not a.address.startswith("127.")
-                        and not a.address.startswith("169.254.")
-                        and a.address not in ips):
-                    ips.append(a.address)
+                        and not a.address.startswith("169.254.")):
+                    found.add(a.address)
     except Exception:
         pass
 
+    # Sort by rank; if the default-route IP is a real LAN IP, force it first.
+    ips = sorted(found, key=lambda ip: (_rank(ip), ip))
+    if route_ip in ips and _rank(route_ip) < 3:
+        ips.remove(route_ip)
+        ips.insert(0, route_ip)
+
+    primary = ips[0] if ips else ""
     return {"enabled": enabled, "primary_ip": primary, "lan_ips": ips}

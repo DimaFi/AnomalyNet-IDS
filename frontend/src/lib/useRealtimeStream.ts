@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "../app/store";
 import type { PipelineEvent } from "../app/types";
-import { api } from "./api";
+import { api, remoteKey } from "./api";
 
 const POLL_INTERVAL_MS = 5000; // fallback snapshot poll every 5s
 
@@ -57,7 +57,9 @@ export function useRealtimeStream(): void {
       if (destroyed.current || stoppedRef.current) return;
 
       const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${protocol}://${window.location.host}/ws/events`);
+      const key = remoteKey();
+      const qs = key ? `?key=${encodeURIComponent(key)}` : "";
+      const ws = new WebSocket(`${protocol}://${window.location.host}/ws/events${qs}`);
       socketRef.current = ws;
 
       ws.onmessage = (msg) => {
