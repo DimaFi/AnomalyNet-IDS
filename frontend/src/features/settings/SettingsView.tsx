@@ -216,6 +216,7 @@ export function SettingsView() {
               Сейчас панель доступна только на этом ПК (127.0.0.1:8000).
             </p>
           )}
+          <PublicAccessInfo />
         </div>
       </div>
 
@@ -746,6 +747,80 @@ function RemoteAccessInfo() {
         </div>
       ) : (
         <p className={styles.dimNote}>Определяю сетевой адрес этого ПК…</p>
+      )}
+    </div>
+  );
+}
+
+function PublicAccessInfo() {
+  const [status, setStatus] = useState<{ running: boolean; public_url: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const refresh = useCallback(() => {
+    api.getPublicStatus().then((s) => setStatus({ running: s.running, public_url: s.public_url })).catch(() => {});
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const enable = async () => {
+    setLoading(true); setError("");
+    try {
+      const r = await api.enablePublic();
+      if (r.ok && r.public_url) setStatus({ running: true, public_url: r.public_url });
+      else setError(r.error || "Не удалось включить публичный доступ");
+    } catch (e) { setError(String(e)); }
+    finally { setLoading(false); }
+  };
+  const disable = async () => {
+    setLoading(true);
+    try { await api.disablePublic(); setStatus({ running: false, public_url: "" }); }
+    catch { /* ignore */ }
+    finally { setLoading(false); }
+  };
+  const copy = (txt: string) => {
+    navigator.clipboard?.writeText(txt).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }).catch(() => {});
+  };
+
+  const running = status?.running && status.public_url;
+
+  return (
+    <div className={selfStyles.remoteBox} style={{ marginTop: 14 }}>
+      <div className={selfStyles.groupTitle} style={{ marginBottom: 4 }}>Доступ из любой сети (через интернет)</div>
+      <p className={styles.dimNote} style={{ marginTop: 0 }}>
+        Поднимает защищённый туннель Cloudflare — панель откроется по публичной ссылке с любого устройства, без настройки роутера. Ссылка содержит секретный ключ, поэтому посторонние без него не зайдут.
+      </p>
+
+      {!running && (
+        <button className={selfStyles.copyBtn} style={{ alignSelf: "flex-start", padding: "8px 16px" }}
+          onClick={() => void enable()} disabled={loading}>
+          {loading ? "Поднимаем туннель… (до 30 сек)" : "🌐 Включить публичный доступ"}
+        </button>
+      )}
+      {error && <p className={styles.warnNote} style={{ color: "var(--danger)" }}>⚠ {error}</p>}
+
+      {running && (
+        <>
+          <div className={selfStyles.remoteRow}>
+            <div className={selfStyles.qrWrap}>
+              <QRCodeSVG value={status!.public_url} size={148} level="M" includeMargin />
+              <span className={selfStyles.qrHint}>Сканируйте телефоном</span>
+            </div>
+            <div className={selfStyles.remoteUrls}>
+              <div className={selfStyles.remoteUrlMain}>
+                <a href={status!.public_url} target="_blank" rel="noreferrer" style={{ fontSize: 13 }}>{status!.public_url}</a>
+                <button className={selfStyles.copyBtn} onClick={() => copy(status!.public_url)}>{copied ? "✓" : "Копировать"}</button>
+              </div>
+              <p className={styles.warnNote} style={{ marginBottom: 0 }}>
+                ⚠ Ссылка открывает панель из интернета. Делитесь ею только с теми, кому доверяете — у того, кто откроет ссылку с ключом, будет полный доступ к панели. Ссылка временная и меняется при перезапуске.
+              </p>
+              <button className={selfStyles.otherUrlBtn} style={{ alignSelf: "flex-start", marginTop: 4 }}
+                onClick={() => void disable()} disabled={loading}>
+                {loading ? "Выключаем…" : "Выключить публичный доступ"}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

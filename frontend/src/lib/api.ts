@@ -45,6 +45,9 @@ export const api = {
   getHealth: () => request<HealthResponse>("/api/health"),
   getSystemStats: () => request<SystemStats>("/api/system/stats"),
   getAccessInfo: () => request<{ enabled: boolean; primary_ip: string; lan_ips: string[] }>("/api/system/access-info"),
+  getPublicStatus: () => request<{ running: boolean; url: string; enabled: boolean; public_url: string }>("/api/remote/public/status"),
+  enablePublic: () => request<{ ok: boolean; running?: boolean; url?: string; public_url?: string; key?: string; error?: string }>("/api/remote/public/enable", { method: "POST" }),
+  disablePublic: () => request<{ ok: boolean }>("/api/remote/public/disable", { method: "POST" }),
   getSettings: () => request<AppSettings>("/api/settings"),
   updateSettings: (payload: AppSettings) =>
     request<AppSettings>("/api/settings", {

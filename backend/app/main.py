@@ -197,6 +197,11 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         scan_task.cancel()
+        try:
+            from app.remote.tunnel import tunnel as _tunnel
+            _tunnel.stop()
+        except Exception:
+            pass
         await service.shutdown()
 
 
@@ -241,6 +246,31 @@ app.include_router(tls_router)
 app.include_router(update_router)
 app.include_router(plugins_router)
 app.include_router(models_manager_router)
+from app.api.remote import remote_router
+app.include_router(remote_router)
+
+
+@app.middleware("http")
+async def _public_access_gate(request, call_next):
+    """Require the access key for requests coming through the public Cloudflare
+    tunnel (CF-Ray header). Local/LAN requests pass untouched."""
+    from app.remote import gate
+    if gate.is_enabled() and gate.is_via_tunnel(request.headers):
+        query_key = request.query_params.get("key", "")
+        cookie_key = request.cookies.get("anet_key", "")
+        if not gate.request_allowed(request.headers, query_key, cookie_key):
+            from fastapi.responses import PlainTextResponse
+            return PlainTextResponse(
+                "AnomalyNet: доступ запрещён — неверный или отсутствующий ключ.",
+                status_code=403,
+            )
+        response = await call_next(request)
+        if query_key:  # first visit via ?key=... → remember it in a cookie
+            response.set_cookie("anet_key", query_key, max_age=60 * 60 * 24 * 30,
+                                httponly=True, samesite="lax")
+        return response
+    return await call_next(request)
+
 
 # Serve built frontend in production / packaged mode
 _DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
