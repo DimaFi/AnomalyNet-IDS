@@ -44,6 +44,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   getHealth: () => request<HealthResponse>("/api/health"),
   getSystemStats: () => request<SystemStats>("/api/system/stats"),
+  getAccessInfo: () => request<{ enabled: boolean; primary_ip: string; lan_ips: string[] }>("/api/system/access-info"),
   getSettings: () => request<AppSettings>("/api/settings"),
   updateSettings: (payload: AppSettings) =>
     request<AppSettings>("/api/settings", {

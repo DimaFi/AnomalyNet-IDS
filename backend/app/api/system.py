@@ -94,3 +94,42 @@ def get_system_stats(
         }
     except Exception as exc:
         return {"available": False, "error": str(exc)}
+
+
+@system_router.get("/access-info")
+def get_access_info(
+    service: PipelineService = Depends(get_pipeline_service),
+) -> dict:
+    """Remote-access info: whether it's enabled + the LAN IPs the panel is
+    reachable at. The frontend builds http://<ip>:<port> + a QR code from this.
+    """
+    import socket
+
+    enabled = bool(getattr(service.settings, "allow_remote_access", False))
+
+    # Primary outbound LAN IP — picks the default route without sending packets.
+    primary = ""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        primary = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+
+    ips: list[str] = []
+    if primary and not primary.startswith("127."):
+        ips.append(primary)
+    try:
+        import psutil
+        for addrs in psutil.net_if_addrs().values():
+            for a in addrs:
+                if (a.family == socket.AF_INET
+                        and not a.address.startswith("127.")
+                        and not a.address.startswith("169.254.")
+                        and a.address not in ips):
+                    ips.append(a.address)
+    except Exception:
+        pass
+
+    return {"enabled": enabled, "primary_ip": primary, "lan_ips": ips}

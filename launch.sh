@@ -31,8 +31,12 @@ if curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$PORT/api/health" 2>
     exit 0
 fi
 
-echo "Starting AnomalyNet IDS..."
-nohup "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port "$PORT" --app-dir backend \
+# Bind host from allow_remote_access: 0.0.0.0 = reachable on LAN, else local only
+BIND_HOST=$("$PYTHON" "$SCRIPT_DIR/backend/bindhost.py" 2>/dev/null || echo 127.0.0.1)
+[ -z "$BIND_HOST" ] && BIND_HOST=127.0.0.1
+
+echo "Starting AnomalyNet IDS... (host $BIND_HOST)"
+nohup "$PYTHON" -m uvicorn app.main:app --host "$BIND_HOST" --port "$PORT" --app-dir backend \
     >"${SCRIPT_DIR}/anomalynet.log" 2>&1 &
 SERVER_PID=$!
 echo "Server PID: $SERVER_PID"

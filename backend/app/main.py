@@ -201,12 +201,17 @@ async def lifespan(app: FastAPI):
 
 
 def _read_allow_remote() -> bool:
-    """Read allow_remote_access from settings.json at startup (before lifespan)."""
+    """Read allow_remote_access from settings.json at startup (before lifespan).
+
+    Settings live in the user data dir (get_user_data_dir); fall back to the old
+    config/ location for legacy installs.
+    """
     try:
         import json as _json
-        cfg = APP_ROOT / "config" / "settings.json"
-        if cfg.exists():
-            return bool(_json.loads(cfg.read_text(encoding="utf-8")).get("allow_remote_access", False))
+        from app.core import get_user_data_dir
+        for cfg in (get_user_data_dir() / "settings.json", APP_ROOT / "config" / "settings.json"):
+            if cfg.exists():
+                return bool(_json.loads(cfg.read_text(encoding="utf-8")).get("allow_remote_access", False))
     except Exception:
         pass
     return False

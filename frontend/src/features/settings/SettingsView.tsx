@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { QRCodeSVG } from "qrcode.react";
 import { useAppStore } from "../../app/store";
 import type { AppSettings, ModelPackageInfo, NetworkInterface, OfficialModelInfo, PlatformCapabilities, SystemStats } from "../../app/types";
 import { ModelPresetPicker } from "../../components/ModelPresetPicker";
@@ -209,11 +210,7 @@ export function SettingsView() {
               onChange={(e) => patch({ allow_remote_access: e.target.checked })} />
             <span>Разрешить доступ с других устройств в сети (0.0.0.0:8000)</span>
           </label>
-          {(s.allow_remote_access) && (
-            <p className={styles.warnNote}>
-              ⚠ Требуется перезапуск приложения. После перезапуска панель будет доступна по адресу вашего ПК в сети, например <code>http://172.30.44.X:8000</code>
-            </p>
-          )}
+          {(s.allow_remote_access) && <RemoteAccessInfo />}
           {!(s.allow_remote_access) && (
             <p className={styles.dimNote}>
               Сейчас панель доступна только на этом ПК (127.0.0.1:8000).
@@ -686,6 +683,70 @@ function StatBar({ value, max, color }: { value: number; max: number; color: str
   return (
     <div style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden", flex: 1 }}>
       <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3, transition: "width 0.5s" }} />
+    </div>
+  );
+}
+
+function RemoteAccessInfo() {
+  const [info, setInfo] = useState<{ enabled: boolean; primary_ip: string; lan_ips: string[] } | null>(null);
+  const [copied, setCopied] = useState("");
+
+  useEffect(() => {
+    api.getAccessInfo().then(setInfo).catch(() => setInfo(null));
+  }, []);
+
+  const port = window.location.port || "8000";
+  const ips = info?.lan_ips ?? [];
+  const primaryIp = info?.primary_ip || ips[0] || "";
+  const primaryUrl = primaryIp ? `http://${primaryIp}:${port}` : "";
+
+  const copy = (txt: string) => {
+    navigator.clipboard?.writeText(txt).then(() => {
+      setCopied(txt);
+      setTimeout(() => setCopied(""), 1500);
+    }).catch(() => {});
+  };
+
+  return (
+    <div className={selfStyles.remoteBox}>
+      <p className={styles.warnNote} style={{ marginTop: 0 }}>
+        ⚠ Требуется перезапуск приложения, чтобы доступ заработал. После перезапуска открывайте панель с любого устройства в сети по адресу ниже.
+      </p>
+
+      {primaryUrl ? (
+        <div className={selfStyles.remoteRow}>
+          <div className={selfStyles.qrWrap}>
+            <QRCodeSVG value={primaryUrl} size={148} level="M" includeMargin />
+            <span className={selfStyles.qrHint}>Сканируйте телефоном</span>
+          </div>
+          <div className={selfStyles.remoteUrls}>
+            <div className={selfStyles.remoteUrlMain}>
+              <a href={primaryUrl} target="_blank" rel="noreferrer">{primaryUrl}</a>
+              <button className={selfStyles.copyBtn} onClick={() => copy(primaryUrl)}>
+                {copied === primaryUrl ? "✓" : "Копировать"}
+              </button>
+            </div>
+            {ips.length > 1 && (
+              <div className={selfStyles.remoteOther}>
+                <span>Другие адреса этого ПК:</span>
+                {ips.slice(1).map((ip) => {
+                  const u = `http://${ip}:${port}`;
+                  return (
+                    <button key={ip} className={selfStyles.otherUrlBtn} onClick={() => copy(u)}>
+                      {copied === u ? "✓ " : ""}{u}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p className={styles.dimNote} style={{ marginBottom: 0 }}>
+              Устройство должно быть в той же сети (Wi-Fi / LAN). Если не открывается — проверьте брандмауэр Windows для порта {port}.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className={styles.dimNote}>Определяю сетевой адрес этого ПК…</p>
+      )}
     </div>
   );
 }

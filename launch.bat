@@ -39,9 +39,18 @@ if %errorlevel%==0 (
     exit /b 0
 )
 
+:: Choose bind host from the allow_remote_access setting:
+::   0.0.0.0   = reachable from phones / other devices on the LAN
+::   127.0.0.1 = this PC only (default)
+set "BIND_HOST=127.0.0.1"
+"%PYTHON%" "%~dp0backend\bindhost.py" > "%TEMP%\anet_host.txt" 2>nul
+set /p BIND_HOST=<"%TEMP%\anet_host.txt"
+if "%BIND_HOST%"=="" set "BIND_HOST=127.0.0.1"
+del "%TEMP%\anet_host.txt" >nul 2>&1
+
 :: Start server in background (no console window)
-echo Starting AnomalyNet IDS...
-start /B "" "%PYTHON%" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --app-dir backend
+echo Starting AnomalyNet IDS... (host %BIND_HOST%)
+start /B "" "%PYTHON%" -m uvicorn app.main:app --host %BIND_HOST% --port 8000 --app-dir backend
 
 :: Wait for server to become ready (up to 15 seconds)
 set /a attempts=0
